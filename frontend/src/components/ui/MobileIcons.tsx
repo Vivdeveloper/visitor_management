@@ -26,24 +26,51 @@ export function IconHome(props: IconProps) {
   );
 }
 
+export function IconCheckIn(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <circle cx="12" cy="8" r="3.25" />
+      <path d="M5.5 19.5a6.5 6.5 0 0 1 10.2-5.35" />
+      <path d="M16 16v6M13 19h6" />
+    </svg>
+  );
+}
+
+export function IconScan(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <path d="M7 4H5a1 1 0 0 0-1 1v2M17 4h2a1 1 0 0 1 1 1v2M7 20H5a1 1 0 0 1-1-1v-2M17 20h2a1 1 0 0 0 1-1v-2" />
+      <rect x="8" y="8" width="8" height="8" rx="1.5" />
+    </svg>
+  );
+}
+
+export function IconInside(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <circle cx="9" cy="8" r="2.75" />
+      <circle cx="16" cy="9" r="2.25" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <path d="M14 19a4.5 4.5 0 0 1 6.5-4" />
+    </svg>
+  );
+}
+
+export function IconHistory(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <circle cx="12" cy="12" r="8.25" />
+      <path d="M12 8v4.5l3 1.5" />
+    </svg>
+  );
+}
+
 export function IconApprovals(props: IconProps) {
   return (
     <svg {...baseProps(props)}>
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
       <rect x="9" y="3" width="6" height="4" rx="1" />
       <path d="m9 14 2 2 4-4" />
-    </svg>
-  );
-}
-
-export function IconGate(props: IconProps) {
-  return (
-    <svg {...baseProps(props)}>
-      <path d="M3 7v10a2 2 0 0 0 2 2h4" />
-      <path d="M21 7v10a2 2 0 0 1-2 2h-4" />
-      <path d="M8 12h8" />
-      <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
-      <path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" />
     </svg>
   );
 }
@@ -76,15 +103,6 @@ export function IconChevron(props: IconProps) {
   );
 }
 
-export function IconDesktop(props: IconProps) {
-  return (
-    <svg {...baseProps(props)}>
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path d="M8 20h8M12 16v4" />
-    </svg>
-  );
-}
-
 export function IconLogin(props: IconProps) {
   return (
     <svg {...baseProps(props)}>
@@ -94,20 +112,20 @@ export function IconLogin(props: IconProps) {
   );
 }
 
-export type MobileTabIcon = "home" | "approvals" | "gate" | "pass" | "profile";
+export type MobileTabIcon = "home" | "checkin" | "scan" | "inside" | "history";
 
 export function MobileTabIconView({ name, size = 22 }: { name: MobileTabIcon; size?: number }) {
   switch (name) {
     case "home":
       return <IconHome size={size} />;
-    case "approvals":
-      return <IconApprovals size={size} />;
-    case "gate":
-      return <IconGate size={size} />;
-    case "pass":
-      return <IconPass size={size} />;
-    case "profile":
-      return <IconProfile size={size} />;
+    case "checkin":
+      return <IconCheckIn size={size} />;
+    case "scan":
+      return <IconScan size={size} />;
+    case "inside":
+      return <IconInside size={size} />;
+    case "history":
+      return <IconHistory size={size} />;
     default: {
       const _exhaustive: never = name;
       return _exhaustive;

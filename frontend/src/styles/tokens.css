@@ -1,31 +1,38 @@
 /**
- * VMS design tokens — see ../../DESIGN.md
- * Primary Red · Secondary Pink · White · Light Gray · Dark Navy · Poppins
+ * GatePass design tokens — see ../../DESIGN.md
+ * Indigo · Violet gradient · Green · Orange · White · Soft Gray · Poppins
  */
 :root {
-  --vms-primary: #e11d48;
-  --vms-primary-hover: #be123c;
-  --vms-primary-soft: #fff1f2;
-  --vms-secondary: #f472b6;
-  --vms-secondary-soft: #fce7f3;
+  --vms-primary: #4f46e5;
+  --vms-primary-hover: #4338ca;
+  --vms-primary-soft: #eef2ff;
+  --vms-secondary: #7c3aed;
+  --vms-secondary-soft: #f5f3ff;
+  --vms-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+
+  --vms-success: #16a34a;
+  --vms-success-soft: #dcfce7;
+  --vms-danger: #dc2626;
+  --vms-danger-soft: #fee2e2;
+  --vms-warning: #f59e0b;
+  --vms-warning-soft: #fef3c7;
 
   --vms-navy: #0f172a;
   --vms-navy-muted: #1e293b;
 
-  --vms-bg: #f4f4f5;
+  --vms-bg: #f5f7fb;
   --vms-surface: #ffffff;
   --vms-text: #0f172a;
   --vms-muted: #64748b;
-  --vms-border: #e4e4e7;
+  --vms-border: #e2e8f0;
 
   --vms-radius: 16px;
   --vms-radius-sm: 12px;
   --vms-radius-lg: 20px;
-  --vms-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --vms-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 
   --vms-font: "Poppins", system-ui, sans-serif;
 
-  /* aliases used by existing shell */
   --bg: var(--vms-bg);
   --surface: var(--vms-surface);
   --text: var(--vms-text);

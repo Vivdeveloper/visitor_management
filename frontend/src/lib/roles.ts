@@ -32,40 +32,17 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
 export type MobileTab = {
   to: string;
   label: string;
-  icon: "home" | "approvals" | "gate" | "pass" | "profile";
+  icon: "home" | "checkin" | "scan" | "inside" | "history";
+  fab?: boolean;
 };
 
-export function mobileTabsFor(mode: VmsMode): MobileTab[] {
-  switch (mode) {
-    case "security":
-      return [
-        { to: "/", label: "Home", icon: "home" },
-        { to: "/approvals", label: "Approvals", icon: "approvals" },
-        { to: "/gate", label: "Gate", icon: "gate" },
-        { to: "/pass", label: "Pass", icon: "pass" },
-        { to: "/profile", label: "Profile", icon: "profile" },
-      ];
-    case "host":
-      return [
-        { to: "/", label: "Home", icon: "home" },
-        { to: "/approvals", label: "Approvals", icon: "approvals" },
-        { to: "/pass", label: "Pass", icon: "pass" },
-        { to: "/profile", label: "Profile", icon: "profile" },
-      ];
-    case "visitor":
-      return [
-        { to: "/", label: "Home", icon: "home" },
-        { to: "/pass", label: "Pass", icon: "pass" },
-        { to: "/profile", label: "Profile", icon: "profile" },
-      ];
-    case "guest":
-      return [
-        { to: "/", label: "Home", icon: "home" },
-        { to: "/profile", label: "Profile", icon: "profile" },
-      ];
-    default: {
-      const _exhaustive: never = mode;
-      return _exhaustive;
-    }
-  }
+/** GatePass bottom nav */
+export function mobileTabsFor(_mode: VmsMode): MobileTab[] {
+  return [
+    { to: "/", label: "Home", icon: "home" },
+    { to: "/check-in", label: "Check-in", icon: "checkin" },
+    { to: "/scan", label: "Scan QR", icon: "scan", fab: true },
+    { to: "/inside", label: "Inside", icon: "inside" },
+    { to: "/history", label: "History", icon: "history" },
+  ];
 }

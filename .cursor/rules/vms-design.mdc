@@ -1,31 +1,40 @@
 ---
-description: VMS UI must follow DESIGN.md (red/pink, Poppins, product surfaces)
+description: GatePass PWA must follow DESIGN.md (indigo gradient, Poppins)
 globs:
   - frontend/**/*
   - visitor_management/www/**
 alwaysApply: false
 ---
 
-# Visitor Management UI
+# GatePass Visitor Management UI
 
 Before designing or changing UI, read and follow `/DESIGN.md`.
 
 ## Design system (required)
 
-- Primary: Red `#E11D48`
-- Secondary: Pink `#F472B6`
-- Surfaces: White / Light Gray `#F4F4F5`
-- Text: Dark Navy `#0F172A`
+- Primary: Indigo `#4F46E5`
+- Gradient end: Violet `#7C3AED`
+- Success: Green `#16A34A`
+- Warning: Orange `#F59E0B`
+- Danger: Red `#DC2626`
+- Surfaces: White / Soft Gray `#F5F7FB`
+- Text: Slate `#0F172A`
 - Font: Poppins
-- Cards: large radius (16–20px), minimal shadow
-- Feel: Linear / Notion / Stripe / Framer dashboards
+- Cards: 14–18px radius, soft shadow
+- Feel: GatePass mobile ops (dashboard · check-in · QR pass · approvals)
 
-Use CSS tokens in `frontend/src/styles/tokens.css`. Do not introduce a green or purple brand theme.
+Use CSS tokens in `frontend/src/styles/tokens.css`. Do **not** use the old red/pink brand.
 
-## Product surfaces
+## PWA surfaces
 
-1. Mobile PWA (primary) — home, approvals, gate, pass, profile
-2. Public pass page — `/vms/pass/<visitor-entry>`
-3. Desk Form — Visitor Entry workflow (Pending → Check-in → Approved → Meeting Done → Check Out)
+1. Home dashboard — inside count, KPIs, pending, recent, quick actions
+2. Check-in form → auto gate pass
+3. Scan QR — validate / check-in / check-out
+4. Inside visitors + History
+5. Host Approvals · Public Pass · Profile
+
+Bottom nav: **Home · Check-in · Scan QR · Inside · History**
+
+Flow: `Pending → Check-in → Approved → Meeting Done → Check Out`
 
 After frontend changes: `cd frontend && npm run build`.

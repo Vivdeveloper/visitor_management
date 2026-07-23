@@ -4,12 +4,15 @@ import { PublicPassPage } from "@/pages/pass/PassPage";
 import { MobileHomePage } from "@/pages/mobile/MobileHomePage";
 import { MobileLoginPage } from "@/pages/mobile/MobileLoginPage";
 import { MobileApprovalsPage } from "@/pages/mobile/MobileApprovalsPage";
-import { MobileGatePage } from "@/pages/mobile/MobileGatePage";
+import { MobileCheckInPage } from "@/pages/mobile/MobileCheckInPage";
+import { MobileScanPage } from "@/pages/mobile/MobileScanPage";
+import { MobileInsidePage } from "@/pages/mobile/MobileInsidePage";
+import { MobileHistoryPage } from "@/pages/mobile/MobileHistoryPage";
 import { MobilePassPage } from "@/pages/mobile/MobilePassPage";
 import { MobileProfilePage } from "@/pages/mobile/MobileProfilePage";
+import { MobileCheckoutPage } from "@/pages/mobile/MobileCheckoutPage";
 import { useAuth } from "@/context/AuthContext";
 
-/** PWA: allow visitor OTP session (verified) as well as staff session. */
 function RequirePwaAuth() {
   const { isAuthenticated, loading, user } = useAuth();
   if (loading) {
@@ -31,16 +34,17 @@ export function AppRouter() {
       <Route element={<RequirePwaAuth />}>
         <Route element={<MobileLayout />}>
           <Route path="/" element={<MobileHomePage />} />
+          <Route path="/check-in" element={<MobileCheckInPage />} />
+          <Route path="/scan" element={<MobileScanPage />} />
+          <Route path="/inside" element={<MobileInsidePage />} />
+          <Route path="/history" element={<MobileHistoryPage />} />
           <Route path="/approvals" element={<MobileApprovalsPage />} />
-          <Route path="/gate" element={<MobileGatePage />} />
+          <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
+          <Route path="/my-pass" element={<MobilePassPage />} />
           <Route path="/pass" element={<MobilePassPage />} />
           <Route path="/profile" element={<MobileProfilePage />} />
-          {/* Legacy /m/* redirects */}
           <Route path="/m" element={<Navigate to="/" replace />} />
-          <Route path="/m/approvals" element={<Navigate to="/approvals" replace />} />
-          <Route path="/m/gate" element={<Navigate to="/gate" replace />} />
-          <Route path="/m/pass" element={<Navigate to="/pass" replace />} />
-          <Route path="/m/profile" element={<Navigate to="/profile" replace />} />
+          <Route path="/m/*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
 

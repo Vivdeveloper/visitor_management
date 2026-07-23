@@ -26,6 +26,7 @@ QUEUE_FIELDS = [
 	"status",
 	"floor",
 	"checked_in_on",
+	"check_in",
 	"creation",
 	"modified",
 ]

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { securityApi } from "@/api/vms";
 
-export function MobileGatePage() {
+export function MobileScanPage() {
   const [token, setToken] = useState("");
   const [remarks, setRemarks] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -58,49 +58,56 @@ export function MobileGatePage() {
     }
   }
 
+  const pass = (preview?.pass || null) as Record<string, unknown> | null;
+
   return (
     <section className="m-page">
-      <h1>Gate</h1>
-      <p className="m-sub">Enter QR token from visitor pass (camera scan in a later phase)</p>
+      <h1>Scan QR</h1>
+      <p className="m-sub">Paste pass token or Visitor Entry name from the QR link.</p>
 
-      <form className="login-form" onSubmit={onScan}>
-        <label htmlFor="token">Pass token</label>
-        <input
-          id="token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder="Paste token or pass URL fragment"
-          required
-        />
-        <label htmlFor="remarks">Checkout remarks (optional)</label>
-        <input
-          id="remarks"
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-          placeholder="Optional"
-        />
-        <button type="submit" disabled={busy}>
-          {busy ? "Working…" : "Validate token"}
+      <form className="gp-form" onSubmit={onScan}>
+        <label>
+          Pass token
+          <input
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="VE01-00001 or /vms/pass/…"
+            required
+          />
+        </label>
+        <label>
+          Checkout remarks
+          <input
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Optional"
+          />
+        </label>
+        <button type="submit" className="gp-submit" disabled={busy}>
+          {busy ? "Scanning…" : "Validate QR"}
         </button>
       </form>
 
-      {preview ? (
+      {message ? <p className="login-msg">{message}</p> : null}
+      {error ? <p className="login-error">{error}</p> : null}
+
+      {pass ? (
         <div className="m-card" style={{ marginTop: "1rem" }}>
-          <div className="m-card-title">Validation</div>
-          <div className="m-card-meta">{JSON.stringify(preview.pass || preview, null, 0)}</div>
+          <div className="m-card-title">{String(pass.full_name || "Visitor")}</div>
+          <div className="m-card-meta">
+            {String(pass.status || "")}
+            {pass.person_to_meet_name ? ` · ${String(pass.person_to_meet_name)}` : ""}
+          </div>
           <div className="m-card-actions">
             <button type="button" className="m-btn primary" disabled={busy} onClick={() => void checkIn()}>
               Check In
             </button>
-            <button type="button" className="m-btn" disabled={busy} onClick={() => void checkOut()}>
+            <button type="button" className="m-btn success" disabled={busy} onClick={() => void checkOut()}>
               Check Out
             </button>
           </div>
         </div>
       ) : null}
-
-      {message ? <p className="login-msg">{message}</p> : null}
-      {error ? <p className="login-error">{error}</p> : null}
     </section>
   );
 }

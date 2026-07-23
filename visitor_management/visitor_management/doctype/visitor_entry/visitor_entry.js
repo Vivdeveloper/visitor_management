@@ -70,30 +70,25 @@ function add_gate_actions(frm) {
 		}, __("Gate"));
 	}
 
-	// 5) Meeting Done → Check Out (Exit)
+	// Meeting Done → Check Out (Exit)
 	if (frm.doc.status === "Meeting Done") {
 		frm.add_custom_button(__("Check Out"), () => {
-			frappe.prompt(
-				[{ fieldname: "remarks", fieldtype: "Small Text", label: __("Remarks (optional)") }],
-				(values) => {
-					frappe.call({
-						method: `${VE}.check_out`,
-						args: { visitor_entry: frm.doc.name, remarks: values.remarks },
-						freeze: true,
-						callback(r) {
-							if (!r.exc) {
-								frappe.show_alert({
-									message: (r.message && r.message.message) || __("Checked out"),
-									indicator: "green",
-								});
-								frm.reload_doc();
-							}
-						},
-					});
-				},
-				__("Security Check-Out"),
-				__("Check Out")
-			);
+			frappe.confirm(__("Check out this visitor?"), () => {
+				frappe.call({
+					method: `${VE}.check_out`,
+					args: { visitor_entry: frm.doc.name },
+					freeze: true,
+					callback(r) {
+						if (!r.exc) {
+							frappe.show_alert({
+								message: (r.message && r.message.message) || __("Checked out"),
+								indicator: "green",
+							});
+							frm.reload_doc();
+						}
+					},
+				});
+			});
 		}, __("Gate"));
 	}
 }
@@ -103,16 +98,9 @@ function add_approval_actions(frm) {
 		return;
 	}
 
-	// 2) Checked In → Approve / Reject / Transfer
+	// Checked In → Approve / Reject / Transfer (no Approval menu while Pending)
 	if (frm.doc.status === "Checked In") {
 		frm.add_custom_button(__("Approve"), () => prompt_remarks(frm, "approve"), __("Approval"));
-		frm.add_custom_button(__("Reject"), () => prompt_remarks(frm, "reject"), __("Approval"));
-		frm.add_custom_button(__("Transfer"), () => prompt_transfer(frm), __("Approval"));
-		return;
-	}
-
-	// Reject / Transfer also while still Pending (before gate)
-	if (frm.doc.status === "Pending Approval") {
 		frm.add_custom_button(__("Reject"), () => prompt_remarks(frm, "reject"), __("Approval"));
 		frm.add_custom_button(__("Transfer"), () => prompt_transfer(frm), __("Approval"));
 	}

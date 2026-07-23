@@ -47,6 +47,7 @@ export type DashboardQueueItem = {
   status?: string;
   floor?: string;
   check_in?: string;
+  checked_in_on?: string;
 };
 
 export type DashboardPayload = {

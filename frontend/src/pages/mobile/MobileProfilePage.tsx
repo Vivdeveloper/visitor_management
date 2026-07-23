@@ -5,34 +5,49 @@ import { resolveMode } from "@/lib/roles";
 export function MobileProfilePage() {
   const { user, logout, isAuthenticated } = useAuth();
   const mode = resolveMode(user);
+  const name = user?.full_name || user?.user || "Guest";
 
   return (
     <section className="m-page">
-      <h1>Profile</h1>
-      <div className="m-card">
-        <div className="m-card-title">{user?.full_name || "Signed in"}</div>
-        <div className="m-card-meta">
-          {user?.mobile || user?.mobile_no || user?.user || "—"}
-          <br />
-          Mode: {mode}
-        </div>
+      <div className="gp-profile-hero">
+        <div className="gp-avatar lg">{initials(name)}</div>
+        <h1>{name}</h1>
+        <p className="m-sub">{user?.mobile || user?.mobile_no || user?.user || "—"}</p>
+        <span className="gp-badge muted">{mode}</span>
       </div>
 
-      <div className="m-actions">
-        {isAuthenticated || user?.verified ? (
-          <button type="button" className="m-action" onClick={() => void logout()}>
-            Log out
-          </button>
-        ) : (
-          <Link className="m-action primary" to="/login">
-            Sign in
-          </Link>
-        )}
-        <Link className="m-action ghost" to="/">
-          Desktop dashboard
+      <ul className="gp-menu">
+        <li>
+          <Link to="/approvals">Approvals</Link>
+        </li>
+        <li>
+          <Link to="/my-pass">My / lookup pass</Link>
+        </li>
+        <li>
+          <Link to="/inside">Inside visitors</Link>
+        </li>
+        <li>
+          <Link to="/history">History</Link>
+        </li>
+      </ul>
+
+      {isAuthenticated || user?.verified ? (
+        <button type="button" className="gp-submit danger" onClick={() => void logout()}>
+          Logout
+        </button>
+      ) : (
+        <Link className="gp-submit" to="/login">
+          Sign in
         </Link>
-        <p className="m-sub">SOS and push notifications arrive in later phases.</p>
-      </div>
+      )}
     </section>
   );
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || "")
+    .join("");
 }

@@ -1,40 +1,49 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { mobileTabsFor, resolveMode, type VmsMode } from "@/lib/roles";
 import { MobileTabIconView } from "@/components/ui/MobileIcons";
 
 export function MobileLayout() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const mode = resolveMode(user);
   const tabs = mobileTabsFor(mode);
 
   return (
     <div className="m-shell">
       <header className="m-top">
-        <div className="m-brand">
-          <span className="m-brand-mark" aria-hidden />
-          VMS
+        <button type="button" className="m-top-icon" aria-label="Menu" onClick={() => navigate("/profile")}>
+          ☰
+        </button>
+        <div className="m-brand">GatePass</div>
+        <div className="m-top-actions">
+          <span className="m-mode">{modeLabel(mode)}</span>
+          <button type="button" className="m-top-icon" aria-label="Profile" onClick={() => navigate("/profile")}>
+            👤
+          </button>
         </div>
-        <div className="m-mode">{modeLabel(mode)}</div>
       </header>
       <main className="m-content">
         <Outlet />
       </main>
-      <nav className="m-tabs" aria-label="Mobile">
+      <nav className="m-tabs" aria-label="GatePass">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
             to={tab.to}
             end={tab.to === "/"}
-            className={({ isActive }) => `m-tab${isActive ? " active" : ""}`}
+            className={({ isActive }) =>
+              `m-tab${tab.fab ? " m-tab-fab" : ""}${isActive ? " active" : ""}`
+            }
             aria-label={tab.label}
             title={tab.label}
           >
             <span className="m-tab-glow" aria-hidden />
-            <span className="m-tab-icon">
-              <MobileTabIconView name={tab.icon} />
+            <span className={`m-tab-icon${tab.fab ? " m-tab-icon-fab" : ""}`}>
+              <MobileTabIconView name={tab.icon} size={tab.fab ? 26 : 22} />
             </span>
-            <span className="m-sr-only">{tab.label}</span>
+            {!tab.fab ? <span className="m-tab-label">{tab.label}</span> : null}
+            {tab.fab ? <span className="m-sr-only">{tab.label}</span> : null}
           </NavLink>
         ))}
       </nav>

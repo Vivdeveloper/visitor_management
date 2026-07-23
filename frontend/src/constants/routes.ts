@@ -1,9 +1,13 @@
 export const ROUTES = {
   login: "/login",
   home: "/",
+  checkIn: "/check-in",
+  scan: "/scan",
+  inside: "/inside",
+  history: "/history",
   approvals: "/approvals",
-  gate: "/gate",
   pass: "/pass",
+  myPass: "/my-pass",
   profile: "/profile",
   publicPass: "/pass/:token",
 } as const;
