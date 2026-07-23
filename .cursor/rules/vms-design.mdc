@@ -1,0 +1,33 @@
+---
+description: VMS UI must follow DESIGN.md (red/pink, Poppins, product surfaces)
+globs:
+  - frontend/**/*
+  - visitor_management/www/**
+alwaysApply: false
+---
+
+# Visitor Management UI
+
+Before designing or changing UI, read and follow `/DESIGN.md`.
+
+## Design system (required)
+
+- Primary: Red `#E11D48`
+- Secondary: Pink `#F472B6`
+- Surfaces: White / Light Gray `#F4F4F5`
+- Text: Dark Navy `#0F172A`
+- Font: Poppins
+- Cards: large radius (16–20px), minimal shadow
+- Feel: Linear / Notion / Stripe / Framer dashboards
+
+Use CSS tokens in `frontend/src/styles/tokens.css`. Do not introduce a green or purple brand theme.
+
+## Product surfaces
+
+1. Desktop dashboard — KPIs, charts, sidebar, search, notifications, profile
+2. Visitor workflow — Invite → Register → Approve → QR → Check-in → Check-out
+3. Admin — org / buildings / floors / units / employees / guards / devices / licenses / reports
+4. Tablet — reception, self check-in, photo, badge, QR, OTP, signature
+5. Mobile PWA — pass, approval, SOS, notifications (Phase 12)
+
+After frontend changes: `cd frontend && npm run build`.

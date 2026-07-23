@@ -1,0 +1,205 @@
+{
+ "app": "visitor_management",
+ "charts": [
+  {
+   "chart_name": "VMS Visitors Last 7 Days",
+   "label": "Visitors — Last 7 Days"
+  }
+ ],
+ "content": "[{\"id\":\"vms_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Visitor Dashboard</b></span>\",\"col\":12}},{\"id\":\"vms_c1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Pending Today\",\"col\":3}},{\"id\":\"vms_c2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Approved Today\",\"col\":3}},{\"id\":\"vms_c3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Checked In Today\",\"col\":3}},{\"id\":\"vms_c4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Meeting Done Today\",\"col\":3}},{\"id\":\"vms_c5\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Checked Out Today\",\"col\":3}},{\"id\":\"vms_c6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS Rejected Today\",\"col\":3}},{\"id\":\"vms_c7\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"VMS On Premises\",\"col\":3}},{\"id\":\"vms_chart\",\"type\":\"chart\",\"data\":{\"chart_name\":\"VMS Visitors Last 7 Days\",\"col\":12}},{\"id\":\"vms_masters\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters &amp; Operations</b></span>\",\"col\":12}},{\"id\":\"vms_card_ops\",\"type\":\"card\",\"data\":{\"card_name\":\"Operations\",\"col\":4}},{\"id\":\"vms_card_loc\",\"type\":\"card\",\"data\":{\"card_name\":\"Locations\",\"col\":4}},{\"id\":\"vms_card_cfg\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration\",\"col\":4}}]",
+ "creation": "2026-07-23 00:40:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "organization",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Visitor Management",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Operations",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visitor Entry",
+   "link_count": 0,
+   "link_to": "Visitor Entry",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Locations",
+   "link_count": 6,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Organization",
+   "link_to": "Organization",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Site",
+   "link_to": "Site",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Building",
+   "link_to": "Building",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tower",
+   "link_to": "Tower",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Floor",
+   "link_to": "Floor",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Unit",
+   "link_to": "Unit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "VMS Department",
+   "link_to": "VMS Department",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Security Shift",
+   "link_to": "Security Shift",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visit Purpose Type",
+   "link_to": "Visit Purpose Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "ID Proof Type",
+   "link_to": "ID Proof Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-07-23 00:40:00.000000",
+ "modified_by": "Administrator",
+ "module": "Visitor Management",
+ "name": "Visitor Management",
+ "number_cards": [
+  {
+   "label": "Pending Today",
+   "number_card_name": "VMS Pending Today"
+  },
+  {
+   "label": "Approved Today",
+   "number_card_name": "VMS Approved Today"
+  },
+  {
+   "label": "Checked In Today",
+   "number_card_name": "VMS Checked In Today"
+  },
+  {
+   "label": "Meeting Done Today",
+   "number_card_name": "VMS Meeting Done Today"
+  },
+  {
+   "label": "Checked Out Today",
+   "number_card_name": "VMS Checked Out Today"
+  },
+  {
+   "label": "Rejected Today",
+   "number_card_name": "VMS Rejected Today"
+  },
+  {
+   "label": "On Premises",
+   "number_card_name": "VMS On Premises"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 5.0,
+ "shortcuts": [
+  {
+   "color": "#E11D48",
+   "label": "Open VMS App",
+   "type": "URL",
+   "url": "/vms"
+  },
+  {
+   "color": "#0F172A",
+   "doc_view": "List",
+   "label": "Visitor Entry",
+   "link_to": "Visitor Entry",
+   "type": "DocType"
+  }
+ ],
+ "title": "Visitor Management",
+ "type": "Workspace"
+}

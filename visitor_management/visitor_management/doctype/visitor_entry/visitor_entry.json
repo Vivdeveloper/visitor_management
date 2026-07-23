@@ -1,0 +1,443 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-22 15:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "mobile",
+  "column_break_contact",
+  "otp",
+  "otp_verified",
+  "email",
+  "photo",
+  "section_break_visitor_details",
+  "first_name",
+  "middle_name",
+  "last_name",
+  "full_name",
+  "gender",
+  "visit_purpose_type",
+  "number_of_visitors",
+  "column_break_id_proof",
+  "id_proof_type",
+  "id_proof_photo",
+  "id_proof_photo_preview",
+  "visitor_location",
+  "visitor_company",
+  "section_break_meeting",
+  "person_to_meet",
+  "person_to_meet_name",
+  "column_break_meeting",
+  "company_id_card",
+  "company_id_card_preview",
+  "section_break_vehicle",
+  "vehicle_type",
+  "column_break_cpot",
+  "vehicle_number",
+  "section_break_approval",
+  "status",
+  "approval_remarks",
+  "column_break_approval",
+  "floor",
+  "transfer_to_user",
+  "section_break_audit",
+  "approved_on",
+  "rejected_on",
+  "cancelled_on",
+  "column_break_audit",
+  "completed_on",
+  "checked_in_on",
+  "checked_out_on",
+  "meeting_done_on",
+  "section_break_pass",
+  "qr_expires_on",
+  "column_break_pass",
+  "pass_url",
+  "section_break_gate",
+  "check_in",
+  "checked_in_by",
+  "column_break_gate",
+  "check_out",
+  "checked_out_by",
+  "visit_duration"
+ ],
+ "fields": [
+  {
+   "default": "VE01-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "VE01-.#####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mobile",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Mobile",
+   "options": "Phone",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "otp",
+   "fieldtype": "Data",
+   "label": "OTP",
+   "no_copy": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "otp_verified",
+   "fieldtype": "Check",
+   "label": "OTP Verified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "photo",
+   "fieldtype": "Attach Image",
+   "label": "Photo"
+  },
+  {
+   "fieldname": "section_break_visitor_details",
+   "fieldtype": "Section Break",
+   "label": "Visitor Details"
+  },
+  {
+   "fieldname": "first_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "First Name"
+  },
+  {
+   "fieldname": "middle_name",
+   "fieldtype": "Data",
+   "label": "Middle Name"
+  },
+  {
+   "fieldname": "last_name",
+   "fieldtype": "Data",
+   "label": "Last Name"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Full Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Link",
+   "label": "Gender",
+   "options": "Gender"
+  },
+  {
+   "fieldname": "visit_purpose_type",
+   "fieldtype": "Link",
+   "label": "Visit Purpose Type",
+   "options": "Visit Purpose Type"
+  },
+  {
+   "fieldname": "number_of_visitors",
+   "fieldtype": "Int",
+   "label": "Number of Visitors",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_id_proof",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "id_proof_type",
+   "fieldtype": "Link",
+   "label": "ID Proof Type",
+   "options": "ID Proof Type"
+  },
+  {
+   "fieldname": "id_proof_photo",
+   "fieldtype": "Attach Image",
+   "label": "ID Proof Photo"
+  },
+  {
+   "fieldname": "id_proof_photo_preview",
+   "fieldtype": "Image",
+   "label": "ID Proof Photo Preview",
+   "options": "id_proof_photo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "visitor_location",
+   "fieldtype": "Data",
+   "label": "Visitor Location"
+  },
+  {
+   "fieldname": "visitor_company",
+   "fieldtype": "Data",
+   "label": "Visitor Company"
+  },
+  {
+   "fieldname": "floor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Floor",
+   "options": "Floor"
+  },
+  {
+   "fieldname": "section_break_meeting",
+   "fieldtype": "Section Break",
+   "label": "Meeting"
+  },
+  {
+   "fieldname": "person_to_meet",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Person to Meet",
+   "options": "User"
+  },
+  {
+   "fieldname": "column_break_meeting",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_id_card",
+   "fieldtype": "Attach Image",
+   "label": "Company ID Card"
+  },
+  {
+   "fieldname": "company_id_card_preview",
+   "fieldtype": "Image",
+   "label": "Company ID Card Preview",
+   "options": "company_id_card",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_vehicle",
+   "fieldtype": "Section Break",
+   "label": "Vehicle"
+  },
+  {
+   "fieldname": "vehicle_type",
+   "fieldtype": "Link",
+   "label": "Vehicle Type",
+   "options": "Vehicle Type"
+  },
+  {
+   "fieldname": "vehicle_number",
+   "fieldtype": "Data",
+   "label": "Vehicle Number"
+  },
+  {
+   "fieldname": "section_break_approval",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "default": "Pending Approval",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending Approval\nApproved\nRejected\nChecked In\nChecked Out\nMeeting Done\nCancelled\nCompleted",
+   "reqd": 1
+  },
+  {
+   "fieldname": "approval_remarks",
+   "fieldtype": "Small Text",
+   "label": "Approval Remarks"
+  },
+  {
+   "fieldname": "column_break_approval",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.transfer_to_user",
+   "fieldname": "transfer_to_user",
+   "fieldtype": "Link",
+   "label": "Transferred To",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_audit",
+   "fieldtype": "Section Break",
+   "label": "Status Audit Log"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejected_on",
+   "fieldtype": "Datetime",
+   "label": "Rejected On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancelled_on",
+   "fieldtype": "Datetime",
+   "label": "Cancelled On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_audit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checked_in_on",
+   "fieldtype": "Datetime",
+   "label": "Checked In On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checked_out_on",
+   "fieldtype": "Datetime",
+   "label": "Checked Out On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meeting_done_on",
+   "fieldtype": "Datetime",
+   "label": "Meeting Done On",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_pass",
+   "fieldtype": "Section Break",
+   "label": "QR Gate Pass"
+  },
+  {
+   "fieldname": "qr_expires_on",
+   "fieldtype": "Datetime",
+   "label": "QR Expires On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pass",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pass_url",
+   "fieldtype": "Data",
+   "label": "Public Pass URL",
+   "options": "URL",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_gate",
+   "fieldtype": "Section Break",
+   "label": "Gate Check-In"
+  },
+  {
+   "fieldname": "check_in",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Check In (Gate)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checked_in_by",
+   "fieldtype": "Link",
+   "label": "Checked In By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_gate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "check_out",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Check Out (Gate)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "checked_out_by",
+   "fieldtype": "Link",
+   "label": "Checked Out By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "visit_duration",
+   "fieldtype": "Data",
+   "label": "Visit Duration",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "person_to_meet.full_name",
+   "fieldname": "person_to_meet_name",
+   "fieldtype": "Data",
+   "label": "Person To Meet Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_cpot",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "image_field": "photo",
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-23 11:16:02.203248",
+ "modified_by": "Administrator",
+ "module": "Visitor Management",
+ "name": "Visitor Entry",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "full_name",
+ "track_changes": 1
+}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<meta name="color-scheme" content="light" />
+		<meta name="theme-color" content="#e11d48" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="apple-mobile-web-app-title" content="VMS" />
+		<link rel="manifest" href="/assets/visitor_management/frontend/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/assets/visitor_management/frontend/icons/icon-180.png" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			rel="stylesheet"
+			href="/assets/visitor_management/frontend/vms-asset-index.css?v={{ vms_asset_v }}"
+		/>
+		<title>{{ vms_page_title }}</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: #f4f4f5;
+				font-family: "Poppins", system-ui, sans-serif;
+			}
+			#root {
+				min-height: 100vh;
+			}
+			.vms-boot {
+				color: #64748b;
+				padding: 2rem;
+				text-align: center;
+			}
+		</style>
+	</head>
+	<body>
+		<script>
+			window.csrf_token = "{{ vms_csrf_token }}";
+			window.vms_csrf_token = window.csrf_token;
+			window.vmsAssetV = "{{ vms_asset_v }}";
+			window.vms_boot = {
+				sitename: "{{ vms_sitename }}",
+				socketio_port: {{ vms_socketio_port }},
+				developer_mode: {{ vms_developer_mode }},
+			};
+		</script>
+		<div id="root">
+			<div class="vms-boot">Loading Visitor Management…</div>
+		</div>
+		<script
+			src="/assets/visitor_management/frontend/vms-app.js?v={{ vms_asset_v }}"
+			type="module"
+		></script>
+	</body>
+</html>

@@ -86,7 +86,7 @@ app_license = "mit"
 # ------------
 
 # before_install = "visitor_management.install.before_install"
-# after_install = "visitor_management.install.after_install"
+after_install = "visitor_management.install.after_install"
 
 # Uninstallation
 # ------------
@@ -148,23 +148,16 @@ app_license = "mit"
 
 # Scheduled Tasks
 # ---------------
-
+# Wire when scheduler/tasks.py implementations are ready:
 # scheduler_events = {
-# 	"all": [
-# 		"visitor_management.tasks.all"
-# 	],
-# 	"daily": [
-# 		"visitor_management.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"visitor_management.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"visitor_management.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"visitor_management.tasks.monthly"
-# 	],
+# 	"cron": {
+# 		"*/5 * * * *": [
+# 			"visitor_management.scheduler.tasks.pending_approval_reminder",
+# 			"visitor_management.scheduler.tasks.detect_overstay",
+# 			"visitor_management.scheduler.tasks.cleanup_expired_passes",
+# 			"visitor_management.scheduler.tasks.auto_checkout_verification",
+# 		],
+# 	},
 # }
 
 # Testing
@@ -255,4 +248,11 @@ app_license = "mit"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# Website — React SPA (built assets in public/frontend; same pattern as viv_crm)
+# ------------------------------------------------------------------------------
+website_route_rules = [
+	{"from_route": "/vms/<path:app_path>", "to_route": "vms"},
+	{"from_route": "/vms", "to_route": "vms"},
+]
 

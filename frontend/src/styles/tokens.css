@@ -1,0 +1,35 @@
+/**
+ * VMS design tokens — see ../../DESIGN.md
+ * Primary Red · Secondary Pink · White · Light Gray · Dark Navy · Poppins
+ */
+:root {
+  --vms-primary: #e11d48;
+  --vms-primary-hover: #be123c;
+  --vms-primary-soft: #fff1f2;
+  --vms-secondary: #f472b6;
+  --vms-secondary-soft: #fce7f3;
+
+  --vms-navy: #0f172a;
+  --vms-navy-muted: #1e293b;
+
+  --vms-bg: #f4f4f5;
+  --vms-surface: #ffffff;
+  --vms-text: #0f172a;
+  --vms-muted: #64748b;
+  --vms-border: #e4e4e7;
+
+  --vms-radius: 16px;
+  --vms-radius-sm: 12px;
+  --vms-radius-lg: 20px;
+  --vms-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.04);
+
+  --vms-font: "Poppins", system-ui, sans-serif;
+
+  /* aliases used by existing shell */
+  --bg: var(--vms-bg);
+  --surface: var(--vms-surface);
+  --text: var(--vms-text);
+  --muted: var(--vms-muted);
+  --accent: var(--vms-primary);
+  --border: var(--vms-border);
+}
