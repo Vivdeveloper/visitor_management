@@ -4,8 +4,3 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
-visitor_management.patches.v1_0.setup_msg91_sms_settings
-visitor_management.patches.v1_0.setup_master_data
-visitor_management.patches.v1_0.setup_security_shifts
-visitor_management.patches.v1_0.migrate_visitor_status_pending_approval
-visitor_management.patches.v1_0.fix_visitor_workspace_sidebar

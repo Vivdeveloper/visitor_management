@@ -2,42 +2,87 @@
 
 from __future__ import annotations
 
+import json
+
 import frappe
 from frappe import _
+from frappe.utils import cint
 
-from visitor_management.services import visitor_service
+
+ALLOWED_FIELDS = (
+	"mobile",
+	"email",
+	"photo",
+	"first_name",
+	"middle_name",
+	"last_name",
+	"gender",
+	"visit_purpose_type",
+	"number_of_visitors",
+	"id_proof_type",
+	"id_proof_photo",
+	"visitor_location",
+	"visitor_company",
+	"floor",
+	"person_to_meet",
+	"company_id_card",
+	"vehicle_type",
+	"vehicle_number",
+	"status",
+)
 
 
 @frappe.whitelist()
 def create_visitor(**kwargs) -> dict:
-	"""Create a visitor entry (registration flow → Pending Approval)."""
-	# frappe may pass form_dict keys; strip meta
-	data = {k: v for k, v in kwargs.items() if not k.startswith("_")}
-	name = visitor_service.create_visitor_entry(data, require_otp=True)
-	doc = visitor_service.get_visitor_entry(name)
+	data = {k: v for k, v in kwargs.items() if not k.startswith("_") and k in ALLOWED_FIELDS and v not in (None, "")}
+	if not data.get("mobile"):
+		frappe.throw(_("Mobile number is required"))
+	if not data.get("first_name") and not data.get("last_name"):
+		frappe.throw(_("First name or last name is required"))
+
+	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
+	if cint(kwargs.get("otp_verified")):
+		doc.otp_verified = 1
+	doc.insert()
 	return {
 		"success": True,
-		"name": name,
+		"name": doc.name,
 		"message": _("Visitor registered and pending approval."),
-		"visitor": doc,
+		"visitor": doc.as_dict(),
 	}
 
 
 @frappe.whitelist()
 def get_visitor(name: str | None = None) -> dict:
-	"""Fetch a visitor entry by name."""
-	return visitor_service.get_visitor_entry(name or "")
+	if not name:
+		frappe.throw(_("Visitor Entry name is required"))
+	return frappe.get_doc("Visitor Entry", name).as_dict()
 
 
 @frappe.whitelist()
 def list_visitors(filters: str | None = None, limit: int = 20) -> list:
-	"""List visitor entries with optional filters (JSON string or dict)."""
-	return visitor_service.list_visitor_entries(filters, limit)
+	parsed = {}
+	if filters:
+		try:
+			parsed = json.loads(filters) if isinstance(filters, str) else filters
+		except (TypeError, ValueError):
+			frappe.throw(_("Invalid filters JSON"))
+	return frappe.get_all(
+		"Visitor Entry",
+		filters=parsed,
+		fields=["name", "full_name", "mobile", "status", "person_to_meet_name", "floor", "modified"],
+		order_by="modified desc",
+		limit_page_length=min(cint(limit) or 20, 100),
+	)
 
 
 @frappe.whitelist()
 def update_visitor(name: str | None = None, **kwargs) -> dict:
-	"""Update visitor entry fields."""
-	data = {k: v for k, v in kwargs.items() if not k.startswith("_") and k != "name"}
-	doc = visitor_service.update_visitor_entry(name or "", data)
-	return {"success": True, "visitor": doc}
+	if not name:
+		frappe.throw(_("Visitor Entry name is required"))
+	doc = frappe.get_doc("Visitor Entry", name)
+	for key in ALLOWED_FIELDS:
+		if key in kwargs and key != "mobile":
+			doc.set(key, kwargs.get(key))
+	doc.save()
+	return {"success": True, "visitor": doc.as_dict()}

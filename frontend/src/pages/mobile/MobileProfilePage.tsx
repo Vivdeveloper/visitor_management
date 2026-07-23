@@ -24,7 +24,7 @@ export function MobileProfilePage() {
             Log out
           </button>
         ) : (
-          <Link className="m-action primary" to="/m/login">
+          <Link className="m-action primary" to="/login">
             Sign in
           </Link>
         )}

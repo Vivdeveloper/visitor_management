@@ -1,11 +1,9 @@
 export const ROUTES = {
   login: "/login",
-  dashboard: "/",
-  visitors: "/visitors",
+  home: "/",
   approvals: "/approvals",
-  security: "/security",
+  gate: "/gate",
   pass: "/pass",
-  notifications: "/notifications",
-  reports: "/reports",
-  settings: "/settings",
+  profile: "/profile",
+  publicPass: "/pass/:token",
 } as const;

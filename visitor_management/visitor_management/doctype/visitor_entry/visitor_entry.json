@@ -53,6 +53,8 @@
   "checked_out_on",
   "meeting_done_on",
   "section_break_pass",
+  "pass_number",
+  "qr_token",
   "qr_expires_on",
   "column_break_pass",
   "pass_url",
@@ -252,7 +254,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Pending Approval\nApproved\nRejected\nChecked In\nChecked Out\nMeeting Done\nCancelled\nCompleted",
+   "options": "Pending Approval\nChecked In\nApproved\nMeeting Done\nChecked Out\nRejected\nCancelled\nCompleted",
    "reqd": 1
   },
   {

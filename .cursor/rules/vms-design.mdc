@@ -24,10 +24,8 @@ Use CSS tokens in `frontend/src/styles/tokens.css`. Do not introduce a green or 
 
 ## Product surfaces
 
-1. Desktop dashboard — KPIs, charts, sidebar, search, notifications, profile
-2. Visitor workflow — Invite → Register → Approve → QR → Check-in → Check-out
-3. Admin — org / buildings / floors / units / employees / guards / devices / licenses / reports
-4. Tablet — reception, self check-in, photo, badge, QR, OTP, signature
-5. Mobile PWA — pass, approval, SOS, notifications (Phase 12)
+1. Mobile PWA (primary) — home, approvals, gate, pass, profile
+2. Public pass page — `/vms/pass/<visitor-entry>`
+3. Desk Form — Visitor Entry workflow (Pending → Check-in → Approved → Meeting Done → Check Out)
 
 After frontend changes: `cd frontend && npm run build`.

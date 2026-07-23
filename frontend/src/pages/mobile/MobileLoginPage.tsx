@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 
-/** Mobile OTP login — lands on /m after verify. */
+/** PWA OTP login. */
 export function MobileLoginPage() {
   const navigate = useNavigate();
   const { isAuthenticated, setProfile, loading, user } = useAuth();
@@ -16,7 +16,7 @@ export function MobileLoginPage() {
   const [busy, setBusy] = useState(false);
 
   if (!loading && (isAuthenticated || user?.verified)) {
-    return <Navigate to="/m" replace />;
+    return <Navigate to="/" replace />;
   }
 
   async function onSendOtp(e: FormEvent) {
@@ -51,7 +51,7 @@ export function MobileLoginPage() {
         verified: true,
         mobile: res.mobile || mobile,
       });
-      navigate("/m", { replace: true });
+      navigate("/", { replace: true });
     } catch (err: unknown) {
       setError(extractError(err));
     } finally {
@@ -62,7 +62,7 @@ export function MobileLoginPage() {
   return (
     <div className="login-page m-login">
       <div className="login-card">
-        <h1>VMS Mobile</h1>
+        <h1>Visitor Management</h1>
         <p className="login-sub">Sign in with mobile OTP</p>
 
         {step === "mobile" ? (

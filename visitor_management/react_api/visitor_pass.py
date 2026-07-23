@@ -4,44 +4,69 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
+from frappe.utils import get_datetime, get_url, now_datetime
 
-from visitor_management.services import pass_service
+from visitor_management.services.otp_service import is_mobile_verified, normalize_mobile, validate_mobile
+from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
+
+
+def _validate_pass(token: str) -> dict:
+	token = (token or "").strip()
+	if not token:
+		frappe.throw(_("Pass token is required"))
+	if not frappe.db.exists("Visitor Entry", token):
+		return {"valid": False, "reason": _("Invalid pass"), "pass": None}
+
+	doc = frappe.get_doc("Visitor Entry", token)
+	if doc.qr_expires_on and get_datetime(doc.qr_expires_on) < now_datetime():
+		return {"valid": False, "reason": _("Pass has expired"), "pass": _payload(doc)}
+	if doc.status not in ("Checked In", "Approved", "Meeting Done"):
+		return {"valid": False, "reason": _("Pass not valid for status: {0}").format(doc.status), "pass": _payload(doc)}
+	return {"valid": True, "reason": _("Pass is valid"), "pass": _payload(doc)}
+
+
+def _payload(doc) -> dict:
+	return {
+		"visitor_entry": doc.name,
+		"full_name": doc.full_name,
+		"photo": doc.photo,
+		"visitor_company": doc.visitor_company,
+		"person_to_meet_name": doc.person_to_meet_name,
+		"host_name": doc.person_to_meet_name,
+		"floor": doc.floor,
+		"status": doc.status,
+		"qr_expires_on": doc.qr_expires_on,
+		"pass_url": doc.pass_url or get_url(f"/vms/pass/{doc.name}"),
+	}
 
 
 @frappe.whitelist()
 def generate_pass(visitor_entry: str | None = None, force: int | None = None) -> dict:
-	"""Generate or refresh encrypted QR pass for an approved visitor."""
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	result = pass_service.generate_pass_for_entry(visitor_entry, force=bool(force))
-	return {"success": True, "message": _("QR pass ready."), **result}
+	return {"success": True, **ve.generate_pass(visitor_entry, force=force)}
 
 
 @frappe.whitelist()
 def get_pass(name: str | None = None) -> dict:
-	"""Fetch pass details by Visitor Entry name."""
 	if not name:
 		frappe.throw(_("Visitor Entry name is required"))
-	return pass_service.get_pass_by_entry(name)
+	doc = frappe.get_doc("Visitor Entry", name)
+	return _payload(doc)
 
 
 @frappe.whitelist(allow_guest=True)
 def validate_pass(token: str | None = None) -> dict:
-	"""Validate a public QR token (expiry, status). Guest-allowed."""
-	return pass_service.validate_qr_token(token or "")
+	return _validate_pass(token or "")
 
 
 @frappe.whitelist(allow_guest=True)
 def get_public_pass(token: str | None = None) -> dict:
-	"""Public pass payload for /vms/pass/<token> (same as validate, convenience alias)."""
-	return pass_service.validate_qr_token(token or "")
+	return _validate_pass(token or "")
 
 
 @frappe.whitelist(allow_guest=True)
 def list_my_passes(mobile: str | None = None) -> list:
-	"""Visitor: list own passes after OTP login (verified mobile in cache)."""
-	from visitor_management.services.otp_service import is_mobile_verified, normalize_mobile, validate_mobile
-
 	mobile = validate_mobile(mobile or "")
 	user = frappe.session.user
 	allowed = False
@@ -58,23 +83,12 @@ def list_my_passes(mobile: str | None = None) -> list:
 	rows = frappe.get_all(
 		"Visitor Entry",
 		filters={"mobile": ["like", f"%{last10}"]},
-		fields=[
-			"name",
-			"full_name",
-			"status",
-			"pass_number",
-			"qr_token",
-			"pass_url",
-			"qr_expires_on",
-			"expected_meeting_time",
-			"host_name",
-			"building",
-			"creation",
-		],
+		fields=["name", "full_name", "status", "pass_url", "qr_expires_on", "person_to_meet_name", "creation"],
 		order_by="creation desc",
 		limit_page_length=20,
 	)
 	for row in rows:
-		if row.get("qr_token") and not row.get("pass_url"):
-			row["pass_url"] = pass_service.get_public_pass_url(row["qr_token"])
+		if not row.get("pass_url"):
+			row["pass_url"] = get_url(f"/vms/pass/{row['name']}")
+		row["host_name"] = row.get("person_to_meet_name")
 	return rows

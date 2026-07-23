@@ -74,26 +74,20 @@ export function PublicPassPage() {
 
         <dl className="pass-meta">
           <div>
-            <dt>Pass No.</dt>
-            <dd>{pass?.pass_number || "—"}</dd>
+            <dt>Entry</dt>
+            <dd>{pass?.visitor_entry || token || "—"}</dd>
           </div>
           <div>
             <dt>Host</dt>
-            <dd>{pass?.host_name || "—"}</dd>
+            <dd>{pass?.person_to_meet_name || pass?.host_name || "—"}</dd>
           </div>
           <div>
             <dt>Company</dt>
             <dd>{pass?.visitor_company || "—"}</dd>
           </div>
           <div>
-            <dt>Building / Floor</dt>
-            <dd>
-              {[pass?.building, pass?.floor, pass?.unit].filter(Boolean).join(" · ") || "—"}
-            </dd>
-          </div>
-          <div>
-            <dt>Meeting</dt>
-            <dd>{formatDt(pass?.expected_meeting_time)}</dd>
+            <dt>Floor</dt>
+            <dd>{pass?.floor || "—"}</dd>
           </div>
           <div>
             <dt>Expires</dt>
@@ -111,16 +105,6 @@ export function PublicPassPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-/** Authenticated placeholder — public passes use /pass/:token */
-export function PassPage() {
-  return (
-    <section className="page">
-      <h1>Visitor Pass</h1>
-      <p>Open a visitor’s public pass from Desk (QR Pass → Open Pass) or share `/vms/pass/&lt;token&gt;`.</p>
-    </section>
   );
 }
 

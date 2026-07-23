@@ -5,16 +5,19 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from visitor_management.services import checkin_service, pass_service
+from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
+from visitor_management.react_api.visitor_pass import _validate_pass
+
+
+def _ensure_gate() -> None:
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Only System Manager can perform gate operations for now."))
 
 
 @frappe.whitelist()
 def scan_qr(token: str | None = None) -> dict:
-	"""Scan visitor QR and return verification payload (does not check in)."""
-	if not checkin_service.can_operate_gate():
-		frappe.throw(_("Only System Manager can scan QR at the gate for now."))
-
-	result = pass_service.validate_qr_token(token or "")
+	_ensure_gate()
+	result = _validate_pass(token or "")
 	return {
 		"success": bool(result.get("valid")),
 		"valid": result.get("valid"),
@@ -26,79 +29,53 @@ def scan_qr(token: str | None = None) -> dict:
 
 @frappe.whitelist()
 def verify_visitor(visitor_entry: str | None = None) -> dict:
-	"""Manual verification payload for a Visitor Entry at the gate."""
-	if not checkin_service.can_operate_gate():
-		frappe.throw(_("Only System Manager can verify visitors at the gate for now."))
+	_ensure_gate()
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-
 	doc = frappe.get_doc("Visitor Entry", visitor_entry)
-	pass_ok = False
-	pass_reason = _("No QR token")
-	if doc.qr_token:
-		validation = pass_service.validate_qr_token(doc.qr_token)
-		pass_ok = bool(validation.get("valid"))
-		pass_reason = validation.get("reason")
-
+	validation = _validate_pass(doc.name)
+	pass_ok = bool(validation.get("valid"))
 	return {
 		"name": doc.name,
 		"full_name": doc.full_name,
 		"mobile": doc.mobile,
 		"photo": doc.photo,
 		"status": doc.status,
-		"host_name": doc.host_name,
+		"person_to_meet_name": doc.person_to_meet_name,
+		"host_name": doc.person_to_meet_name,
 		"pass_valid": pass_ok,
-		"pass_reason": pass_reason,
-		"can_check_in": doc.status == "Approved" and pass_ok,
-		"can_check_out": doc.status in checkin_service.CHECKOUT_ALLOWED_STATUSES,
+		"pass_reason": validation.get("reason"),
+		"can_check_in": doc.status == "Pending Approval",
+		"can_check_out": doc.status == "Meeting Done",
 	}
 
 
 @frappe.whitelist()
 def gate_queue() -> list:
-	"""Approved visitors waiting for check-in (valid / expected)."""
-	if not checkin_service.can_operate_gate():
-		frappe.throw(_("Only System Manager can view the gate queue for now."))
-
+	_ensure_gate()
 	return frappe.get_all(
 		"Visitor Entry",
-		filters={"status": "Approved"},
-		fields=[
-			"name",
-			"full_name",
-			"mobile",
-			"host_name",
-			"pass_number",
-			"qr_expires_on",
-			"expected_meeting_time",
-			"building",
-			"floor",
-			"modified",
-		],
-		order_by="expected_meeting_time asc, modified desc",
+		filters={"status": "Pending Approval"},
+		fields=["name", "full_name", "mobile", "person_to_meet_name", "floor", "modified"],
+		order_by="modified desc",
 		limit_page_length=100,
 	)
 
 
 @frappe.whitelist()
 def exit_queue() -> list:
-	"""Visitors inside who can check out (Checked In / Meeting Done)."""
-	if not checkin_service.can_operate_gate():
-		frappe.throw(_("Only System Manager can view the exit queue for now."))
-
+	_ensure_gate()
 	return frappe.get_all(
 		"Visitor Entry",
-		filters={"status": ["in", list(checkin_service.CHECKOUT_ALLOWED_STATUSES)]},
+		filters={"status": "Meeting Done"},
 		fields=[
 			"name",
 			"full_name",
 			"mobile",
-			"host_name",
+			"person_to_meet_name",
 			"status",
-			"check_in",
-			"meeting_ended_on",
-			"pass_number",
-			"building",
+			"checked_in_on",
+			"meeting_done_on",
 			"floor",
 			"modified",
 		],
@@ -109,13 +86,18 @@ def exit_queue() -> list:
 
 @frappe.whitelist()
 def check_in_by_token(token: str | None = None, live_image: str | None = None) -> dict:
-	"""Scan QR and check in in one step."""
-	result = checkin_service.check_in_by_token(token or "", live_image=live_image)
-	return {"success": True, "message": _("Visitor checked in."), **result}
+	_ensure_gate()
+	result = _validate_pass(token or "")
+	if not result.get("valid"):
+		frappe.throw(result.get("reason") or _("Invalid QR pass"))
+	visitor_entry = (result.get("pass") or {}).get("visitor_entry")
+	return {"success": True, **ve.check_in(visitor_entry)}
 
 
 @frappe.whitelist()
 def check_out_by_token(token: str | None = None, remarks: str | None = None) -> dict:
-	"""Scan QR and check out in one step."""
-	result = checkin_service.check_out_by_token(token or "", remarks=remarks)
-	return {"success": True, "message": _("Visitor checked out."), **result}
+	_ensure_gate()
+	token = (token or "").strip()
+	if not token or not frappe.db.exists("Visitor Entry", token):
+		frappe.throw(_("Invalid pass token"))
+	return {"success": True, **ve.check_out(token, remarks=remarks)}

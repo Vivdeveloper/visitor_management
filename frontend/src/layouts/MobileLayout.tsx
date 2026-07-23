@@ -25,7 +25,7 @@ export function MobileLayout() {
           <NavLink
             key={tab.to}
             to={tab.to}
-            end={tab.to === "/m"}
+            end={tab.to === "/"}
             className={({ isActive }) => `m-tab${isActive ? " active" : ""}`}
             aria-label={tab.label}
             title={tab.label}

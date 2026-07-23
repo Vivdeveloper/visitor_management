@@ -5,7 +5,6 @@ import { resolveMode } from "@/lib/roles";
 import {
   IconApprovals,
   IconChevron,
-  IconDesktop,
   IconGate,
   IconLogin,
   IconPass,
@@ -28,7 +27,7 @@ export function MobileHomePage() {
 
   if (mode === "host" || mode === "security") {
     actions.push({
-      to: "/m/approvals",
+      to: "/approvals",
       title: "Approvals",
       hint: "Review pending visitor requests",
       icon: <IconApprovals size={20} />,
@@ -36,14 +35,14 @@ export function MobileHomePage() {
   }
   if (mode === "security") {
     actions.push({
-      to: "/m/gate",
+      to: "/gate",
       title: "Gate check-in / out",
       hint: "Scan and verify at the entrance",
       icon: <IconGate size={20} />,
     });
   }
   actions.push({
-    to: "/m/pass",
+    to: "/pass",
     title: mode === "visitor" ? "My pass" : "Pass lookup",
     hint: mode === "visitor" ? "Show your QR visitor pass" : "Find and open a visitor pass",
     icon: <IconPass size={20} />,
@@ -51,19 +50,12 @@ export function MobileHomePage() {
   });
   if (!isAuthenticated && !user?.verified) {
     actions.push({
-      to: "/m/login",
+      to: "/login",
       title: "Sign in with OTP",
       hint: "Verify your mobile number",
       icon: <IconLogin size={20} />,
     });
   }
-  actions.push({
-    to: "/",
-    title: "Open desktop app",
-    hint: "Full dashboard and reports",
-    icon: <IconDesktop size={20} />,
-    tone: "ghost",
-  });
 
   return (
     <section className="m-page m-home">

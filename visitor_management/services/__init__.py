@@ -1,1 +1,1 @@
-"""Business services used by react_api and DocType controllers."""
+"""Business services used by DocType controllers. Keep minimal — form logic lives on Visitor Entry."""

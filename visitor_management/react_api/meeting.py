@@ -5,26 +5,22 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from visitor_management.services import meeting_service
+from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
 
 
 @frappe.whitelist()
 def start_meeting(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Host marks meeting started (status remains Checked In)."""
+	"""No separate start timestamp — returns current status."""
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	result = meeting_service.start_meeting(visitor_entry, remarks=remarks)
-	return {"success": True, "message": _("Meeting started."), **result}
+	doc = frappe.get_doc("Visitor Entry", visitor_entry)
+	if doc.status != "Approved":
+		frappe.throw(_("Meeting can only start after approval."))
+	return {"success": True, "name": doc.name, "status": doc.status, "message": _("Ready for meeting.")}
 
 
 @frappe.whitelist()
 def complete_meeting(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Host marks meeting completed → Meeting Done."""
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	result = meeting_service.complete_meeting(visitor_entry, remarks=remarks)
-	return {
-		"success": True,
-		"message": _("Meeting completed. Visitor can proceed to checkout."),
-		**result,
-	}
+	return {"success": True, **ve.complete_meeting(visitor_entry, remarks=remarks)}

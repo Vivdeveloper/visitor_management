@@ -42,13 +42,10 @@ export type DashboardQueueItem = {
   name: string;
   full_name?: string;
   mobile?: string;
+  person_to_meet_name?: string;
   host_name?: string;
   status?: string;
-  site?: string;
-  building?: string;
   floor?: string;
-  expected_meeting_time?: string;
-  expected_exit?: string;
   check_in?: string;
 };
 
@@ -125,16 +122,12 @@ export const approvalApi = {
 
 export type PublicPassInfo = {
   visitor_entry?: string;
-  pass_number?: string;
   full_name?: string;
   photo?: string;
   visitor_company?: string;
+  person_to_meet_name?: string;
   host_name?: string;
-  building?: string;
   floor?: string;
-  unit?: string;
-  expected_meeting_time?: string;
-  expected_exit?: string;
   status?: string;
   qr_expires_on?: string;
   pass_url?: string;
@@ -150,13 +143,10 @@ export type MyPassRow = {
   name: string;
   full_name?: string;
   status?: string;
-  pass_number?: string;
-  qr_token?: string;
   pass_url?: string;
   qr_expires_on?: string;
-  expected_meeting_time?: string;
+  person_to_meet_name?: string;
   host_name?: string;
-  building?: string;
 };
 
 export const passApi = {

@@ -39,29 +39,29 @@ export function mobileTabsFor(mode: VmsMode): MobileTab[] {
   switch (mode) {
     case "security":
       return [
-        { to: "/m", label: "Home", icon: "home" },
-        { to: "/m/approvals", label: "Approvals", icon: "approvals" },
-        { to: "/m/gate", label: "Gate", icon: "gate" },
-        { to: "/m/pass", label: "Pass", icon: "pass" },
-        { to: "/m/profile", label: "Profile", icon: "profile" },
+        { to: "/", label: "Home", icon: "home" },
+        { to: "/approvals", label: "Approvals", icon: "approvals" },
+        { to: "/gate", label: "Gate", icon: "gate" },
+        { to: "/pass", label: "Pass", icon: "pass" },
+        { to: "/profile", label: "Profile", icon: "profile" },
       ];
     case "host":
       return [
-        { to: "/m", label: "Home", icon: "home" },
-        { to: "/m/approvals", label: "Approvals", icon: "approvals" },
-        { to: "/m/pass", label: "Pass", icon: "pass" },
-        { to: "/m/profile", label: "Profile", icon: "profile" },
+        { to: "/", label: "Home", icon: "home" },
+        { to: "/approvals", label: "Approvals", icon: "approvals" },
+        { to: "/pass", label: "Pass", icon: "pass" },
+        { to: "/profile", label: "Profile", icon: "profile" },
       ];
     case "visitor":
       return [
-        { to: "/m", label: "Home", icon: "home" },
-        { to: "/m/pass", label: "Pass", icon: "pass" },
-        { to: "/m/profile", label: "Profile", icon: "profile" },
+        { to: "/", label: "Home", icon: "home" },
+        { to: "/pass", label: "Pass", icon: "pass" },
+        { to: "/profile", label: "Profile", icon: "profile" },
       ];
     case "guest":
       return [
-        { to: "/m", label: "Home", icon: "home" },
-        { to: "/m/profile", label: "Profile", icon: "profile" },
+        { to: "/", label: "Home", icon: "home" },
+        { to: "/profile", label: "Profile", icon: "profile" },
       ];
     default: {
       const _exhaustive: never = mode;

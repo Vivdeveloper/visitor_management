@@ -5,26 +5,18 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-from visitor_management.services import checkin_service, meeting_service
+from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
 
 
 @frappe.whitelist()
 def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Mark visitor as checked out at the gate."""
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	result = checkin_service.check_out(visitor_entry, remarks=remarks)
-	return {"success": True, "message": _("Visitor checked out."), **result}
+	return {"success": True, **ve.check_out(visitor_entry, remarks=remarks)}
 
 
 @frappe.whitelist()
 def mark_meeting_complete(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Alias for meeting.complete_meeting (host marks meeting done)."""
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	result = meeting_service.complete_meeting(visitor_entry, remarks=remarks)
-	return {
-		"success": True,
-		"message": _("Meeting completed. Visitor can proceed to checkout."),
-		**result,
-	}
+	return {"success": True, **ve.complete_meeting(visitor_entry, remarks=remarks)}

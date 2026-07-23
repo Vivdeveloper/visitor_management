@@ -6,6 +6,7 @@ type ApprovalRow = {
   name: string;
   full_name?: string;
   mobile?: string;
+  person_to_meet_name?: string;
   host_name?: string;
 };
 
@@ -63,7 +64,9 @@ export function MobileApprovalsPage() {
               <div className="m-card-title">{row.full_name || row.name}</div>
               <div className="m-card-meta">
                 {row.mobile || "—"}
-                {row.host_name ? ` · Host ${row.host_name}` : ""}
+                {row.person_to_meet_name || row.host_name
+                  ? ` · Host ${row.person_to_meet_name || row.host_name}`
+                  : ""}
               </div>
               <div className="m-card-actions">
                 <button

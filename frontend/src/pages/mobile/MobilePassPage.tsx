@@ -52,15 +52,16 @@ export function MobilePassPage() {
               <div className="m-card-title">{row.full_name || row.name}</div>
               <div className="m-card-meta">
                 {row.status}
-                {row.pass_number ? ` · ${row.pass_number}` : ""}
-                {row.host_name ? ` · ${row.host_name}` : ""}
+                {row.person_to_meet_name || row.host_name
+                  ? ` · ${row.person_to_meet_name || row.host_name}`
+                  : ""}
               </div>
-              {row.qr_token ? (
-                <Link className="m-btn primary" to={`/pass/${row.qr_token}`}>
+              {row.name ? (
+                <Link className="m-btn primary" to={`/pass/${encodeURIComponent(row.name)}`}>
                   Open pass
                 </Link>
               ) : (
-                <span className="m-sub">No QR yet</span>
+                <span className="m-sub">No pass yet</span>
               )}
             </li>
           ))}
