@@ -112,7 +112,76 @@ export function IconLogin(props: IconProps) {
   );
 }
 
-export type MobileTabIcon = "home" | "checkin" | "scan" | "inside" | "history";
+export function IconBell(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <circle cx="18" cy="4" r="3" fill="#2563EB" stroke="#FFFFFF" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function IconUser(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <circle cx="12" cy="8" r="3.25" />
+      <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
+    </svg>
+  );
+}
+
+export function IconUserInside(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <rect x="5" y="4" width="14" height="16" rx="3" strokeWidth="1.75" />
+      <circle cx="12" cy="10" r="2.5" />
+      <path d="M8 17a4 4 0 0 1 8 0" />
+    </svg>
+  );
+}
+
+export function IconExit(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <path d="M13 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+    </svg>
+  );
+}
+
+export function IconAlertShield(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
+export function IconReports(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  );
+}
+
+export function IconMenuMore(props: IconProps) {
+  return (
+    <svg {...baseProps(props)}>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </svg>
+  );
+}
+
+export type MobileTabIcon = "home" | "checkin" | "scan" | "inside" | "history" | "pass" | "reports" | "more" | "approvals";
 
 export function MobileTabIconView({ name, size = 22 }: { name: MobileTabIcon; size?: number }) {
   switch (name) {
@@ -126,6 +195,14 @@ export function MobileTabIconView({ name, size = 22 }: { name: MobileTabIcon; si
       return <IconInside size={size} />;
     case "history":
       return <IconHistory size={size} />;
+    case "pass":
+      return <IconPass size={size} />;
+    case "reports":
+      return <IconReports size={size} />;
+    case "more":
+      return <IconMenuMore size={size} />;
+    case "approvals":
+      return <IconApprovals size={size} />;
     default: {
       const _exhaustive: never = name;
       return _exhaustive;

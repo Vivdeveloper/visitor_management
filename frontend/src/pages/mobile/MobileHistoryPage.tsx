@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { visitorApi } from "@/api/vms";
+import { initials } from "@/lib/format";
 
 type Row = {
   name: string;
@@ -9,8 +10,10 @@ type Row = {
   modified?: string;
 };
 
+type Tab = "all" | "in" | "out";
+
 export function MobileHistoryPage() {
-  const [tab, setTab] = useState<"all" | "out">("all");
+  const [tab, setTab] = useState<Tab>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,12 +21,18 @@ export function MobileHistoryPage() {
     let cancelled = false;
     async function load() {
       try {
-        const filters =
-          tab === "out"
-            ? JSON.stringify({ status: "Checked Out" })
-            : JSON.stringify({
-                status: ["in", ["Checked Out", "Completed", "Rejected", "Meeting Done", "Approved"]],
-              });
+        let filters: string;
+        if (tab === "out") {
+          filters = JSON.stringify({ status: "Checked Out" });
+        } else if (tab === "in") {
+          filters = JSON.stringify({
+            status: ["in", ["Checked In", "Meeting Done"]],
+          });
+        } else {
+          filters = JSON.stringify({
+            status: ["in", ["Checked Out", "Rejected", "Meeting Done", "Approved", "Checked In"]],
+          });
+        }
         const list = (await visitorApi.list(filters, 50)) as Row[];
         if (!cancelled) setRows(list || []);
       } catch (err: unknown) {
@@ -37,17 +46,28 @@ export function MobileHistoryPage() {
   }, [tab]);
 
   return (
-    <section className="m-page">
-      <h1>History</h1>
-      <p className="m-sub">Past and completed visits</p>
+    <section className="m-page ad-page">
+      <div className="ad-dash-top">
+        <h1 className="ad-title">History</h1>
+      </div>
 
-      <div className="gp-tabs">
-        <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>
-          All
-        </button>
-        <button type="button" className={tab === "out" ? "active" : ""} onClick={() => setTab("out")}>
-          Check-out
-        </button>
+      <div className="ad-tabs">
+        {(
+          [
+            ["all", "All"],
+            ["in", "Check-in"],
+            ["out", "Check-out"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={tab === value ? "on" : ""}
+            onClick={() => setTab(value)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {error ? <p className="login-error">{error}</p> : null}
@@ -55,21 +75,28 @@ export function MobileHistoryPage() {
       {rows.length === 0 ? (
         <p className="m-sub">No history yet.</p>
       ) : (
-        <ul className="m-list">
+        <div className="ad-panel-list">
           {rows.map((row) => (
-            <li key={row.name} className="m-card">
-              <div className="m-card-title">{row.full_name || row.name}</div>
-              <div className="m-card-meta">
-                {row.status}
-                {row.person_to_meet_name ? ` · ${row.person_to_meet_name}` : ""}
-                {row.modified ? ` · ${new Date(row.modified).toLocaleString()}` : ""}
+            <div key={row.name} className="ad-list-row">
+              <div className="ad-avatar">{initials(row.full_name || row.name)}</div>
+              <div className="ad-list-meta">
+                <b>{row.full_name || row.name}</b>
+                <span>{row.name}</span>
               </div>
-              <span className={`gp-badge ${row.status === "Checked Out" ? "success" : "muted"}`}>
-                {row.status === "Checked Out" ? "Completed" : row.status}
+              <span
+                className={`ad-tag ${
+                  row.status === "Checked Out" || row.status === "Approved"
+                    ? "ad-tag-ok"
+                    : row.status === "Rejected"
+                      ? "ad-tag-bad"
+                      : "ad-tag-warn"
+                }`}
+              >
+                {row.status === "Checked Out" ? "Done" : row.status || "—"}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );

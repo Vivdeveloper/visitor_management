@@ -1,37 +1,92 @@
 /**
- * GatePass design tokens — see ../../DESIGN.md
- * Indigo · Violet gradient · Green · Orange · White · Soft Gray · Poppins
+ * Precious Alloy VMS tokens — see ../../DESIGN.md
+ * Enterprise primary blue · dark navy · cool surfaces · status accents
+ * No gradients-as-brand, no coral/cream, no violet/pink
  */
 :root {
-  --vms-primary: #4f46e5;
-  --vms-primary-hover: #4338ca;
-  --vms-primary-soft: #eef2ff;
-  --vms-secondary: #7c3aed;
-  --vms-secondary-soft: #f5f3ff;
-  --vms-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --vms-primary: #0a3d91;
+  --vms-primary-hover: #0f4fb5;
+  --vms-primary-soft: #eff6ff;
+  --vms-secondary: #2563eb;
+  --vms-secondary-soft: #eff6ff;
+  --vms-gradient: #0a3d91; /* solid primary — avoid gradient CTAs */
 
   --vms-success: #16a34a;
-  --vms-success-soft: #dcfce7;
+  --vms-success-soft: #ecfdf3;
   --vms-danger: #dc2626;
-  --vms-danger-soft: #fee2e2;
-  --vms-warning: #f59e0b;
-  --vms-warning-soft: #fef3c7;
+  --vms-danger-soft: #fef2f2;
+  --vms-warning: #d97706;
+  --vms-warning-soft: #fff7ed;
+  --vms-info: #2563eb;
+  --vms-info-soft: #eff6ff;
+  --vms-meeting: #4338ca;
 
-  --vms-navy: #0f172a;
+  --vms-navy: #14213d;
   --vms-navy-muted: #1e293b;
 
-  --vms-bg: #f5f7fb;
+  --vms-bg: #f8fafc;
   --vms-surface: #ffffff;
-  --vms-text: #0f172a;
+  --vms-surface-2: #f2f5f8;
+  --vms-text: #1e293b;
   --vms-muted: #64748b;
-  --vms-border: #e2e8f0;
+  --vms-placeholder: #94a3b8;
+  --vms-border: #d9e2ec;
+  --vms-divider: #e8edf2;
+  --vms-input-border: #cbd5e1;
 
-  --vms-radius: 16px;
+  --vms-pass-meta: #94a3b8;
+  --vms-pass-seal: #ffffff;
+  --vms-pass-accent: #94a3b8;
+
+  --vms-radius: 14px;
   --vms-radius-sm: 12px;
   --vms-radius-lg: 20px;
-  --vms-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --vms-btn-height: 52px;
+  --vms-input-height: 54px;
+  --vms-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+  --vms-shadow-btn: 0 10px 25px rgba(10, 61, 145, 0.18);
+  --vms-focus-ring: 0 0 0 4px rgba(10, 61, 145, 0.1);
+  --vms-motion: 150ms ease-in-out;
 
-  --vms-font: "Poppins", system-ui, sans-serif;
+  --vms-font: Helvetica, "Helvetica Neue", Arial, sans-serif;
+  --vms-title-lg: 1.75rem;
+  --vms-title-section: 1.25rem;
+  --vms-title-card: 1.125rem;
+  --vms-body: 0.9375rem;
+  --vms-caption: 0.8125rem;
+
+  --bg: var(--vms-bg);
+  --surface: var(--vms-surface);
+  --text: var(--vms-text);
+  --muted: var(--vms-muted);
+  --accent: var(--vms-primary);
+  --border: var(--vms-border);
+}
+
+/* Pure black dark theme — not blue/AI glass */
+:root[data-theme="dark"] {
+  --vms-primary: #5b8def;
+  --vms-primary-hover: #7aa2f5;
+  --vms-primary-soft: #141414;
+  --vms-secondary: #8ab4ff;
+  --vms-secondary-soft: #141414;
+
+  --vms-navy: #f5f5f5;
+  --vms-navy-muted: #d4d4d4;
+
+  --vms-bg: #000000;
+  --vms-surface: #0a0a0a;
+  --vms-surface-2: #141414;
+  --vms-text: #f5f5f5;
+  --vms-muted: #a3a3a3;
+  --vms-placeholder: #737373;
+  --vms-border: #262626;
+  --vms-divider: #1f1f1f;
+  --vms-input-border: #333333;
+
+  --vms-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+  --vms-shadow-btn: 0 10px 25px rgba(0, 0, 0, 0.45);
+  --vms-focus-ring: 0 0 0 4px rgba(91, 141, 239, 0.2);
 
   --bg: var(--vms-bg);
   --surface: var(--vms-surface);

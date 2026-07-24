@@ -11,8 +11,8 @@ from frappe.utils import add_days, getdate, now_datetime, today
 
 KPI_STATUSES = (
 	"Pending Approval",
-	"Checked In",
 	"Approved",
+	"Checked In",
 	"Meeting Done",
 	"Checked Out",
 	"Rejected",
@@ -85,7 +85,7 @@ def get_kpis(
 	counts["On Premises"] = int(
 		frappe.db.count(
 			"Visitor Entry",
-			{"status": ["in", ["Checked In", "Approved", "Meeting Done"]]},
+			{"status": ["in", ["Checked In", "Meeting Done"]]},
 		)
 		or 0
 	)
@@ -165,7 +165,7 @@ def get_queues(
 	)
 	gate_exit = frappe.get_all(
 		"Visitor Entry",
-		filters={"status": ["in", ["Checked In", "Approved", "Meeting Done"]]},
+		filters={"status": ["in", ["Checked In", "Meeting Done"]]},
 		fields=QUEUE_FIELDS,
 		order_by="modified desc",
 		limit_page_length=50,

@@ -20,7 +20,7 @@ def _validate_pass(token: str) -> dict:
 	doc = frappe.get_doc("Visitor Entry", token)
 	if doc.qr_expires_on and get_datetime(doc.qr_expires_on) < now_datetime():
 		return {"valid": False, "reason": _("Pass has expired"), "pass": _payload(doc)}
-	if doc.status not in ("Checked In", "Approved", "Meeting Done"):
+	if doc.status not in ("Checked In", "Meeting Done"):
 		return {"valid": False, "reason": _("Pass not valid for status: {0}").format(doc.status), "pass": _payload(doc)}
 	return {"valid": True, "reason": _("Pass is valid"), "pass": _payload(doc)}
 

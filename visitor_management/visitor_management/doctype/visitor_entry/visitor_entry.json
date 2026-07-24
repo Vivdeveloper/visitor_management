@@ -2,13 +2,14 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "naming_series:",
- "creation": "2026-07-22 15:00:00",
+ "creation": "2026-07-23 15:30:59.666494",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
   "mobile",
   "column_break_contact",
+  "status",
   "otp",
   "otp_verified",
   "email",
@@ -30,41 +31,31 @@
   "section_break_meeting",
   "person_to_meet",
   "person_to_meet_name",
+  "floor",
   "column_break_meeting",
-  "company_id_card",
-  "company_id_card_preview",
+  "transfer_to_user",
+  "approval_remarks",
   "section_break_vehicle",
   "vehicle_type",
   "column_break_cpot",
   "vehicle_number",
-  "section_break_approval",
-  "status",
-  "approval_remarks",
-  "column_break_approval",
-  "floor",
-  "transfer_to_user",
   "section_break_audit",
   "approved_on",
   "rejected_on",
   "cancelled_on",
+  "visit_duration",
   "column_break_audit",
   "completed_on",
   "checked_in_on",
   "checked_out_on",
+  "checked_in_by",
+  "checked_out_by",
   "meeting_done_on",
+  "gate_pass_tab",
   "section_break_pass",
-  "pass_number",
-  "qr_token",
   "qr_expires_on",
   "column_break_pass",
-  "pass_url",
-  "section_break_gate",
-  "check_in",
-  "checked_in_by",
-  "column_break_gate",
-  "check_out",
-  "checked_out_by",
-  "visit_duration"
+  "pass_url"
  ],
  "fields": [
   {
@@ -215,18 +206,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "company_id_card",
-   "fieldtype": "Attach Image",
-   "label": "Company ID Card"
-  },
-  {
-   "fieldname": "company_id_card_preview",
-   "fieldtype": "Image",
-   "label": "Company ID Card Preview",
-   "options": "company_id_card",
-   "read_only": 1
-  },
-  {
    "fieldname": "section_break_vehicle",
    "fieldtype": "Section Break",
    "label": "Vehicle"
@@ -243,28 +222,19 @@
    "label": "Vehicle Number"
   },
   {
-   "fieldname": "section_break_approval",
-   "fieldtype": "Section Break",
-   "label": "Approval"
-  },
-  {
    "default": "Pending Approval",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Pending Approval\nChecked In\nApproved\nMeeting Done\nChecked Out\nRejected\nCancelled\nCompleted",
+   "options": "Pending Approval\nApproved\nChecked In\nMeeting Done\nChecked Out\nRejected\nCancelled",
    "reqd": 1
   },
   {
    "fieldname": "approval_remarks",
    "fieldtype": "Small Text",
    "label": "Approval Remarks"
-  },
-  {
-   "fieldname": "column_break_approval",
-   "fieldtype": "Column Break"
   },
   {
    "depends_on": "eval:doc.transfer_to_user",
@@ -350,34 +320,10 @@
    "read_only": 1
   },
   {
-   "collapsible": 1,
-   "fieldname": "section_break_gate",
-   "fieldtype": "Section Break",
-   "label": "Gate Check-In"
-  },
-  {
-   "fieldname": "check_in",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Check In (Gate)",
-   "read_only": 1
-  },
-  {
    "fieldname": "checked_in_by",
    "fieldtype": "Link",
    "label": "Checked In By",
    "options": "User",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_gate",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "check_out",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Check Out (Gate)",
    "read_only": 1
   },
   {
@@ -403,12 +349,18 @@
   {
    "fieldname": "column_break_cpot",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gate_pass_tab",
+   "fieldtype": "Tab Break",
+   "label": "Gate Pass"
   }
  ],
  "image_field": "photo",
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-23 11:16:02.203248",
+ "make_attachments_public": 1,
+ "modified": "2026-07-24 15:14:01.322002",
  "modified_by": "Administrator",
  "module": "Visitor Management",
  "name": "Visitor Entry",

@@ -15,8 +15,8 @@ ROLES = (
 
 VISITOR_STATUSES = (
 	"Pending Approval",
-	"Checked In",
 	"Approved",
+	"Checked In",
 	"Meeting Done",
 	"Checked Out",
 	"Rejected",

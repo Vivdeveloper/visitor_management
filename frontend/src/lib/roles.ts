@@ -32,17 +32,16 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
 export type MobileTab = {
   to: string;
   label: string;
-  icon: "home" | "checkin" | "scan" | "inside" | "history";
+  icon: "home" | "checkin" | "scan" | "inside" | "history" | "pass" | "reports" | "more" | "approvals";
   fab?: boolean;
 };
 
-/** GatePass bottom nav */
 export function mobileTabsFor(_mode: VmsMode): MobileTab[] {
   return [
     { to: "/", label: "Home", icon: "home" },
-    { to: "/check-in", label: "Check-in", icon: "checkin" },
-    { to: "/scan", label: "Scan QR", icon: "scan", fab: true },
-    { to: "/inside", label: "Inside", icon: "inside" },
-    { to: "/history", label: "History", icon: "history" },
+    { to: "/inside", label: "Visitors", icon: "inside" },
+    { to: "/check-in", label: "Add Entry", icon: "checkin", fab: true },
+    { to: "/approvals", label: "Pending", icon: "approvals" },
+    { to: "/analytics", label: "Reports", icon: "reports" },
   ];
 }

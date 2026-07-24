@@ -2,15 +2,17 @@ import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
+import { extractError } from "@/lib/format";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
-/** PWA OTP login. */
+/** PWA login — ERPNext username/email + password only. */
 export function MobileLoginPage() {
   const navigate = useNavigate();
   const { isAuthenticated, setProfile, loading, user } = useAuth();
-  const [step, setStep] = useState<"mobile" | "otp">("mobile");
-  const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState("");
-  const [devOtp, setDevOtp] = useState<string | null>(null);
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,124 +21,118 @@ export function MobileLoginPage() {
     return <Navigate to="/" replace />;
   }
 
-  async function onSendOtp(e: FormEvent) {
+  async function onPasswordLogin(e: FormEvent) {
     e.preventDefault();
+    if (!username.trim() || !password) {
+      setError("Please enter your ERPNext Username/Email and Password.");
+      return;
+    }
     setError(null);
     setMessage(null);
-    setDevOtp(null);
     setBusy(true);
     try {
-      const res = await authApi.sendOtp(mobile, "login");
-      setMessage(res.message || "OTP sent");
-      if (res.otp) {
-        setDevOtp(res.otp);
-        setOtp(res.otp);
-      }
-      setStep("otp");
-    } catch (err: unknown) {
-      setError(extractError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onVerifyOtp(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBusy(true);
-    try {
-      const res = await authApi.verifyOtp(mobile, otp, "login");
+      const res = await authApi.loginWithPassword(username.trim(), password);
       setProfile({
         ...res,
         verified: true,
-        mobile: res.mobile || mobile,
+        authenticated: true,
       });
       navigate("/", { replace: true });
     } catch (err: unknown) {
-      setError(extractError(err));
+      setError(extractError(err, "Invalid ERPNext username or password"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="login-page m-login">
-      <div className="login-card">
-        <h1>Visitor Management</h1>
-        <p className="login-sub">Sign in with mobile OTP</p>
+    <div className="vm-home-page">
+      <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "0.5rem 0.25rem 0" }}>
+        <button type="button" className="vm-back-btn" onClick={() => navigate(-1)} aria-label="Back">
+          ‹
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "var(--vms-primary-soft)", padding: "0.35rem 0.85rem", borderRadius: "20px" }}>
+          <span style={{ color: "var(--vms-primary)", fontWeight: 800, fontSize: "0.85rem" }}>ERPNext Sign In</span>
+        </div>
+        <div style={{ width: "24px" }} />
+      </header>
 
-        {step === "mobile" ? (
-          <form onSubmit={onSendOtp} className="login-form">
-            <label htmlFor="mobile">Mobile number</label>
-            <input
-              id="mobile"
-              name="mobile"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="10-digit mobile"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              required
-            />
-            <button type="submit" disabled={busy}>
-              {busy ? "Sending…" : "Send OTP"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={onVerifyOtp} className="login-form">
-            <label htmlFor="otp">OTP sent to {mobile}</label>
-            <input
-              id="otp"
-              name="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="6-digit OTP"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-            />
-            {devOtp ? <p className="dev-otp">Dev OTP: {devOtp}</p> : null}
-            <button type="submit" disabled={busy}>
-              {busy ? "Verifying…" : "Verify & Continue"}
-            </button>
-            <button
-              type="button"
-              className="linkish"
-              disabled={busy}
-              onClick={() => {
-                setStep("mobile");
-                setOtp("");
-                setDevOtp(null);
-              }}
-            >
-              Change mobile
-            </button>
-          </form>
-        )}
+      <main
+        className="vm-main-body"
+        style={{
+          background: "var(--vms-surface)",
+          borderRadius: "24px",
+          padding: "1.5rem 1.25rem",
+          border: "1px solid var(--vms-border)",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.04)",
+          marginTop: "0.75rem",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
+          <BrandLogo variant="full" className="welcome-wordmark" />
+          <h1 className="vm-page-title" style={{ fontSize: "1.35rem", marginTop: "0.85rem" }}>
+            Sign In to Precious Alloys
+          </h1>
+          <p style={{ color: "var(--vms-muted)", fontSize: "0.85rem", margin: "0.3rem 0 0" }}>
+            Use your ERPNext username or email and password
+          </p>
+        </div>
 
-        {message ? <p className="login-msg">{message}</p> : null}
-        {error ? <p className="login-error">{error}</p> : null}
-      </div>
+        <form onSubmit={onPasswordLogin} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          <div className="vm-form-group">
+            <label className="vm-form-label">ERPNext Username / Email *</label>
+            <input
+              type="text"
+              className="vm-input-field"
+              placeholder="Administrator or user@company.com"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoCapitalize="none"
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="vm-form-group">
+            <label className="vm-form-label">Password *</label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="vm-input-field"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                style={{
+                  position: "absolute",
+                  right: "0.85rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  fontSize: "0.85rem",
+                  color: "var(--vms-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+
+          {error ? <p className="login-error">{error}</p> : null}
+          {message ? <p className="login-msg">{message}</p> : null}
+
+          <button type="submit" className="vm-btn-primary" disabled={busy}>
+            {busy ? "Signing in…" : "Sign In with ERPNext"}
+          </button>
+        </form>
+      </main>
     </div>
   );
-}
-
-function extractError(err: unknown): string {
-  if (typeof err === "object" && err && "response" in err) {
-    const response = (err as { response?: { data?: { message?: string; _server_messages?: string } } })
-      .response;
-    const data = response?.data;
-    if (data?._server_messages) {
-      try {
-        const parsed = JSON.parse(data._server_messages);
-        const first = typeof parsed[0] === "string" ? JSON.parse(parsed[0]) : parsed[0];
-        if (first?.message) return String(first.message);
-      } catch {
-        /* fall through */
-      }
-    }
-    if (data?.message) return String(data.message);
-  }
-  if (err instanceof Error) return err.message;
-  return "Something went wrong";
 }

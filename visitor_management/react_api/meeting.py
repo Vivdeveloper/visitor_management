@@ -14,8 +14,8 @@ def start_meeting(visitor_entry: str | None = None, remarks: str | None = None) 
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
 	doc = frappe.get_doc("Visitor Entry", visitor_entry)
-	if doc.status != "Approved":
-		frappe.throw(_("Meeting can only start after approval."))
+	if doc.status != "Checked In":
+		frappe.throw(_("Meeting can only start after check-in."))
 	return {"success": True, "name": doc.name, "status": doc.status, "message": _("Ready for meeting.")}
 
 

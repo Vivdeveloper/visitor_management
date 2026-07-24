@@ -15,7 +15,7 @@ def get_settings() -> dict:
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_masters() -> dict:
 	"""Master data needed by registration forms."""
 	def active_list(doctype: str, fields: list[str], order_by: str = "modified desc"):
@@ -49,3 +49,31 @@ def get_masters() -> dict:
 		),
 		"security_shifts": active_list("Security Shift", ["name", "shift_name", "start_time", "end_time"]),
 	}
+
+
+@frappe.whitelist(allow_guest=True)
+def get_hosts() -> list:
+	"""Fetch enabled Frappe / ERPNext users for the Person to Meet dropdown."""
+	users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User"},
+		fields=["name", "full_name", "first_name", "last_name", "email"],
+		order_by="first_name asc",
+		limit_page_length=200,
+	)
+	if not users:
+		users = frappe.get_all(
+			"User",
+			filters={"enabled": 1},
+			fields=["name", "full_name", "first_name", "last_name", "email"],
+			order_by="first_name asc",
+			limit_page_length=100,
+		)
+	return [
+		{
+			"value": u["name"],
+			"label": u.get("full_name") or f"{u.get('first_name') or ''} {u.get('last_name') or ''}".strip() or u["name"],
+			"email": u.get("email") or u["name"],
+		}
+		for u in users
+	]

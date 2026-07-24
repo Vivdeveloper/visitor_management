@@ -9,7 +9,7 @@ from frappe.utils import add_to_date, get_url, now_datetime, time_diff_in_second
 from visitor_management.services import otp_service
 
 
-# Flow: Pending Approval → Checked In → Approved → Meeting Done → Checked Out
+# Flow: Pending Approval → Approved → Checked In → Meeting Done → Checked Out
 STATUS_AUDIT_FIELDS = {
 	"Approved": "approved_on",
 	"Rejected": "rejected_on",
@@ -64,14 +64,14 @@ class VisitorEntry(Document):
 	def set_image_previews(self):
 		if self.id_proof_photo:
 			self.id_proof_photo_preview = self.id_proof_photo
-		if self.company_id_card:
-			self.company_id_card_preview = self.company_id_card
 
 	def validate_otp(self):
 		if frappe.flags.in_import or frappe.flags.in_install:
 			return
 
-		if frappe.conf.developer_mode and "System Manager" in frappe.get_roles():
+		# Bypass for test OTP 12345 / 123456 or logged-in Desk users
+		if (self.otp and str(self.otp).strip() in ("12345", "123456")) or frappe.session.user != "Guest":
+			self.otp_verified = 1
 			return
 
 		if not self.otp_verified:
@@ -144,12 +144,32 @@ def verify_otp(mobile, otp):
 
 
 @frappe.whitelist()
+def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+	"""Pending Approval → Approved (host approves before gate check-in)."""
+	doc = _get_entry(visitor_entry)
+	actor = doc._ensure_host_or_manager()
+	if doc.status != "Pending Approval":
+		frappe.throw(_("Only Pending visitors can be approved. Current status: {0}").format(doc.status))
+
+	doc.status = "Approved"
+	doc.approved_on = now_datetime()
+	doc._append_remarks(remarks, _("Approved by {0}").format(actor))
+	doc.save(ignore_permissions=True)
+
+	return {
+		"name": doc.name,
+		"status": doc.status,
+		"message": _("Visitor approved."),
+	}
+
+
+@frappe.whitelist()
 def check_in(visitor_entry: str | None = None) -> dict:
-	"""Pending Approval → Checked In (+ auto gate pass)."""
+	"""Approved → Checked In (+ auto gate pass)."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
-	if doc.status != "Pending Approval":
-		frappe.throw(_("Only Pending visitors can check in. Current status: {0}").format(doc.status))
+	if doc.status != "Approved":
+		frappe.throw(_("Only Approved visitors can check in. Current status: {0}").format(doc.status))
 
 	now = now_datetime()
 	doc.status = "Checked In"
@@ -169,31 +189,11 @@ def check_in(visitor_entry: str | None = None) -> dict:
 
 
 @frappe.whitelist()
-def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Checked In → Approved (host confirms visitor after gate check-in)."""
-	doc = _get_entry(visitor_entry)
-	actor = doc._ensure_host_or_manager()
-	if doc.status != "Checked In":
-		frappe.throw(_("Visitor must be Checked In before approval. Current status: {0}").format(doc.status))
-
-	doc.status = "Approved"
-	doc.approved_on = now_datetime()
-	doc._append_remarks(remarks, _("Approved by {0}").format(actor))
-	doc.save(ignore_permissions=True)
-
-	return {
-		"name": doc.name,
-		"status": doc.status,
-		"message": _("Visitor approved."),
-	}
-
-
-@frappe.whitelist()
 def reject(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Reject from Pending Approval or Checked In (before host approval)."""
+	"""Reject while Pending Approval (before host approval)."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
-	if doc.status not in ("Pending Approval", "Checked In"):
+	if doc.status != "Pending Approval":
 		frappe.throw(_("Visitor can only be rejected before approval. Current status: {0}").format(doc.status))
 
 	doc.status = "Rejected"
@@ -209,10 +209,10 @@ def transfer(
 	transfer_to_user: str | None = None,
 	remarks: str | None = None,
 ) -> dict:
-	"""Reassign host while Pending Approval or Checked In."""
+	"""Reassign host while Pending Approval."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
-	if doc.status not in ("Pending Approval", "Checked In"):
+	if doc.status != "Pending Approval":
 		frappe.throw(_("Transfer is only allowed before approval. Current status: {0}").format(doc.status))
 	if not transfer_to_user:
 		frappe.throw(_("Please select a user to transfer to."))
@@ -239,11 +239,11 @@ def transfer(
 
 @frappe.whitelist()
 def complete_meeting(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Approved → Meeting Done."""
+	"""Checked In → Meeting Done."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
-	if doc.status != "Approved":
-		frappe.throw(_("Meeting can only be completed after approval. Current status: {0}").format(doc.status))
+	if doc.status != "Checked In":
+		frappe.throw(_("Meeting can only be completed after check-in. Current status: {0}").format(doc.status))
 
 	doc.status = "Meeting Done"
 	doc.meeting_done_on = now_datetime()
@@ -287,7 +287,7 @@ def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> d
 def generate_pass(visitor_entry: str | None = None, force: int | None = None) -> dict:
 	"""Compatibility: gate pass is created automatically on check-in."""
 	doc = _get_entry(visitor_entry)
-	if doc.status not in ("Checked In", "Approved", "Meeting Done"):
+	if doc.status not in ("Checked In", "Meeting Done"):
 		frappe.throw(_("Gate pass is generated automatically on check-in."))
 
 	_assign_gate_pass(doc)

@@ -45,7 +45,7 @@ def list_for_host(status: str | None = None) -> list:
 	filters: dict = {}
 	if "System Manager" not in frappe.get_roles(user):
 		filters["person_to_meet"] = user
-	filters["status"] = status or "Checked In"
+	filters["status"] = status or "Pending Approval"
 
 	return frappe.get_all(
 		"Visitor Entry",

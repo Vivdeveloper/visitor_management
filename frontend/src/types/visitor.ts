@@ -2,9 +2,11 @@ export type VisitorStatus =
   | "Draft"
   | "Pending Approval"
   | "Approved"
-  | "Rejected"
   | "Checked In"
+  | "Meeting Done"
   | "Checked Out"
+  | "Rejected"
+  | "Cancelled"
   | "Expired";
 
 export type VisitorEntry = {

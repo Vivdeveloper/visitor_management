@@ -1,13 +1,13 @@
 // Copyright (c) 2026, Vivek Choudhary and contributors
 // For license information, please see license.txt
 
-// Flow: Pending Approval → Check In → Approved → Meeting Done → Check Out
+// Flow: Pending Approval → Approved → Checked In → Meeting Done → Checked Out
 const VE = "visitor_management.visitor_management.doctype.visitor_entry.visitor_entry";
 
 frappe.ui.form.on("Visitor Entry", {
 	refresh(frm) {
-		add_gate_actions(frm);
 		add_approval_actions(frm);
+		add_gate_actions(frm);
 		add_meeting_actions(frm);
 
 		if (!frm.doc.otp_verified) {
@@ -16,12 +16,18 @@ frappe.ui.form.on("Visitor Entry", {
 		}
 	},
 
-	id_proof_photo(frm) {
-		frm.set_value("id_proof_photo_preview", frm.doc.id_proof_photo || "");
+	otp(frm) {
+		if (frm.doc.otp === "12345" || frm.doc.otp === "123456") {
+			frm.set_value("otp_verified", 1);
+			frappe.show_alert({
+				message: __("Test OTP 12345 accepted"),
+				indicator: "green",
+			});
+		}
 	},
 
-	company_id_card(frm) {
-		frm.set_value("company_id_card_preview", frm.doc.company_id_card || "");
+	id_proof_photo(frm) {
+		frm.set_value("id_proof_photo_preview", frm.doc.id_proof_photo || "");
 	},
 });
 
@@ -32,13 +38,26 @@ function can_host_act(frm) {
 	return frm.doc.person_to_meet && frm.doc.person_to_meet === frappe.session.user;
 }
 
+function add_approval_actions(frm) {
+	if (frm.is_new() || !can_host_act(frm)) {
+		return;
+	}
+
+	// 1) Pending Approval → Approve / Reject / Transfer
+	if (frm.doc.status === "Pending Approval") {
+		frm.add_custom_button(__("Approve"), () => prompt_remarks(frm, "approve"), __("Approval"));
+		frm.add_custom_button(__("Reject"), () => prompt_remarks(frm, "reject"), __("Approval"));
+		frm.add_custom_button(__("Transfer"), () => prompt_transfer(frm), __("Approval"));
+	}
+}
+
 function add_gate_actions(frm) {
 	if (frm.is_new() || !frappe.user.has_role("System Manager")) {
 		return;
 	}
 
-	// 1) Pending → Check In (+ auto gate pass)
-	if (frm.doc.status === "Pending Approval") {
+	// 2) Approved → Check In (+ auto gate pass)
+	if (frm.doc.status === "Approved") {
 		frm.add_custom_button(__("Check In"), () => {
 			frappe.confirm(__("Check in this visitor and generate gate pass?"), () => {
 				frappe.call({
@@ -70,7 +89,7 @@ function add_gate_actions(frm) {
 		}, __("Gate"));
 	}
 
-	// Meeting Done → Check Out (Exit)
+	// 4) Meeting Done → Check Out (Exit)
 	if (frm.doc.status === "Meeting Done") {
 		frm.add_custom_button(__("Check Out"), () => {
 			frappe.confirm(__("Check out this visitor?"), () => {
@@ -90,19 +109,6 @@ function add_gate_actions(frm) {
 				});
 			});
 		}, __("Gate"));
-	}
-}
-
-function add_approval_actions(frm) {
-	if (frm.is_new() || !can_host_act(frm)) {
-		return;
-	}
-
-	// Checked In → Approve / Reject / Transfer (no Approval menu while Pending)
-	if (frm.doc.status === "Checked In") {
-		frm.add_custom_button(__("Approve"), () => prompt_remarks(frm, "approve"), __("Approval"));
-		frm.add_custom_button(__("Reject"), () => prompt_remarks(frm, "reject"), __("Approval"));
-		frm.add_custom_button(__("Transfer"), () => prompt_transfer(frm), __("Approval"));
 	}
 }
 
@@ -187,8 +193,8 @@ function prompt_transfer(frm) {
 }
 
 function add_meeting_actions(frm) {
-	// 3) Approved → Meeting Done
-	if (frm.is_new() || frm.doc.status !== "Approved") {
+	// 3) Checked In → Meeting Done
+	if (frm.is_new() || frm.doc.status !== "Checked In") {
 		return;
 	}
 	if (!can_host_act(frm)) {

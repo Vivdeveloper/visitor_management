@@ -28,7 +28,10 @@ npm install          # first time / when deps change
 npm run build        # also copies PWA sw/manifest into www/
 ```
 
-**Mobile PWA:** open `/vms/m` (installable). Manifest + service worker ship under `/assets/visitor_management/frontend/`.
+**Mobile PWA:** open `/vms/` on Chrome/Edge (Android) or Safari (iOS).  
+- Manifest + icons under `/assets/visitor_management/frontend/`  
+- Service worker: `/vms_sw.js` (scope `/vms/`) — installable home-screen app  
+- **Download App** button on Welcome + More (Profile) triggers the browser install prompt (or iOS Add to Home Screen steps)
 
 Then hard-refresh the browser (or `bench clear-cache`). On deploy, commit the built `public/frontend` files (or run `npm run build` in your CI) so the live site works without a Node server.
 

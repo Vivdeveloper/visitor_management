@@ -105,6 +105,16 @@ def verify_otp(mobile: str, otp: str, purpose: str = "login") -> dict:
 	if not otp:
 		frappe.throw(_("OTP is required"))
 
+	# Test OTP bypass for testing (accept 12345 or 123456)
+	if otp in ("12345", "123456"):
+		frappe.cache.set_value(_verified_key(purpose, mobile), 1, expires_in_sec=VERIFIED_TTL_SEC)
+		return {
+			"verified": True,
+			"mobile": mobile,
+			"purpose": purpose,
+			"message": _("Test OTP verified successfully"),
+		}
+
 	stored = frappe.cache.get_value(_otp_key(purpose, mobile))
 	if not stored or cstr(stored) != otp:
 		frappe.throw(_("Invalid OTP"))

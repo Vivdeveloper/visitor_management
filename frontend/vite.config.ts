@@ -16,18 +16,20 @@ export default defineConfig(({ command }) => ({
 		VitePWA({
 			registerType: "autoUpdate",
 			injectRegister: false,
+			minify: false,
 			includeAssets: ["icons/*.png"],
 			manifest: {
-				name: "Visitor Management",
-				short_name: "VMS",
+				name: "Precious Alloys VMS",
+				short_name: "Precious Alloys",
 				description: "Visitor passes, host approvals, and gate operations",
-				theme_color: "#e11d48",
-				background_color: "#f4f4f5",
+				theme_color: "#0A3D91",
+				background_color: "#F8FAFC",
 				display: "standalone",
 				orientation: "portrait",
 				scope: "/vms/",
-				start_url: "/vms/m",
-				id: "/vms/m",
+				start_url: "/vms/",
+				id: "/vms/",
+				categories: ["business", "productivity"],
 				icons: [
 					{
 						src: "/assets/visitor_management/frontend/icons/icon-192.png",
@@ -50,6 +52,8 @@ export default defineConfig(({ command }) => ({
 				],
 			},
 			workbox: {
+				mode: "development",
+				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
 				navigateFallback: null,
 				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
 				runtimeCaching: [
@@ -90,6 +94,8 @@ export default defineConfig(({ command }) => ({
 	build: {
 		outDir: "../visitor_management/public/frontend",
 		emptyOutDir: true,
+		// esbuild avoids Node 18 crypto crash from rollup terser/workbox path
+		minify: "esbuild",
 		rollupOptions: {
 			output: {
 				entryFileNames: "vms-app.js",
@@ -102,18 +108,31 @@ export default defineConfig(({ command }) => ({
 
 function getProxyOptions() {
 	const config = getCommonSiteConfig();
-	const webserver_port = config ? config.webserver_port : 8000;
-	const default_site = config ? config.default_site : null;
+	const default_site = config?.default_site ?? null;
+	// Prefer VITE_FRAPPE_URL (.env) so local port can differ from common_site_config.
+	const envUrl = process.env.VITE_FRAPPE_URL?.trim();
+	const target =
+		envUrl && /^https?:\/\//.test(envUrl)
+			? envUrl.replace(/\/$/, "")
+			: `http://127.0.0.1:${config?.webserver_port ?? 8000}`;
+	// Always proxy to loopback when possible — site hostnames (e.g. precious.alloys)
+	// often are not in /etc/hosts. Set Host so Frappe multi-tenancy still resolves.
 	return {
 		"^/(app|login|api|assets|files|private)": {
-			target: `http://127.0.0.1:${webserver_port}`,
+			target,
 			ws: true,
-			router(req) {
-				let site_name = String(req.headers.host || "").split(":")[0];
-				if ((site_name === "localhost" || site_name === "127.0.0.1") && default_site) {
-					site_name = default_site;
-				}
-				return `http://${site_name}:${webserver_port}`;
+			changeOrigin: true,
+			configure(proxy) {
+				proxy.on("proxyReq", (proxyReq, req) => {
+					let site_name = String(req.headers.host || "").split(":")[0];
+					if (
+						(site_name === "localhost" || site_name === "127.0.0.1") &&
+						default_site
+					) {
+						site_name = default_site;
+					}
+					proxyReq.setHeader("Host", site_name);
+				});
 			},
 		},
 	};

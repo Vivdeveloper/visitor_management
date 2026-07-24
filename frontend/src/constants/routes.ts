@@ -1,4 +1,5 @@
 export const ROUTES = {
+  welcome: "/welcome",
   login: "/login",
   home: "/",
   checkIn: "/check-in",
@@ -6,6 +7,8 @@ export const ROUTES = {
   inside: "/inside",
   history: "/history",
   approvals: "/approvals",
+  preRegister: "/pre-register",
+  analytics: "/analytics",
   pass: "/pass",
   myPass: "/my-pass",
   profile: "/profile",

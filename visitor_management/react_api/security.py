@@ -45,7 +45,7 @@ def verify_visitor(visitor_entry: str | None = None) -> dict:
 		"host_name": doc.person_to_meet_name,
 		"pass_valid": pass_ok,
 		"pass_reason": validation.get("reason"),
-		"can_check_in": doc.status == "Pending Approval",
+		"can_check_in": doc.status == "Approved",
 		"can_check_out": doc.status == "Meeting Done",
 	}
 
@@ -55,7 +55,7 @@ def gate_queue() -> list:
 	_ensure_gate()
 	return frappe.get_all(
 		"Visitor Entry",
-		filters={"status": "Pending Approval"},
+		filters={"status": "Approved"},
 		fields=["name", "full_name", "mobile", "person_to_meet_name", "floor", "modified"],
 		order_by="modified desc",
 		limit_page_length=100,
@@ -87,11 +87,10 @@ def exit_queue() -> list:
 @frappe.whitelist()
 def check_in_by_token(token: str | None = None, live_image: str | None = None) -> dict:
 	_ensure_gate()
-	result = _validate_pass(token or "")
-	if not result.get("valid"):
-		frappe.throw(result.get("reason") or _("Invalid QR pass"))
-	visitor_entry = (result.get("pass") or {}).get("visitor_entry")
-	return {"success": True, **ve.check_in(visitor_entry)}
+	token = (token or "").strip()
+	if not token or not frappe.db.exists("Visitor Entry", token):
+		frappe.throw(_("Invalid visitor token"))
+	return {"success": True, **ve.check_in(token)}
 
 
 @frappe.whitelist()

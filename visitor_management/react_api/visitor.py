@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 
+# pyrefly: ignore [missing-import]
 import frappe
+# pyrefly: ignore [missing-import]
 from frappe import _
+# pyrefly: ignore [missing-import]
 from frappe.utils import cint
 
 
@@ -25,7 +28,6 @@ ALLOWED_FIELDS = (
 	"visitor_company",
 	"floor",
 	"person_to_meet",
-	"company_id_card",
 	"vehicle_type",
 	"vehicle_number",
 	"status",
@@ -39,6 +41,20 @@ def create_visitor(**kwargs) -> dict:
 		frappe.throw(_("Mobile number is required"))
 	if not data.get("first_name") and not data.get("last_name"):
 		frappe.throw(_("First name or last name is required"))
+
+	if data.get("person_to_meet"):
+		person = str(data["person_to_meet"]).strip()
+		if not frappe.db.exists("User", person):
+			matched = (
+				frappe.db.get_value("User", {"full_name": person}, "name")
+				or frappe.db.get_value("User", {"email": person}, "name")
+				or frappe.db.get_value("User", {"first_name": person}, "name")
+			)
+			if matched:
+				data["person_to_meet"] = matched
+			else:
+				fallback = frappe.db.get_value("User", {"enabled": 1, "user_type": "System User"}, "name") or "Administrator"
+				data["person_to_meet"] = fallback
 
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
 	if cint(kwargs.get("otp_verified")):

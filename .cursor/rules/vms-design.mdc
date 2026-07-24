@@ -1,40 +1,41 @@
 ---
-description: GatePass PWA must follow DESIGN.md (indigo gradient, Poppins)
+description: Frontend-only React UI/UX — enterprise Precious Alloy design system
 globs:
   - frontend/**/*
   - visitor_management/www/**
-alwaysApply: false
+alwaysApply: true
 ---
 
-# GatePass Visitor Management UI
+# Precious Alloy VMS — Design Phase
 
-Before designing or changing UI, read and follow `/DESIGN.md`.
+While designing this app, work **frontend only**. Do not expand into backend work.
+
+## Hard constraints
+
+- **React UI/UX only** — redesign screens with the new design language; keep functionality the same
+- **No new backend fields** — no DocType / Custom Field / schema changes
+- **No custom APIs** — use existing Frappe / `react_api` methods only
+- Do **not** change ERPNext or Frappe core app code
 
 ## Design system (required)
 
-- Primary: Indigo `#4F46E5`
-- Gradient end: Violet `#7C3AED`
-- Success: Green `#16A34A`
-- Warning: Orange `#F59E0B`
-- Danger: Red `#DC2626`
-- Surfaces: White / Soft Gray `#F5F7FB`
-- Text: Slate `#0F172A`
-- Font: Poppins
-- Cards: 14–18px radius, soft shadow
-- Feel: GatePass mobile ops (dashboard · check-in · QR pass · approvals)
+Follow `/DESIGN.md` and `frontend/src/styles/tokens.css`.
 
-Use CSS tokens in `frontend/src/styles/tokens.css`. Do **not** use the old red/pink brand.
+- Company: **Precious Alloy Components Pvt. Ltd.**
+- Logo: only `BrandLogo` → light/dark wordmark + icon under `public/brand/` (theme-aware)
+- Welcome splash is **inside Add Visitor /check-in**, not login
+- Feel: premium industrial enterprise (Fluent / Fiori / Honeywell-like) — not startup
+- Primary `#0A3D91` · Hover `#0F4FB5` · Dark navy `#14213D` · Bg `#F8FAFC` · Surface white
+- Status: Pending amber · Approved green · Checked-in blue · Meeting indigo · Out slate · Rejected red
+- No gradients-as-brand, no violet/pink/coral/cream, no glassmorphism
+- Poppins 400–700 · Lucide icons stroke 2 · cards 20px · primary buttons 52px / 14px radius
+- Gate pass = boarding-pass dark navy card with QR / barcode
 
 ## PWA surfaces
 
-1. Home dashboard — inside count, KPIs, pending, recent, quick actions
-2. Check-in form → auto gate pass
-3. Scan QR — validate / check-in / check-out
-4. Inside visitors + History
-5. Host Approvals · Public Pass · Profile
+Welcome → OTP → Details → Host → Approval → Check-in → Gate pass → Meeting → Checkout  
+Ops: Dashboard · Live visitors · Approvals · Reports · Profile
 
-Bottom nav: **Home · Check-in · Scan QR · Inside · History**
-
-Flow: `Pending → Check-in → Approved → Meeting Done → Check Out`
+Flow: `Pending → Approved → Check-in → Meeting Done → Check Out`
 
 After frontend changes: `cd frontend && npm run build`.

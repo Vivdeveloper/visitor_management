@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.app.json && vite build && node scripts/copy-pwa-www.mjs",
+    "build": "tsc --noEmit -p tsconfig.app.json && node scripts/vite-build.mjs && node scripts/copy-pwa-www.mjs",
     "preview": "vite preview",
     "lint": "eslint ."
   },

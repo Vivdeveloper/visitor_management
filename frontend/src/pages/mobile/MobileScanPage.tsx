@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { securityApi } from "@/api/vms";
+import { extractError, initials } from "@/lib/format";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export function MobileScanPage() {
   const [token, setToken] = useState("");
@@ -22,7 +25,7 @@ export function MobileScanPage() {
       setPreview(res);
       setMessage(String(res.message || (res.valid ? "QR valid" : "QR invalid")));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Scan failed");
+      setError(extractError(err, "Scan failed"));
     } finally {
       setBusy(false);
     }
@@ -36,7 +39,7 @@ export function MobileScanPage() {
       setMessage(res.message || "Checked in");
       setPreview(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Check-in failed");
+      setError(extractError(err, "Check-in failed"));
     } finally {
       setBusy(false);
     }
@@ -52,38 +55,43 @@ export function MobileScanPage() {
       setMessage(res.message || "Checked out");
       setPreview(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Check-out failed");
+      setError(extractError(err, "Check-out failed"));
     } finally {
       setBusy(false);
     }
   }
 
   const pass = (preview?.pass || null) as Record<string, unknown> | null;
+  const entryName = String(pass?.visitor_entry || token || "");
 
   return (
-    <section className="m-page">
-      <h1>Scan QR</h1>
-      <p className="m-sub">Paste pass token or Visitor Entry name from the QR link.</p>
+    <section className="m-page ad-page">
+      <div className="ad-dash-top">
+        <h1 className="ad-title">Scan QR</h1>
+      </div>
+      <p className="m-sub">Validate a gate pass, then check in or check out at the desk.</p>
 
-      <form className="gp-form" onSubmit={onScan}>
-        <label>
-          Pass token
+      <form className="ad-form" onSubmit={(e) => void onScan(e)}>
+        <div className="ad-field">
+          <label>Pass token / QR</label>
           <input
+            className="ad-input"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="VE01-00001 or /vms/pass/…"
+            placeholder="Pass no. or /vms/pass/…"
             required
           />
-        </label>
-        <label>
-          Checkout remarks
+        </div>
+        <div className="ad-field">
+          <label>Checkout remarks</label>
           <input
+            className="ad-input"
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
             placeholder="Optional"
           />
-        </label>
-        <button type="submit" className="gp-submit" disabled={busy}>
+        </div>
+        <button type="submit" className="ad-btn" disabled={busy}>
           {busy ? "Scanning…" : "Validate QR"}
         </button>
       </form>
@@ -92,20 +100,40 @@ export function MobileScanPage() {
       {error ? <p className="login-error">{error}</p> : null}
 
       {pass ? (
-        <div className="m-card" style={{ marginTop: "1rem" }}>
-          <div className="m-card-title">{String(pass.full_name || "Visitor")}</div>
-          <div className="m-card-meta">
-            {String(pass.status || "")}
-            {pass.person_to_meet_name ? ` · ${String(pass.person_to_meet_name)}` : ""}
+        <div className="ad-pass">
+          <BrandLogo variant="on-dark" className="ad-pass-logo" />
+          <div className="ad-pass-name">{String(pass.full_name || "Visitor")}</div>
+          <div className="ad-pass-sub">
+            {[pass.visitor_company, pass.status].filter(Boolean).map(String).join(" · ") || "Gate pass"}
           </div>
-          <div className="m-card-actions">
-            <button type="button" className="m-btn primary" disabled={busy} onClick={() => void checkIn()}>
-              Check In
+          <div className="ad-pass-meta-row">
+            <span>Meeting with</span>
+            <span>{String(pass.person_to_meet_name || pass.host_name || "—")}</span>
+          </div>
+          <div className="ad-pass-meta-row">
+            <span>Floor</span>
+            <span>{String(pass.floor || "—")}</span>
+          </div>
+          <div className="ad-pass-meta-row">
+            <span>Pass no.</span>
+            <span>{entryName || "—"}</span>
+          </div>
+          <div className="ad-pass-who">
+            <div className="ad-avatar on-dark">{initials(String(pass.full_name || "V"))}</div>
+          </div>
+          <div className="ad-pass-foot">
+            <button type="button" className="ad-pass-btn" disabled={busy} onClick={() => void checkIn()}>
+              Check in
             </button>
-            <button type="button" className="m-btn success" disabled={busy} onClick={() => void checkOut()}>
-              Check Out
+            <button type="button" className="ad-pass-btn solid" disabled={busy} onClick={() => void checkOut()}>
+              Check out
             </button>
           </div>
+          {entryName ? (
+            <Link className="ad-link" style={{ marginTop: 10, color: "var(--vms-pass-meta)" }} to={`/pass/${encodeURIComponent(entryName)}`}>
+              Open full pass
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </section>

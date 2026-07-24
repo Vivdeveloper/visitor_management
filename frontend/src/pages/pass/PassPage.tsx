@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { passApi, type PublicPassResult } from "@/api/vms";
+import { formatTime, initials } from "@/lib/format";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export function PublicPassPage() {
   const { token = "" } = useParams();
@@ -31,7 +33,7 @@ export function PublicPassPage() {
   if (loading) {
     return (
       <div className="pass-public">
-        <div className="gp-pass-card">Loading pass…</div>
+        <div className="ad-pass">Loading pass…</div>
       </div>
     );
   }
@@ -39,9 +41,12 @@ export function PublicPassPage() {
   if (error || !result) {
     return (
       <div className="pass-public">
-        <div className="gp-pass-card">
-          <h1>Visitor Pass</h1>
-          <p className="login-error">{error || "Pass not found"}</p>
+        <div className="ad-pass">
+          <BrandLogo variant="on-dark" className="ad-pass-logo" />
+          <div className="ad-pass-name">Visitor Pass</div>
+          <p className="login-error" style={{ color: "#fecaca" }}>
+            {error || "Pass not found"}
+          </p>
         </div>
       </div>
     );
@@ -49,92 +54,57 @@ export function PublicPassPage() {
 
   const pass = result.pass;
   const qrTarget = pass?.pass_url || `${window.location.origin}/vms/pass/${token}`;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrTarget)}`;
+  const absolute = qrTarget.startsWith("http") ? qrTarget : `${window.location.origin}${qrTarget}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(absolute)}`;
 
   return (
     <div className="pass-public">
-      <div className="gp-pass-card">
-        <div className="gp-pass-hero">
-          <p className="gp-pass-brand">GatePass</p>
-          {pass?.photo ? (
-            <img className="gp-pass-photo" src={pass.photo} alt={pass.full_name || "Visitor"} />
-          ) : (
-            <div className="gp-avatar lg on-dark">{initials(pass?.full_name || "V")}</div>
-          )}
-          <h1>{pass?.full_name || "Visitor Pass"}</h1>
-          <p className={result.valid ? "gp-pass-ok" : "gp-pass-bad"}>
-            {result.valid ? "Valid pass" : result.reason || "Invalid pass"}
-          </p>
+      <div className="ad-pass ad-pass-public">
+        <BrandLogo variant="on-dark" className="ad-pass-logo" />
+        {pass?.photo ? (
+          <img className="ad-pass-photo" src={pass.photo} alt={pass.full_name || "Visitor"} />
+        ) : (
+          <div className="ad-avatar lg on-dark" style={{ marginBottom: 10 }}>
+            {initials(pass?.full_name || "V")}
+          </div>
+        )}
+        <div className="ad-pass-name">{pass?.full_name || "Visitor Pass"}</div>
+        <div className="ad-pass-sub">
+          {[pass?.visitor_company, result.valid ? "Valid pass" : result.reason || "Invalid"].filter(Boolean).join(" · ")}
         </div>
-
-        <dl className="gp-pass-meta">
-          <div>
-            <dt>Company</dt>
-            <dd>{pass?.visitor_company || "—"}</dd>
-          </div>
-          <div>
-            <dt>Host</dt>
-            <dd>{pass?.person_to_meet_name || pass?.host_name || "—"}</dd>
-          </div>
-          <div>
-            <dt>Floor</dt>
-            <dd>{pass?.floor || "—"}</dd>
-          </div>
-          <div>
-            <dt>Pass No.</dt>
-            <dd>{pass?.visitor_entry || token}</dd>
-          </div>
-          <div>
-            <dt>Expires</dt>
-            <dd>{formatDt(pass?.qr_expires_on)}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{pass?.status || "—"}</dd>
-          </div>
-        </dl>
-
-        <div className="pass-qr-wrap">
-          <img className="pass-qr" src={qrSrc} alt="Visitor QR code" width={220} height={220} />
-          <p className="pass-hint">Show this QR at the gate</p>
+        <div className="ad-pass-meta-row">
+          <span>Meeting with</span>
+          <span>{pass?.person_to_meet_name || pass?.host_name || "—"}</span>
         </div>
-
-        <div className="m-card-actions">
+        <div className="ad-pass-meta-row">
+          <span>Floor</span>
+          <span>{pass?.floor || "—"}</span>
+        </div>
+        <div className="ad-pass-meta-row">
+          <span>Status</span>
+          <span>{pass?.status || "—"}</span>
+        </div>
+        <img className="ad-pass-qr" src={qrSrc} alt="Visitor QR code" width={140} height={140} />
+        <p className="ad-pass-note">
+          Pass no. {pass?.visitor_entry || token}
+          {pass?.qr_expires_on ? ` · Valid till ${formatTime(pass.qr_expires_on)}` : ""}
+        </p>
+        <div className="ad-pass-foot">
           <button
             type="button"
-            className="m-btn primary"
+            className="ad-pass-btn"
             onClick={() => {
-              if (navigator.share) {
-                void navigator.share({ title: "Visitor Pass", url: qrTarget });
-              } else {
-                void navigator.clipboard?.writeText(qrTarget);
-              }
+              if (navigator.share) void navigator.share({ title: "Visitor Pass", url: absolute });
+              else void navigator.clipboard?.writeText(absolute);
             }}
           >
-            Share Pass
+            Share
           </button>
-          <button type="button" className="m-btn" onClick={() => window.print()}>
-            Print Pass
+          <button type="button" className="ad-pass-btn solid" onClick={() => window.print()}>
+            Print
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || "")
-    .join("");
-}
-
-function formatDt(value?: string | null) {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return String(value);
-  }
 }
