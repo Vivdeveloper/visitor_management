@@ -17,11 +17,13 @@ import {
   type ActiveHostAlert,
   type HostAlertPayload,
   fireHostAlertFeedback,
+  primeHostAlertAudio,
   pushHostAlertNotification,
   startHostAlertReminders,
   stopAllHostAlertReminders,
   stopHostAlertReminders,
 } from "@/services/hostAlertManager";
+import { getVmsSocket } from "@/services/vmsSocket";
 import { requestNotificationPermission } from "@/native/services/notifications";
 
 type HostAlertContextValue = {
@@ -127,6 +129,24 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     },
     Boolean(user?.user),
   );
+
+  useEffect(() => {
+    if (!user?.user) return;
+
+    void requestNotificationPermission();
+    getVmsSocket();
+
+    const primeFeedback = () => {
+      primeHostAlertAudio();
+    };
+    document.addEventListener("pointerdown", primeFeedback, { once: true });
+    document.addEventListener("keydown", primeFeedback, { once: true });
+
+    return () => {
+      document.removeEventListener("pointerdown", primeFeedback);
+      document.removeEventListener("keydown", primeFeedback);
+    };
+  }, [user?.user]);
 
   useEffect(() => {
     return () => {

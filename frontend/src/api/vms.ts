@@ -74,6 +74,9 @@ function extractApiError(err: unknown): string {
     if (ax.response?.status === 417) {
       return "Server rejected the request (invalid field or value). Refresh and try again.";
     }
+    if (ax.response?.status === 502 || ax.response?.status === 503 || ax.response?.status === 530) {
+      return "Server is unreachable. Check your network connection and that Frappe / socket.io are running, then try again.";
+    }
     if (ax.message) return ax.message;
   }
   if (err instanceof Error) return err.message;
@@ -266,7 +269,9 @@ export const approvalApi = {
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
   notifyHost: (visitor_entry: string, message?: string) =>
-    callMethod<{ success?: boolean; host_name?: string; host_user?: string }>("approval.notify_host", {
+    callMethod<{ success?: boolean; host_name?: string; host_user?: string; realtime_sent?: boolean }>(
+      "approval.notify_host",
+      {
       visitor_entry,
       message,
     }),

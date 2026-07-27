@@ -153,10 +153,15 @@ export async function cancelHostAlertNotifications(ids: number[]): Promise<void>
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (isNativePlatform()) {
-    const perm = await PushNotifications.requestPermissions();
-    return perm.receive === "granted";
+    const [pushPerm, localPerm] = await Promise.all([
+      PushNotifications.requestPermissions(),
+      LocalNotifications.requestPermissions(),
+    ]);
+    return pushPerm.receive === "granted" || localPerm.display === "granted";
   }
   if (!("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
   const perm = await Notification.requestPermission();
   return perm === "granted";
 }

@@ -51,12 +51,21 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
+/** Unlock Web Audio after a user gesture so alert tones can play later. */
+export function primeHostAlertAudio(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "running") return;
+  void ctx.resume().catch(() => undefined);
+}
+
 /** Two-tone delivery-app style alert using Web Audio (no asset file). */
 export function playHostAlertSound(): void {
+  primeHostAlertAudio();
   const ctx = getAudioContext();
   if (!ctx) return;
 
-  void ctx.resume().then(() => {
+  const playTones = () => {
     const now = ctx.currentTime;
     const tones = [
       { freq: 880, start: 0, duration: 0.14 },
@@ -77,7 +86,14 @@ export function playHostAlertSound(): void {
       osc.start(now + start);
       osc.stop(now + start + duration + 0.02);
     });
-  });
+  };
+
+  if (ctx.state === "running") {
+    playTones();
+    return;
+  }
+
+  void ctx.resume().then(playTones).catch(() => undefined);
 }
 
 export async function triggerHostAlertHaptic(): Promise<void> {

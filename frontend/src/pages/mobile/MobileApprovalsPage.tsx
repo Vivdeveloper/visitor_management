@@ -176,10 +176,15 @@ export function MobileApprovalsPage() {
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     try {
       const res = await approvalApi.notifyHost(item.name);
+      const deliveredLive = res.realtime_sent !== false;
       setToast({
         id: Date.now().toString(),
-        title: `Notification Pushed to ${res.host_name || host}`,
-        message: `Push notification sent to ${res.host_name || host} for visitor ${item.full_name || item.name} (${time}).`,
+        title: deliveredLive
+          ? `Notification pushed to ${res.host_name || host}`
+          : `Alert logged for ${res.host_name || host}`,
+        message: deliveredLive
+          ? `Live alert sent to ${res.host_name || host} for visitor ${item.full_name || item.name} (${time}).`
+          : `Notification saved for ${res.host_name || host}, but live push failed. Ask the host to refresh the app and ensure socket.io is running.`,
         hostName: res.host_name || host,
         time,
       });

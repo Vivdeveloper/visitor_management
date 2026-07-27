@@ -109,7 +109,7 @@ define(['./workbox-60fee754'], (function (workbox) { 'use strict';
     "revision": "972e0b6c2d99396a2b235af6c1e633b5"
   }, {
     "url": "vms-app.js",
-    "revision": "20fa46827deb20bce61d18c3d87287e9"
+    "revision": "68aa4343bb09e7de2389a00101d6e18f"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

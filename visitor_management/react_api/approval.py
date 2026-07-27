@@ -24,6 +24,7 @@ def _resolve_host_user(raw: str | None) -> str | None:
 		frappe.db.get_value("User", {"full_name": person, "enabled": 1}, "name")
 		or frappe.db.get_value("User", {"email": person, "enabled": 1}, "name")
 		or frappe.db.get_value("User", {"first_name": person, "enabled": 1}, "name")
+		or frappe.db.get_value("User", {"mobile_no": person, "enabled": 1}, "name")
 	)
 
 
@@ -68,8 +69,16 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 	host_name = doc.person_to_meet_name or host_user
 	visitor_name = doc.full_name or doc.name
 	alert_message = message or _("Visitor {0} is waiting at the gate").format(visitor_name)
+	payload = {
+		"visitor_entry": visitor_entry,
+		"visitor_name": visitor_name,
+		"host": host_name,
+		"host_user": host_user,
+		"message": alert_message,
+	}
 
 	notification_logged = False
+	realtime_sent = False
 	try:
 		frappe.get_doc(
 			{
@@ -88,21 +97,13 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 		frappe.log_error(title="VMS notify_host Notification Log failed")
 
 	try:
-		publish_vms_event(
-			"host_notified",
-			{
-				"visitor_entry": visitor_entry,
-				"visitor_name": visitor_name,
-				"host": host_name,
-				"host_user": host_user,
-				"message": alert_message,
-			},
-			user=host_user,
-		)
-	except Exception as exc:
+		publish_vms_event("host_notified", payload, user=host_user)
+		realtime_sent = True
+	except Exception:
 		frappe.log_error(title="VMS notify_host realtime publish failed")
-		if not notification_logged:
-			frappe.throw(_("Could not deliver host alert. Please try again."))
+
+	if not notification_logged and not realtime_sent:
+		frappe.throw(_("Could not deliver host alert. Check socket.io / redis and try again."))
 
 	return {
 		"success": True,
@@ -111,6 +112,7 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 		"host_user": host_user,
 		"visitor_entry": visitor_entry,
 		"notification_logged": notification_logged,
+		"realtime_sent": realtime_sent,
 	}
 
 
