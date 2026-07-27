@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { visitorApi } from "@/api/vms";
+import { frappeGetList, visitorApi } from "@/api/vms";
 import { extractError, formatDate, formatTime } from "@/lib/format";
 import { HeaderBar } from "@/components/common/HeaderBar";
 
@@ -11,15 +11,22 @@ type VisitorDoc = {
   email?: string;
   status?: string;
   visitor_company?: string;
+  person_to_meet?: string;
   person_to_meet_name?: string;
   visit_purpose_type?: string;
   floor?: string;
   check_in?: string;
   checked_in_on?: string;
   check_out?: string;
+  checked_out_on?: string;
+  checked_in_by?: string;
+  checked_out_by?: string;
+  meeting_done_on?: string;
   creation?: string;
   modified?: string;
 };
+
+type UserRow = { name: string; full_name?: string };
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -30,10 +37,29 @@ function Field({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+async function resolveUserFullName(userId?: string | null): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const rows = await frappeGetList<UserRow>({
+      doctype: "User",
+      fields: ["name", "full_name"],
+      filters: { name: userId },
+      limit_page_length: 1,
+    });
+    const row = rows[0];
+    return row?.full_name || row?.name || userId;
+  } catch {
+    return userId;
+  }
+}
+
 export function MobileVisitorDetailPage() {
   const { name: routeName = "" } = useParams();
   const navigate = useNavigate();
   const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
+  const [gateOperator, setGateOperator] = useState<string | undefined>();
+  const [exitVerifiedBy, setExitVerifiedBy] = useState<string | undefined>();
+  const [hostCompleted, setHostCompleted] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +71,26 @@ export function MobileVisitorDetailPage() {
       setError(null);
       try {
         const doc = (await visitorApi.get(routeName)) as VisitorDoc;
-        if (!cancelled) setVisitor(doc);
+        if (cancelled) return;
+        setVisitor(doc);
+
+        const [inBy, outBy] = await Promise.all([
+          resolveUserFullName(doc.checked_in_by),
+          resolveUserFullName(doc.checked_out_by),
+        ]);
+        if (cancelled) return;
+        setGateOperator(inBy);
+        setExitVerifiedBy(outBy);
+
+        if (doc.meeting_done_on) {
+          setHostCompleted(
+            doc.person_to_meet_name ||
+              (await resolveUserFullName(doc.person_to_meet)) ||
+              undefined,
+          );
+        } else {
+          setHostCompleted(undefined);
+        }
       } catch (err: unknown) {
         if (!cancelled) setError(extractError(err, "Visitor not found"));
       } finally {
@@ -69,16 +114,15 @@ export function MobileVisitorDetailPage() {
       {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
 
       {!loading && visitor ? (
-        <main className="vm-main-body" style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-          <div className="vm-overview-card" style={{ padding: "1.15rem" }}>
+        <main className="vm-main-body vm-detail-stack">
+          <div className="vm-overview-card vm-detail-hero">
             <p className="vm-detail-kicker">{visitor.name}</p>
-            <h1 className="vm-page-title" style={{ fontSize: "1.35rem", margin: "0.15rem 0 0.35rem" }}>
-              {visitor.full_name || visitor.name}
-            </h1>
+            <h1 className="vm-page-title">{visitor.full_name || visitor.name}</h1>
             <span className="vm-status-pill">{status || "—"}</span>
           </div>
 
-          <div className="vm-overview-card" style={{ padding: "1rem" }}>
+          <div className="vm-overview-card vm-detail-card">
+            <h2 className="vm-section-title">Visit</h2>
             <Field label="Mobile" value={visitor.mobile} />
             <Field label="Company" value={visitor.visitor_company} />
             <Field label="Person to meet" value={visitor.person_to_meet_name} />
@@ -92,26 +136,34 @@ export function MobileVisitorDetailPage() {
                   : undefined
               }
             />
-            <Field label="Created" value={visitor.creation ? `${formatDate(visitor.creation)} · ${formatTime(visitor.creation)}` : undefined} />
+            <Field
+              label="Check-out"
+              value={
+                visitor.check_out || visitor.checked_out_on
+                  ? `${formatDate(visitor.check_out || visitor.checked_out_on)} · ${formatTime(visitor.check_out || visitor.checked_out_on)}`
+                  : undefined
+              }
+            />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
+          <div className="vm-overview-card vm-detail-card">
+            <h2 className="vm-section-title">Operations</h2>
+            <Field label="Gate Operator" value={gateOperator} />
+            <Field label="Exit Verified By" value={exitVerifiedBy} />
+            <Field label="Host Completed" value={hostCompleted} />
+          </div>
+
+          <div className="vm-detail-actions">
             {canCheckout ? (
               <button
                 type="button"
                 className="vm-btn-primary"
-                style={{ width: "100%", height: 52, borderRadius: 14 }}
                 onClick={() => navigate(`/checkout/${encodeURIComponent(visitor.name || routeName)}`)}
               >
                 Go to Check-out
               </button>
             ) : null}
-            <button
-              type="button"
-              className="vm-btn-outline"
-              style={{ width: "100%", height: 48, borderRadius: 14 }}
-              onClick={() => navigate(-1)}
-            >
+            <button type="button" className="vm-btn-outline" onClick={() => navigate(-1)}>
               Back
             </button>
           </div>

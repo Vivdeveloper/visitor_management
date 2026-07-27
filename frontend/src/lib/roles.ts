@@ -39,9 +39,10 @@ export type MobileTab = {
 export function mobileTabsFor(_mode: VmsMode): MobileTab[] {
   return [
     { to: "/", label: "Home", icon: "home" },
-    { to: "/inside", label: "Visitors", icon: "inside" },
-    { to: "/check-in", label: "Add Entry", icon: "checkin", fab: true },
     { to: "/approvals", label: "Pending", icon: "approvals" },
+    { to: "/check-in", label: "Add Entry", icon: "checkin", fab: true },
+    { to: "/inside", label: "History", icon: "history" },
     { to: "/analytics", label: "Reports", icon: "reports" },
   ];
 }
+

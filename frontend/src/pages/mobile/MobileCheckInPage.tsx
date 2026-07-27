@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import {
   authApi,
+  frappeGetList,
   meetingApi,
   passApi,
   securityApi,
   visitorApi,
+  type VisitorListRow,
 } from "@/api/vms";
 import { BrandLogo } from "@/components/ui/BrandLogo";
-import { VisitorWelcomePanel } from "@/pages/mobile/MobileWelcomePage";
 import { VisitorDetailsForm } from "@/components/checkin/VisitorDetailsForm";
 import { JourneyLangSwitcher } from "@/components/checkin/JourneyLangSwitcher";
 import { CheckInSuccessCard } from "@/components/checkin/CheckInSuccessCard";
@@ -17,14 +18,12 @@ import { MeetingInProgressCard } from "@/components/checkin/MeetingInProgressCar
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import {
-  getStoredVisitorLang,
-  setStoredVisitorLang,
   type VisitorLang,
   vt,
 } from "@/i18n/visitorJourney";
+import { useAppLanguage } from "@/context/AppLanguageContext";
 
 type JourneyStep =
-  | "welcome"
   | "mobile"
   | "otp"
   | "details"
@@ -51,6 +50,13 @@ type VisitorDoc = {
   checked_in_on?: string;
   photo?: string;
   qr_expires_on?: string;
+  email?: string;
+  gender?: string;
+  visitor_location?: string;
+  id_proof_type?: string;
+  vehicle_type?: string;
+  vehicle_number?: string;
+  middle_name?: string;
 };
 
 const OTP_LEN = 6;
@@ -69,12 +75,6 @@ function validateMobile(raw: string, lang: VisitorLang): string {
     throw new Error(vt(lang, "err_mobile_start"));
   }
   return last10;
-}
-
-function formatMobileDisplay(mobile: string): string {
-  const m = mobile.slice(-10);
-  if (m.length !== 10) return mobile;
-  return `+91 ${m.slice(0, 5)} ${m.slice(5)}`;
 }
 
 function extractError(err: unknown, lang: VisitorLang): string {
@@ -96,15 +96,16 @@ function formatTime(value?: string): string {
 export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { lang, setLang } = useAppLanguage();
 
-  const [lang, setLang] = useState<VisitorLang>(() => getStoredVisitorLang());
-  const [step, setStep] = useState<JourneyStep>("welcome");
+  const [step, setStep] = useState<JourneyStep>("mobile");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSuccess, setOtpSuccess] = useState(false);
+  const [returningVisitor, setReturningVisitor] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -288,17 +289,102 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     otpRefs.current[focusAt]?.focus();
   }
 
-  async function onSendOtp(e: FormEvent) {
+  async function lookupReturningVisitor(mobile: string): Promise<VisitorListRow | null> {
+    const candidates = [mobile, `91${mobile}`, `+91${mobile}`];
+    try {
+      for (const value of candidates) {
+        const rows = await frappeGetList<VisitorListRow>({
+          doctype: "Visitor Entry",
+          fields: [
+            "name",
+            "full_name",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "mobile",
+            "email",
+            "gender",
+            "visitor_company",
+            "visitor_location",
+            "person_to_meet",
+            "person_to_meet_name",
+            "visit_purpose_type",
+            "id_proof_type",
+            "floor",
+            "vehicle_type",
+            "vehicle_number",
+            "photo",
+            "status",
+            "modified",
+          ],
+          filters: { mobile: value },
+          order_by: "modified desc",
+          limit_page_length: 1,
+        });
+        if (rows[0]) return rows[0];
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function applyReturningVisitor(row: VisitorListRow & Record<string, unknown>) {
+    const first =
+      (row.first_name as string | undefined) ||
+      (row.full_name || "").trim().split(/\s+/)[0] ||
+      "";
+    const parts = (row.full_name || "").trim().split(/\s+/);
+    const last =
+      (row.last_name as string | undefined) ||
+      (parts.length > 1 ? parts[parts.length - 1] : "");
+    const middle =
+      (row.middle_name as string | undefined) ||
+      (parts.length > 2 ? parts.slice(1, -1).join(" ") : "");
+
+    setForm((prev) => ({
+      ...prev,
+      first_name: first,
+      middle_name: middle,
+      last_name: last,
+      email: (row.email as string | undefined) || prev.email,
+      gender: (row.gender as string | undefined) || prev.gender,
+      visitor_company: row.visitor_company || prev.visitor_company,
+      visitor_location: (row.visitor_location as string | undefined) || prev.visitor_location,
+      person_to_meet: (row.person_to_meet as string | undefined) || row.person_to_meet_name || prev.person_to_meet,
+      visit_purpose_type: row.visit_purpose_type || prev.visit_purpose_type,
+      id_proof_type: (row.id_proof_type as string | undefined) || prev.id_proof_type,
+      floor: row.floor || prev.floor,
+      vehicle_type: (row.vehicle_type as string | undefined) || prev.vehicle_type,
+      vehicle_number: (row.vehicle_number as string | undefined) || prev.vehicle_number,
+      mobile: row.mobile || prev.mobile,
+    }));
+
+    if (row.photo) {
+      setPhotoPreview(row.photo.startsWith("http") || row.photo.startsWith("/") ? row.photo : `/${row.photo}`);
+    }
+  }
+
+  async function onContinueMobile(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setMessage(null);
     setDevOtp(null);
+    setReturningVisitor(false);
     setBusy(true);
     try {
       const mobile = validateMobile(form.mobile, lang);
       setField("mobile", mobile);
+
+      const existing = await lookupReturningVisitor(mobile);
+      if (existing) {
+        applyReturningVisitor(existing as VisitorListRow & Record<string, unknown>);
+        setOtpVerified(true);
+        setReturningVisitor(true);
+        setStep("details");
+        return;
+      }
+
       const res = await authApi.sendOtp(mobile, "visitor_registration");
-      setMessage(res.message || "OTP sent");
       if (res.otp) {
         setDevOtp(res.otp);
         setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
@@ -321,7 +407,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     try {
       const mobile = validateMobile(form.mobile, lang);
       const res = await authApi.sendOtp(mobile, "visitor_registration");
-      setMessage(res.message || vt(lang, "otp_resent"));
       if (res.otp) {
         setDevOtp(res.otp);
         setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
@@ -345,10 +430,18 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     try {
       await authApi.verifyOtp(form.mobile, otpValue, "visitor_registration");
       setOtpVerified(true);
-      setMessage(vt(lang, "mobile_verified"));
-      setStep("details");
+      setOtpSuccess(true);
+      setReturningVisitor(false);
+      setTimeout(() => {
+        setStep("details");
+      }, 750);
     } catch (err: unknown) {
-      setError(extractError(err, lang));
+      const raw = extractError(err, lang);
+      if (raw.includes("500") || raw.includes("failed") || raw.includes("Invalid") || raw.includes("status code")) {
+        setError("The OTP code entered is incorrect. Please enter the correct verification code.");
+      } else {
+        setError(raw);
+      }
     } finally {
       setBusy(false);
     }
@@ -370,7 +463,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       setError(vt(lang, "err_person"));
       return;
     }
-    if (!photoFile) {
+    if (!photoFile && !photoPreview) {
       setError(vt(lang, "err_photo"));
       return;
     }
@@ -379,7 +472,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     try {
       const mobile = validateMobile(form.mobile, lang);
-      const photo = await uploadPublicFile(photoFile);
+      let photo: string;
+      if (photoFile) {
+        photo = await uploadPublicFile(photoFile);
+      } else {
+        photo = (photoPreview || "").replace(/^\//, "");
+      }
       let id_proof_photo: string | undefined;
       if (idProofFile) {
         id_proof_photo = await uploadPublicFile(idProofFile);
@@ -426,7 +524,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         },
       );
       setSubmittedAt(new Date().toISOString());
-      setStep("awaiting");
+      try {
+        sessionStorage.setItem("vms_last_submitted_visitor", name);
+      } catch {
+        /* ignore storage errors */
+      }
+      navigate("/approvals", { replace: true });
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -539,39 +642,13 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   const photoUrl = visitor?.photo || photoPreview;
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
 
-  if (step === "welcome") {
-    return (
-      <section className="m-page vj-page vj-welcome-host">
-        <VisitorWelcomePanel
-          lang={lang}
-          onLangChange={(next) => {
-            setStoredVisitorLang(next);
-            setLang(next);
-          }}
-          onGetStarted={() => setStep("mobile")}
-        />
-      </section>
-    );
-  }
-
   return (
-    <section className="m-page vj-page">
+    <section className="m-page vj-page vm-immersive">
       {step === "mobile" ? (
-        <form className="vj-screen vm-verify-screen" onSubmit={(e) => void onSendOtp(e)} lang={lang}>
-          <div className="vm-verify-lang-row">
-            <JourneyLangSwitcher
-              lang={lang}
-              compact
-              onChange={(next) => {
-                setStoredVisitorLang(next);
-                setLang(next);
-              }}
-            />
-          </div>
-          <div className="vm-verify-top">
-            <BrandLogo variant="full" className="vj-welcome-logo" />
-            <h1 className="vj-h2">{vt(lang, "verify_title")}</h1>
-            <p className="vj-p">{vt(lang, "verify_sub")}</p>
+        <form className="vj-screen vm-verify-screen vm-mobile-minimal" onSubmit={(e) => void onContinueMobile(e)} lang={lang}>
+          <div className="vm-login-logo-card">
+            <BrandLogo variant="full" className="welcome-wordmark" alt="Precious Alloys" />
+            <p className="vm-login-subtitle">Visitor Entry & Desk Verification</p>
           </div>
 
           <div className="vj-field vm-verify-field-group">
@@ -583,6 +660,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                 required
                 inputMode="tel"
                 autoComplete="tel"
+                autoFocus
                 placeholder="9876543210"
                 value={form.mobile}
                 onChange={(e) => setField("mobile", e.target.value)}
@@ -597,13 +675,13 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             className={`vj-btn vm-verify-btn${form.mobile.length >= 10 ? " is-active" : " is-disabled"}`}
             disabled={busy || form.mobile.length < 10}
           >
-            {busy ? vt(lang, "sending_otp") : vt(lang, "send_otp")}
+            {busy ? "Please wait…" : "Continue"}
           </button>
         </form>
       ) : null}
 
       {step === "otp" ? (
-        <form className="vj-screen vm-verify-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
+        <form className="vj-screen vm-verify-screen vm-otp-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
           <header className="vm-verify-header">
             <button
               type="button"
@@ -612,30 +690,18 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                 setStep("mobile");
                 setOtpDigits(Array(OTP_LEN).fill(""));
                 setError(null);
-                setMessage(null);
+                setOtpSuccess(false);
               }}
               aria-label="Back to mobile"
             >
               ‹
             </button>
-            <JourneyLangSwitcher
-              lang={lang}
-              compact
-              onChange={(next) => {
-                setStoredVisitorLang(next);
-                setLang(next);
-              }}
-            />
           </header>
 
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
-            <p className="vj-p">
-              {vt(lang, "code_sub")} <strong>{formatMobileDisplay(form.mobile)}</strong>.
-            </p>
           </div>
 
-          {/* 6 OTP Code Boxes */}
           <div className="vm-otp-grid-row" onPaste={(e) => onOtpPaste(e.clipboardData.getData("text"))}>
             {otpDigits.slice(0, 3).map((d, i) => (
               <input
@@ -692,47 +758,45 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </p>
 
           {devOtp ? <p className="dev-otp">Dev OTP: {devOtp}</p> : null}
-          {message ? <p className="login-msg">{message}</p> : null}
+
+          {otpSuccess ? (
+            <div className="vm-otp-success-badge" role="status">
+              <span className="vm-otp-success-check">✓</span>
+              <span>OTP verified successfully! Opening form...</span>
+            </div>
+          ) : null}
+
           {error ? <p className="login-error">{error}</p> : null}
 
           <button
             type="submit"
             className={`vj-btn vm-verify-submit-btn${otpValue.length === OTP_LEN ? " is-active" : " is-disabled"}`}
-            disabled={busy || otpValue.length !== OTP_LEN}
+            disabled={busy || otpValue.length !== OTP_LEN || otpSuccess}
           >
-            {busy ? vt(lang, "verifying") : vt(lang, "verify")}
+            {busy ? vt(lang, "verifying") : otpSuccess ? "Verified ✓" : vt(lang, "verify")}
           </button>
         </form>
       ) : null}
 
       {step === "details" ? (
         <div className="vm-home-page" lang={lang}>
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
-            <button type="button" className="vm-back-btn" onClick={() => setStep("otp")} aria-label="Back">
+          <header className="vm-page-header" style={{ justifyContent: "flex-start", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0", gap: "0.75rem" }}>
+            <button
+              type="button"
+              className="vm-back-btn"
+              onClick={() => setStep(returningVisitor ? "mobile" : "otp")}
+              aria-label="Back"
+            >
               ‹
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#EFF6FF", padding: "0.35rem 0.85rem", borderRadius: "20px" }}>
-              <span style={{ color: "#2563EB", fontWeight: 800, fontSize: "0.85rem" }}>📋 3 {vt(lang, "details_filled")}</span>
-            </div>
-            <JourneyLangSwitcher
-              lang={lang}
-              compact
-              onChange={(next) => {
-                setStoredVisitorLang(next);
-                setLang(next);
-              }}
-            />
+            <h1 className="vj-h2" style={{ margin: 0, fontSize: "1.2rem" }}>Purpose</h1>
           </header>
 
-          <div style={{ display: "flex", gap: "0.35rem", margin: "0.75rem 0.25rem 1.25rem" }}>
-            <div style={{ flex: 1, height: "4px", background: "#2563EB", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#2563EB", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#2563EB", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#E2E8F0", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#E2E8F0", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#E2E8F0", borderRadius: "2px" }} />
-            <div style={{ flex: 1, height: "4px", background: "#E2E8F0", borderRadius: "2px" }} />
-          </div>
+          {returningVisitor ? (
+            <div className="vm-returning-banner" role="status">
+              Returning Visitor Found.
+            </div>
+          ) : null}
 
           <main className="vm-main-body" style={{ background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
             <VisitorDetailsForm
@@ -777,10 +841,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <JourneyLangSwitcher
               lang={lang}
               compact
-              onChange={(next) => {
-                setStoredVisitorLang(next);
-                setLang(next);
-              }}
+              onChange={(next) => setLang(next)}
             />
           </div>
           <span className="vj-tag vj-tag-warn">⏳ {vt(lang, "awaiting_gate")}</span>

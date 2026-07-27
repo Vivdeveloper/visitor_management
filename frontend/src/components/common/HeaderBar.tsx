@@ -7,11 +7,16 @@ import {
 } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { formatTime, initials } from "@/lib/format";
+import { ut } from "@/i18n/uiChrome";
+
+import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToast";
 
 interface HeaderBarProps {
   title?: string;
@@ -54,10 +59,12 @@ export function HeaderBar({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { lang } = useAppLanguage();
   const [popup, setPopup] = useState<PopupKind>("none");
   const [pending, setPending] = useState<DashboardQueueItem[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [actionVisitor, setActionVisitor] = useState<VisitorListRow | null>(null);
+  const [toast, setToast] = useState<ErpToastData | null>(null);
   const rootRef = useRef<HTMLElement>(null);
 
   const photo = resolveUserImage(user?.user_image);
@@ -89,8 +96,10 @@ export function HeaderBar({
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) setPopup("none");
+      const target = e.target as Node | null;
+      if (!rootRef.current || !target) return;
+      if (target instanceof Element && target.closest(".vm-lang-confirm-root")) return;
+      if (!rootRef.current.contains(target)) setPopup("none");
     }
     if (popup !== "none") {
       document.addEventListener("mousedown", onDocClick);
@@ -102,6 +111,7 @@ export function HeaderBar({
 
   return (
     <header className="vm-topbar" ref={rootRef}>
+      <ErpNextToast toast={toast} onClose={() => setToast(null)} />
       <div className="vm-topbar-inner">
         <div className="vm-topbar-brand">
           {showBack ? (
@@ -231,17 +241,56 @@ export function HeaderBar({
                   </div>
 
                   <div className="vm-profile-popup-row">
-                    <span>Theme</span>
+                    <span>{ut(lang, "theme")}</span>
                     <button
                       type="button"
-                      className={`vm-theme-toggle${theme === "dark" ? " is-dark" : ""}`}
+                      className={`vm-theme-glow${theme === "dark" ? " is-dark" : " is-light"}`}
                       onClick={toggleTheme}
                       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
                     >
-                      <span className="vm-theme-toggle-knob" />
-                      <span className="vm-theme-toggle-label">{theme === "dark" ? "Dark" : "Light"}</span>
+                      <span className="vm-theme-glow-track" aria-hidden>
+                        <span className="vm-theme-glow-label">
+                          {theme === "dark" ? ut(lang, "dark").toLowerCase() : ut(lang, "light").toLowerCase()}
+                        </span>
+                      </span>
+                      <span className="vm-theme-glow-knob" aria-hidden>
+                        {theme === "dark" ? (
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                            <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3 7 7 0 1 0 21 14.3Z" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+                            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6" strokeLinecap="round" />
+                          </svg>
+                        )}
+                      </span>
                     </button>
                   </div>
+
+                  <LanguageSwitcher variant="compact" />
+
+                  <button
+                    type="button"
+                    className="vm-profile-popup-action"
+                    onClick={() => {
+                      setPopup("none");
+                      navigate("/meetings");
+                    }}
+                    aria-label={ut(lang, "calendar_view")}
+                  >
+                    <span className="vm-profile-popup-action-icon" aria-hidden>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="5" width="18" height="16" rx="2" />
+                        <path d="M16 3v4M8 3v4M3 11h18" />
+                      </svg>
+                    </span>
+                    <span className="vm-profile-popup-action-copy">
+                      <strong>{ut(lang, "calendar_view")}</strong>
+                      <span>{ut(lang, "todays_schedule")}</span>
+                    </span>
+                    <span className="vm-profile-popup-action-trail" aria-hidden>›</span>
+                  </button>
 
                   <button
                     type="button"
@@ -251,7 +300,7 @@ export function HeaderBar({
                       navigate("/profile");
                     }}
                   >
-                    Settings
+                    {ut(lang, "settings")}
                   </button>
                 </div>
               ) : null}

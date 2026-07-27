@@ -39,7 +39,7 @@ export function MobilePassPage() {
   const featured = rows[0];
 
   return (
-    <div className="vm-home-page">
+    <div className="vm-home-page vm-immersive">
       <HeaderBar title="Visitor Gate Pass" showNotification showProfile />
 
       <main className="vm-main-body" style={{ marginTop: "0.5rem" }}>

@@ -153,39 +153,10 @@ export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDet
 
         {mode === "actions" ? (
           <div className="vm-sheet-actions">
-            <p className="vm-sheet-hint">Choose an approval action</p>
-            <div className="vm-pill-actions">
+            <div className="vm-sheet-action-list">
               <button
                 type="button"
-                className="vm-pill-btn is-decline"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setMode("reject");
-                }}
-              >
-                <span aria-hidden>×</span>
-                Decline
-              </button>
-              <button
-                type="button"
-                className="vm-pill-btn is-transfer"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setMode("transfer");
-                }}
-              >
-                <span aria-hidden>
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                    <path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7" />
-                  </svg>
-                </span>
-                Transfer
-              </button>
-              <button
-                type="button"
-                className="vm-pill-btn is-accept"
+                className="vm-sheet-action-row is-accept"
                 disabled={busy}
                 onClick={() => {
                   setError(null);
@@ -195,13 +166,59 @@ export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDet
                 <span aria-hidden>✓</span>
                 Accept
               </button>
+              <button
+                type="button"
+                className="vm-sheet-action-row is-transfer"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setMode("transfer");
+                }}
+              >
+                <span aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                </span>
+                Transfer
+              </button>
+              <button
+                type="button"
+                className="vm-sheet-action-row is-reject"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setMode("reject");
+                }}
+              >
+                <span aria-hidden>×</span>
+                Reject
+              </button>
+              <button
+                type="button"
+                className="vm-sheet-action-row is-call"
+                disabled={busy}
+                onClick={() => {
+                  const mobile = visitor.mobile;
+                  if (mobile && mobile !== "—") {
+                    window.location.href = `tel:${mobile.replace(/\s+/g, "")}`;
+                    return;
+                  }
+                  setError("Host / visitor phone not available.");
+                }}
+              >
+                <span aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
+                  </svg>
+                </span>
+                Call Host
+              </button>
+              <button type="button" className="vm-sheet-action-row is-details" onClick={onViewDetails}>
+                <span aria-hidden>›</span>
+                View Details
+              </button>
             </div>
-            <p className="vm-sheet-hint vm-sheet-hint-soft">
-              Accept confirms host approval. Gate check-in happens after approval.
-            </p>
-            <button type="button" className="vm-btn-outline vm-sheet-secondary" onClick={onViewDetails}>
-              View details
-            </button>
             <button type="button" className="vm-sheet-cancel" onClick={onClose}>
               Cancel
             </button>

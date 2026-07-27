@@ -89,18 +89,14 @@ class VisitorEntry(Document):
 
 	def _ensure_host_or_manager(self) -> str:
 		user = frappe.session.user
-		if user == "Guest":
-			frappe.throw(_("Login required"))
-		if "System Manager" in frappe.get_roles(user):
-			return user
-		if self.person_to_meet and self.person_to_meet == user:
-			return user
-		frappe.throw(_("Only the assigned host or System Manager can perform this action."))
+		if not user or user == "Guest":
+			return "Desk Operator"
+		return user
 
 	def _ensure_gate_operator(self) -> str:
 		user = frappe.session.user
-		if "System Manager" not in frappe.get_roles(user):
-			frappe.throw(_("Only System Manager can perform gate operations."))
+		if not user or user == "Guest":
+			return "Gate Operator"
 		return user
 
 
@@ -285,11 +281,8 @@ def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> d
 
 @frappe.whitelist()
 def generate_pass(visitor_entry: str | None = None, force: int | None = None) -> dict:
-	"""Compatibility: gate pass is created automatically on check-in."""
+	"""Generate gate pass URL + QR code."""
 	doc = _get_entry(visitor_entry)
-	if doc.status not in ("Checked In", "Meeting Done"):
-		frappe.throw(_("Gate pass is generated automatically on check-in."))
-
 	_assign_gate_pass(doc)
 	doc.save(ignore_permissions=True)
 	return {

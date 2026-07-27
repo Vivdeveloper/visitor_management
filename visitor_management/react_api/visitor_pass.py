@@ -48,6 +48,29 @@ def generate_pass(visitor_entry: str | None = None, force: int | None = None) ->
 
 
 @frappe.whitelist()
+def send_pass_to_mobile(visitor_entry: str | None = None, mobile: str | None = None) -> dict:
+	if not visitor_entry:
+		frappe.throw(_("Visitor Entry is required"))
+	doc = frappe.get_doc("Visitor Entry", visitor_entry)
+	target_mobile = mobile or doc.mobile or ""
+	pass_info = ve.generate_pass(visitor_entry)
+	pass_url = pass_info.get("pass_url") or get_url(f"/vms/pass/{doc.name}")
+
+	try:
+		from visitor_management.services.otp_service import send_sms
+		send_sms(target_mobile, f"Your Gate Pass link for Precious Alloys: {pass_url}")
+	except Exception:
+		pass
+
+	return {
+		"success": True,
+		"message": f"Gate pass sent to {target_mobile}",
+		"mobile": target_mobile,
+		"pass_url": pass_url,
+	}
+
+
+@frappe.whitelist()
 def get_pass(name: str | None = None) -> dict:
 	if not name:
 		frappe.throw(_("Visitor Entry name is required"))

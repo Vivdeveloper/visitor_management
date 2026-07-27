@@ -97,7 +97,6 @@ export function VisitorTrendChart({
           </div>
           <div>
             <h3 className="vm-chart-card-title">Visitor Trend</h3>
-            <span className="vm-chart-sub">Track visitor count over time</span>
           </div>
         </div>
 

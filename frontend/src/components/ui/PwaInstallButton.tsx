@@ -29,7 +29,6 @@ export function PwaInstallButton({
         </span>
         <div className="pwa-install-copy">
           <strong>App installed</strong>
-          <span>Precious Alloys VMS is on your home screen</span>
         </div>
       </div>
     );
@@ -54,11 +53,6 @@ export function PwaInstallButton({
         ) : (
           <span className="pwa-install-copy">
             <strong>Download App</strong>
-            <span>
-              {ios
-                ? "Add Precious Alloys VMS to your Home Screen"
-                : "Install for offline access & faster launch"}
-            </span>
           </span>
         )}
       </button>

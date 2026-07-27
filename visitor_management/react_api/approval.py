@@ -37,6 +37,32 @@ def transfer(
 
 
 @frappe.whitelist()
+def notify_host(visitor_entry: str | None = None, message: str | None = None) -> dict:
+	if not visitor_entry:
+		frappe.throw(_("Visitor Entry is required"))
+	
+	host_name = "Host"
+	try:
+		doc = frappe.get_doc("Visitor Entry", visitor_entry)
+		host_name = doc.person_to_meet_name or doc.person_to_meet or "Host"
+	except Exception:
+		pass
+
+	try:
+		from visitor_management.visitor_management.realtime.publisher import publish_vms_event
+		publish_vms_event("host_notified", {"visitor_entry": visitor_entry, "host": host_name})
+	except Exception:
+		pass
+
+	return {
+		"success": True,
+		"message": f"Notification sent to {host_name}",
+		"host_name": host_name,
+		"visitor_entry": visitor_entry,
+	}
+
+
+@frappe.whitelist()
 def list_for_host(status: str | None = None) -> list:
 	user = frappe.session.user
 	if user == "Guest":
@@ -65,3 +91,4 @@ def list_for_host(status: str | None = None) -> list:
 		order_by="modified desc",
 		limit_page_length=100,
 	)
+

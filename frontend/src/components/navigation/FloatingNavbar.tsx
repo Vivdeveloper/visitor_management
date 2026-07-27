@@ -1,8 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useAppLanguage } from "@/context/AppLanguageContext";
 import { mobileTabsFor, resolveMode } from "@/lib/roles";
 import { MobileTabIconView } from "@/components/ui/MobileIcons";
+import { ut, type UiCopyKey } from "@/i18n/uiChrome";
+import type { VisitorLang } from "@/i18n/visitorJourney";
+
+function dockLabel(lang: VisitorLang, to: string, fallback: string): string {
+  const keyByPath: Record<string, UiCopyKey> = {
+    "/": "home",
+    "/approvals": "pending",
+    "/check-in": "add_entry",
+    "/inside": "history",
+    "/analytics": "reports",
+  };
+  const key = keyByPath[to];
+  return key ? ut(lang, key) : fallback;
+}
 
 /** iPhone-like shrink: hysteresis + delayed commit for smooth motion. */
 const COMPACT_AFTER = 64;
@@ -12,6 +27,7 @@ const UP_DELTA = 10;
 
 export function FloatingNavbar() {
   const { user } = useAuth();
+  const { lang } = useAppLanguage();
   const mode = resolveMode(user);
   const tabs = mobileTabsFor(mode);
   const location = useLocation();
@@ -20,7 +36,14 @@ export function FloatingNavbar() {
   const lastYRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const immersivePath =
+    location.pathname.startsWith("/check-in") ||
+    location.pathname.startsWith("/pass") ||
+    location.pathname.startsWith("/my-pass") ||
+    location.pathname.startsWith("/checkout");
+
   useEffect(() => {
+    if (immersivePath) return;
     const scroller =
       (document.getElementById("vms-scroll-root") as HTMLElement | null) ||
       (document.querySelector(".m-content") as HTMLElement | null) ||
@@ -64,7 +87,9 @@ export function FloatingNavbar() {
       window.removeEventListener("scroll", onScroll);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [location.pathname]);
+  }, [location.pathname, immersivePath]);
+
+  if (immersivePath) return null;
 
   return (
     <nav
@@ -75,6 +100,7 @@ export function FloatingNavbar() {
       <div className="vm-dock-inner">
         {tabs.map((tab) => {
           const isAddEntry = Boolean(tab.fab || tab.to === "/check-in");
+          const label = dockLabel(lang, tab.to, tab.label);
           return (
             <NavLink
               key={tab.to}
@@ -83,8 +109,8 @@ export function FloatingNavbar() {
               className={({ isActive }) =>
                 `vm-dock-tab${isAddEntry ? " is-add" : ""}${isActive ? " is-active" : ""}`
               }
-              aria-label={tab.label}
-              title={tab.label}
+              aria-label={label}
+              title={label}
             >
               <span className="vm-dock-pill">
                 <span className={`vm-dock-icon${isAddEntry ? " is-add" : ""}`}>
@@ -96,7 +122,7 @@ export function FloatingNavbar() {
                     <MobileTabIconView name={tab.icon} size={20} />
                   )}
                 </span>
-                <span className="vm-dock-label">{tab.label}</span>
+                <span className="vm-dock-label">{label}</span>
               </span>
             </NavLink>
           );

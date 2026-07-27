@@ -38,22 +38,31 @@
   --vms-pass-seal: #ffffff;
   --vms-pass-accent: #94a3b8;
 
-  --vms-radius: 14px;
+  /* Spacing system */
+  --vms-space-section: 24px;
+  --vms-space-card: 12px;
+  --vms-space-pad: 16px;
+
+  --vms-radius: 16px;
   --vms-radius-sm: 12px;
-  --vms-radius-lg: 20px;
-  --vms-btn-height: 52px;
-  --vms-input-height: 54px;
+  --vms-radius-lg: 16px;
+  --vms-btn-height: 48px;
+  --vms-input-height: 52px;
   --vms-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
   --vms-shadow-btn: 0 10px 25px rgba(10, 61, 145, 0.18);
   --vms-focus-ring: 0 0 0 4px rgba(10, 61, 145, 0.1);
   --vms-motion: 150ms ease-in-out;
 
+  /* Typography system */
   --vms-font: Helvetica, "Helvetica Neue", Arial, sans-serif;
-  --vms-title-lg: 1.75rem;
-  --vms-title-section: 1.25rem;
-  --vms-title-card: 1.125rem;
-  --vms-body: 0.9375rem;
-  --vms-caption: 0.8125rem;
+  --vms-title-page: 32px;
+  --vms-title-section: 18px;
+  --vms-title-card: 16px;
+  --vms-title-lg: 32px;
+  --vms-label: 12px;
+  --vms-body: 14px;
+  --vms-caption: 12px;
+  --vms-badge: 12px;
 
   --bg: var(--vms-bg);
   --surface: var(--vms-surface);
@@ -84,9 +93,9 @@
   --vms-divider: #1f1f1f;
   --vms-input-border: #333333;
 
-  --vms-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
-  --vms-shadow-btn: 0 10px 25px rgba(0, 0, 0, 0.45);
-  --vms-focus-ring: 0 0 0 4px rgba(91, 141, 239, 0.2);
+  --vms-pass-meta: #a3a3a3;
+  --vms-pass-seal: #f5f5f5;
+  --vms-pass-accent: #a3a3a3;
 
   --bg: var(--vms-bg);
   --surface: var(--vms-surface);

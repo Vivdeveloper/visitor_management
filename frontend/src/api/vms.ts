@@ -175,8 +175,14 @@ export const settingsApi = {
 export type VisitorListRow = {
   name: string;
   full_name?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
   mobile?: string;
+  email?: string;
+  gender?: string;
   status?: string;
+  person_to_meet?: string;
   person_to_meet_name?: string;
   floor?: string;
   modified?: string;
@@ -185,6 +191,11 @@ export type VisitorListRow = {
   checked_in_on?: string;
   creation?: string;
   visitor_company?: string;
+  visitor_location?: string;
+  id_proof_type?: string;
+  vehicle_type?: string;
+  vehicle_number?: string;
+  photo?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -247,6 +258,8 @@ export const approvalApi = {
     callMethod("approval.reject", { visitor_entry, remarks }),
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
+  notifyHost: (visitor_entry: string, message?: string) =>
+    callMethod<{ success?: boolean; host_name?: string }>("approval.notify_host", { visitor_entry, message }),
 };
 
 export type PublicPassInfo = {
@@ -280,7 +293,9 @@ export type MyPassRow = {
 
 export const passApi = {
   generate: (visitor_entry: string, force = false) =>
-    callMethod("visitor_pass.generate_pass", { visitor_entry, force: force ? 1 : 0 }),
+    callMethod<{ success: boolean; pass_url?: string }>("visitor_pass.generate_pass", { visitor_entry, force: force ? 1 : 0 }),
+  sendPassToMobile: (visitor_entry: string, mobile?: string) =>
+    callMethod<{ success: boolean; message?: string; pass_url?: string }>("visitor_pass.send_pass_to_mobile", { visitor_entry, mobile }),
   get: (name: string) => callMethod("visitor_pass.get_pass", { name }),
   validate: (token: string) => callMethod<PublicPassResult>("visitor_pass.validate_pass", { token }),
   getPublicPass: (token: string) =>

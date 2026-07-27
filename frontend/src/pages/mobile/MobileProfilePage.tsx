@@ -1,75 +1,91 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { frappeGetList } from "@/api/vms";
 import { HeaderBar } from "@/components/common/HeaderBar";
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
-import { ActivityOverviewBanner } from "@/components/profile/ActivityOverviewBanner";
-import { AccountPreferencesList } from "@/components/profile/AccountPreferencesList";
-import { SupportAboutList } from "@/components/profile/SupportAboutList";
-import { PwaInstallButton } from "@/components/ui/PwaInstallButton";
+import { SettingsGroups } from "@/components/profile/SettingsGroups";
+import { ut } from "@/i18n/uiChrome";
+
+type EmployeeRow = {
+  name?: string;
+  employee?: string;
+  department?: string;
+  designation?: string;
+};
 
 export function MobileProfilePage() {
-  const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { lang } = useAppLanguage();
+  const [department, setDepartment] = useState("—");
+  const [employeeId, setEmployeeId] = useState(user?.user || "—");
 
   const name = user?.full_name || user?.user || "Administrator";
-  const mobile = user?.mobile_no || user?.mobile || undefined;
-  const email = user?.email || user?.user || "admin@example.com";
+  const email = user?.email || user?.user || "—";
   const role = user?.vms_roles?.[0] || user?.roles?.find((r) => r !== "All" && r !== "Guest") || "Employee";
-  const status = user?.authenticated ? "Active" : "Active";
   const image = user?.user_image || undefined;
-  const erpnextUser = user?.user || "Administrator";
-  const rolesList = (user?.roles || ["Supplier", "Customer", "Analytics", "Agriculture Manager"]).filter(
-    (r) => !["All", "Guest", "Desk User"].includes(r)
-  );
+
+  useEffect(() => {
+    setEmployeeId(user?.user || "—");
+    if (!user?.user || user.user === "Guest") return;
+
+    let cancelled = false;
+    void frappeGetList<EmployeeRow>({
+      doctype: "Employee",
+      fields: ["name", "employee", "department", "designation"],
+      filters: { user_id: user.user },
+      limit_page_length: 1,
+    })
+      .then((rows) => {
+        if (cancelled) return;
+        const row = rows[0];
+        if (!row) return;
+        if (row.employee || row.name) setEmployeeId(row.employee || row.name || user.user || "—");
+        if (row.department) setDepartment(row.department);
+        else if (row.designation) setDepartment(row.designation);
+      })
+      .catch(() => {
+        /* Employee DocType may be unavailable */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user]);
 
   return (
     <div className="vm-home-page">
       <HeaderBar title="Precious Alloys" showNotification showProfile />
 
-      <div style={{ padding: "0.25rem 0.25rem 0.65rem" }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--vms-navy)", margin: 0 }}>More</h1>
-        <p style={{ fontSize: "0.85rem", color: "var(--vms-muted)", margin: "0.2rem 0 0" }}>
-          Manage your profile, preferences and system tools
-        </p>
-      </div>
-
-      <main className="vm-main-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <main className="vm-main-body vm-page-content-start vm-profile-page">
         <ProfileHeroCard
           name={name}
-          mobile={mobile}
           email={email}
           role={role}
-          status={status}
           imageUrl={image}
-          erpnextUser={erpnextUser}
-          rolesList={rolesList.length ? rolesList : ["System Manager", "Security"]}
+          employeeId={employeeId}
+          department={department}
         />
 
-        <ActivityOverviewBanner onViewStats={() => navigate("/analytics")} />
-
-        <AccountPreferencesList
+        <SettingsGroups
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
         />
 
-        <PwaInstallButton variant="full" />
-
-        <SupportAboutList />
-
         {isAuthenticated || user?.verified ? (
           <button
             type="button"
-            className="vm-btn-outline"
-            style={{ color: "#DC2626", borderColor: "#FCA5A5", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+            className="vm-btn-outline vm-profile-logout"
             onClick={() => void logout()}
           >
-            Logout
+            {ut(lang, "logout")}
           </button>
         ) : (
           <Link to="/login" className="vm-btn-primary">
-            Sign In
+            {ut(lang, "sign_in")}
           </Link>
         )}
       </main>

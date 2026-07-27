@@ -82,10 +82,10 @@ define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (work
    */
   workbox.precacheAndRoute([{
     "url": "/assets/visitor_management/frontend/vms-asset-index.css",
-    "revision": "ab1ace1aa689f0938a95e0e9868bd98d"
+    "revision": "b95e3c6d1a1ac372687421274bb768a9"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "d9265c61fd3a228a4a58a19dd1d76ef4"
+    "revision": "7da2674556e1799db2e624450767b760"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

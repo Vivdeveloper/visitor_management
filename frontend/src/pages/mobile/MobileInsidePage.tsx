@@ -5,6 +5,7 @@ import { formatTime, initials } from "@/lib/format";
 import { SlidingStatusFilter, type StatusFilterOption } from "@/components/ui/SlidingStatusFilter";
 import { IconApprovals } from "@/components/ui/MobileIcons";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
+import { HeaderBar } from "@/components/common/HeaderBar";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 
@@ -105,7 +106,7 @@ export function MobileInsidePage() {
   }, [rows, filter, query]);
 
   const pendingCount = counts.pending;
-  const titleCount = displayList.length;
+  const liveCount = counts.all;
 
   function setFilter(id: string) {
     const next = parseFilter(id);
@@ -116,21 +117,15 @@ export function MobileInsidePage() {
 
   return (
     <div className="vm-home-page vm-visitors-page">
-      <header className="vm-visitors-topbar">
-        <div className="vm-visitors-header">
-          <div className="vm-visitors-header-copy">
-            <p className="vm-visitors-eyebrow">Gate queue</p>
-            <h1 className="vm-visitors-title">Visitors</h1>
-            <p className="vm-visitors-sub">Live visitor records from ERPNext</p>
-          </div>
-          <button
-            type="button"
-            className={`vm-count-pill is-interactive${filter === "pending" ? " is-amber" : ""}`}
-            onClick={() => setFilter(filter === "all" ? "inside" : "all")}
-            aria-label="Toggle filter summary"
-          >
-            {String(titleCount).padStart(2, "0")}
-          </button>
+      <HeaderBar title="Precious Alloys" showNotification showProfile />
+
+      <header className="vm-live-visitors-head">
+        <div className="vm-live-visitors-title-row">
+          <h1 className="vm-live-visitors-title">Live Visitors</h1>
+          <span className="vm-live-visitors-count" aria-label={`${liveCount} visitors`}>
+            <span className="vm-live-dot" aria-hidden />
+            {loading ? "—" : liveCount}
+          </span>
         </div>
       </header>
 
@@ -144,7 +139,7 @@ export function MobileInsidePage() {
         </span>
         <span className="vm-pending-cta-copy">
           <strong>Pending Approvals</strong>
-          <span>{pendingCount} visitor{pendingCount === 1 ? "" : "s"} waiting</span>
+          <span>{pendingCount} waiting</span>
         </span>
         <span className="vm-pending-cta-count">{pendingCount}</span>
       </button>
@@ -156,7 +151,7 @@ export function MobileInsidePage() {
           className="vm-input-field vm-visitors-search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search visitor or person to meet"
+          placeholder="Search visitor or host"
           aria-label="Search visitors"
         />
         <span className="vm-search-icon" aria-hidden>
@@ -169,9 +164,9 @@ export function MobileInsidePage() {
 
       {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
 
-      <div className="vm-overview-card vm-visitor-list-card">
+      <div className="vm-overview-card vm-visitor-list-card vm-visitor-list-card--compact">
         {loading ? (
-          <p className="vm-empty-hint">Loading visitors…</p>
+          <p className="vm-empty-hint">Loading…</p>
         ) : displayList.length === 0 ? (
           <p className="vm-empty-hint">No visitors in this filter</p>
         ) : (
@@ -184,8 +179,8 @@ export function MobileInsidePage() {
               <button
                 key={item.name}
                 type="button"
-                className="vm-activity-row vm-visitor-row is-interactive"
-                style={{ animationDelay: `${Math.min(idx, 12) * 35}ms` }}
+                className="vm-activity-row vm-visitor-row vm-visitor-row--compact is-interactive"
+                style={{ animationDelay: `${Math.min(idx, 12) * 20}ms` }}
                 onClick={() => {
                   if (isPending) {
                     setActionVisitor(item);

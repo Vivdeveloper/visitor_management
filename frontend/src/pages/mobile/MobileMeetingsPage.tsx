@@ -64,7 +64,7 @@ export function MobileMeetingsPage() {
       const list = await visitorApi.listDetailed(200);
       setRows(list || []);
     } catch (err: unknown) {
-      setError(extractError(err, "Could not load meetings"));
+      setError(extractError(err, "Could not load schedule"));
       setRows([]);
     } finally {
       setLoading(false);
@@ -88,78 +88,74 @@ export function MobileMeetingsPage() {
   }, [rows, selectedDate, query]);
 
   return (
-    <div className="vm-home-page vm-meetings-page">
-      {/* Top Bar matching Image 4 */}
-      <header className="vm-meetings-top">
-        <button type="button" className="vm-meetings-back" onClick={() => navigate(-1)} aria-label="Back">
-          ‹
-        </button>
-        <div className="vm-meetings-month-pill">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M16 2v4M8 2v4M3 10h18" />
-          </svg>
-          <span>{monthLabel(selectedDate)}</span>
+    <div className="vm-home-page vm-meetings-page vm-schedule-page">
+      <div className="vm-schedule-sticky">
+        <header className="vm-meetings-top">
+          <button type="button" className="vm-meetings-back" onClick={() => navigate(-1)} aria-label="Back">
+            ‹
+          </button>
+          <h1 className="vm-schedule-title">Today&apos;s Schedule</h1>
+          <div className="vm-meetings-month-pill">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            <span>{monthLabel(selectedDate)}</span>
+          </div>
+        </header>
+
+        <div className="vm-meetings-search">
+          <span className="vm-search-icon" aria-hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </span>
+          <input
+            className="vm-input-field vm-meetings-search-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search schedule..."
+            aria-label="Search schedule"
+          />
         </div>
-      </header>
 
-      {/* Search Input Bar */}
-      <div className="vm-meetings-search">
-        <span className="vm-search-icon" aria-hidden>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-        </span>
-        <input
-          className="vm-input-field vm-meetings-search-input"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your daily task..."
-          aria-label="Search daily task"
-        />
+        <div className="vm-date-strip" role="listbox" aria-label="Select day">
+          {week.map((date) => {
+            const active = date === selectedDate;
+            return (
+              <button
+                key={date}
+                type="button"
+                role="option"
+                aria-selected={active}
+                className={`vm-date-chip${active ? " is-active" : ""}`}
+                onClick={() => setSelectedDate(date)}
+              >
+                <span className="vm-date-chip-day">{weekday(date)}</span>
+                <span className="vm-date-chip-num">{dayNum(date)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Horizontal Date Strip matching Image 4 */}
-      <div className="vm-date-strip" role="listbox" aria-label="Select day">
-        {week.map((date) => {
-          const active = date === selectedDate;
-          return (
-            <button
-              key={date}
-              type="button"
-              role="option"
-              aria-selected={active}
-              className={`vm-date-chip${active ? " is-active" : ""}`}
-              onClick={() => setSelectedDate(date)}
-            >
-              <span className="vm-date-chip-day">{weekday(date)}</span>
-              <span className="vm-date-chip-num">{dayNum(date)}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Section Header matching Image 4: My Today Task 02 */}
-      <section className="vm-meetings-section">
+      <section className="vm-meetings-section vm-schedule-timeline-wrap">
         <div className="vm-meetings-section-head">
-          <h2>My Today Task</h2>
-          <span className="vm-meetings-count">{String(dayMeetings.length).padStart(2, "0")}</span>
+          <span className="vm-meetings-count" aria-label={`${dayMeetings.length} entries`}>
+            {String(dayMeetings.length).padStart(2, "0")}
+          </span>
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
-        {loading ? <p className="vm-empty-hint">Loading schedule timeline…</p> : null}
+        {loading ? <p className="vm-empty-hint">Loading…</p> : null}
         {!loading && dayMeetings.length === 0 ? (
           <div className="vm-overview-card" style={{ padding: "2rem", textAlign: "center" }}>
-            <span style={{ fontSize: "2rem", display: "block", marginBottom: "0.5rem" }}>📅</span>
-            <strong style={{ fontSize: "1rem", color: "#0F172A", display: "block" }}>No Tasks Scheduled</strong>
-            <p style={{ fontSize: "0.82rem", color: "#64748B", margin: "0.2rem 0 0" }}>
-              No meetings or visitor entries registered for {selectedDate}.
-            </p>
+            <strong style={{ fontSize: "1rem", color: "#0F172A", display: "block" }}>No entries</strong>
+            <p style={{ fontSize: "0.82rem", color: "#64748B", margin: "0.2rem 0 0" }}>{selectedDate}</p>
           </div>
         ) : null}
 
-        {/* Timeline List matching Image 4 hour stamps & cards */}
         <div className="vm-meetings-timeline">
           {dayMeetings.map((item, idx) => {
             const time = formatTime(rowStamp(item)) || "09:00 AM";
@@ -180,14 +176,13 @@ export function MobileMeetingsPage() {
                   </div>
 
                   <p className="vm-meeting-desc">
-                    Meeting with {hostName}. Purpose: {(item.visit_purpose_type || "Gate Check-in").trim()}. Status: {item.status || "Pending"}.
+                    Host: {hostName} · {(item.visit_purpose_type || "Visit").trim()}
                   </p>
 
                   <div className="vm-meeting-meta">
                     <div className="vm-meeting-avatars" aria-hidden>
                       <span className="vm-meeting-avatar">{initials(visitorName)}</span>
                       <span className="vm-meeting-avatar is-meet">{initials(hostName)}</span>
-                      <span className="vm-meeting-avatar-more">+2</span>
                     </div>
                     <span className="vm-meeting-status">{item.status || "Check-in"}</span>
                   </div>

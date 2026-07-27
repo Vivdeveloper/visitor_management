@@ -19,14 +19,12 @@ export function VisitorWelcomePanel({ lang, onLangChange, onGetStarted }: Visito
   const securityPoints = useMemo(
     () =>
       [
-        { id: "verify" as const, title: vt(lang, "sec_verify"), detail: vt(lang, "sec_verify_detail") },
-        { id: "host" as const, title: vt(lang, "sec_host"), detail: vt(lang, "sec_host_detail") },
-        { id: "pass" as const, title: vt(lang, "sec_pass"), detail: vt(lang, "sec_pass_detail") },
+        { id: "verify" as const, title: vt(lang, "sec_verify") },
+        { id: "host" as const, title: vt(lang, "sec_host") },
+        { id: "pass" as const, title: vt(lang, "sec_pass") },
       ] as const,
     [lang],
   );
-
-  const active = securityPoints.find((p) => p.id === activePoint) || securityPoints[0];
 
   return (
     <div className="welcome-page welcome-splash welcome-in-flow welcome-light" lang={lang}>
@@ -49,33 +47,10 @@ export function VisitorWelcomePanel({ lang, onLangChange, onGetStarted }: Visito
 
       <div className="welcome-copy">
         <h1 className="welcome-title">{vt(lang, "welcome_title")}</h1>
-        <p className="welcome-subtitle">{vt(lang, "welcome_subtitle")}</p>
       </div>
 
-      <section className="welcome-security-panel" aria-label="Security priorities">
-        <div className="welcome-security-head">
-          <div className="welcome-security-mark" aria-hidden>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-              <path
-                d="M12 3 5 6.5v5.2c0 4.1 2.8 7.9 7 8.8 4.2-.9 7-4.7 7-8.8V6.5L12 3Z"
-                fill="currentColor"
-              />
-              <path
-                d="m9.2 12.1 1.9 1.9 3.7-3.8"
-                stroke="#FFFFFF"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="welcome-msg-strong">{vt(lang, "security_priority")}</p>
-            <p className="welcome-msg-sub">{vt(lang, "security_tap")}</p>
-          </div>
-        </div>
-
-        <div className="welcome-security-tabs" role="tablist" aria-label="Security steps">
+      <section className="welcome-security-panel" aria-label="Check-in steps">
+        <div className="welcome-security-tabs" role="tablist" aria-label="Check-in steps">
           {securityPoints.map((point) => {
             const selected = point.id === activePoint;
             return (
@@ -91,18 +66,6 @@ export function VisitorWelcomePanel({ lang, onLangChange, onGetStarted }: Visito
               </button>
             );
           })}
-        </div>
-
-        <div className="welcome-security-body" role="tabpanel">
-          <p className="welcome-security-detail">{active.detail}</p>
-          <div className="welcome-security-meter" aria-hidden>
-            {securityPoints.map((point) => (
-              <span
-                key={point.id}
-                className={`welcome-security-meter-seg${point.id === activePoint ? " is-on" : ""}`}
-              />
-            ))}
-          </div>
         </div>
       </section>
 
