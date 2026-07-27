@@ -2,9 +2,20 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { visitorApi } from "@/api/vms";
 import { extractError, splitFullName } from "@/lib/format";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 export function MobilePreRegisterPage() {
   const navigate = useNavigate();
+
+  usePageChrome({
+    title: "Pre-register",
+    subtitle: "Advance visitor entry",
+    showBack: true,
+    backTo: "/",
+    showNotification: false,
+    showProfile: false,
+  });
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);

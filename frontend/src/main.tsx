@@ -4,6 +4,17 @@ import { App } from "./app/App";
 import { IS_CAPACITOR_BUILD } from "./config/env";
 import "./styles/index.css";
 
+/* Light-only app — clear any leftover dark theme from older builds */
+document.documentElement.removeAttribute("data-theme");
+document.documentElement.classList.remove("dark");
+document.documentElement.style.colorScheme = "light";
+try {
+  localStorage.removeItem("vms_theme");
+  localStorage.removeItem("vms-theme");
+} catch {
+  /* ignore */
+}
+
 // Disable pinch-to-zoom gestures
 document.addEventListener(
   "touchmove",

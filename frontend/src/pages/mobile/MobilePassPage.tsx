@@ -4,7 +4,7 @@ import { passApi, type MyPassRow } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { formatTime } from "@/lib/format";
 import { resolveMode } from "@/lib/roles";
-import { HeaderBar } from "@/components/common/HeaderBar";
+import { usePageChrome } from "@/context/PageChromeContext";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 
 export function MobilePassPage() {
@@ -15,6 +15,13 @@ export function MobilePassPage() {
   const [rows, setRows] = useState<MyPassRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  usePageChrome({
+    title: "Visitor Gate Pass",
+    subtitle: "Digital pass",
+    showBack: true,
+    backTo: "/",
+  });
 
   const loadMine = useCallback(async () => {
     if (!mobile) return;
@@ -39,8 +46,7 @@ export function MobilePassPage() {
   const featured = rows[0];
 
   return (
-    <div className="vm-home-page vm-immersive">
-      <HeaderBar title="Visitor Gate Pass" showNotification showProfile />
+    <div className="vm-home-page">
 
       <main className="vm-main-body" style={{ marginTop: "0.5rem" }}>
         {loading ? <p className="vm-empty-hint">Loading pass…</p> : null}

@@ -6,7 +6,6 @@ import {
 type UiDict = Record<string, string>;
 
 const en: UiDict = {
-  theme: "Theme",
   language: "Language",
   calendar_view: "Calendar view",
   todays_schedule: "Today's schedule",
@@ -23,8 +22,6 @@ const en: UiDict = {
   add_entry: "Add Entry",
   pending: "Pending",
   reports: "Reports",
-  light: "Light",
-  dark: "Dark",
   lang_confirm_title: "Change language?",
   lang_confirm_body: "Change app language from {from} to {to}?",
   yes: "Yes",
@@ -42,7 +39,6 @@ const en: UiDict = {
 };
 
 const hi: UiDict = {
-  theme: "थीम",
   language: "भाषा",
   calendar_view: "कैलेंडर दृश्य",
   todays_schedule: "आज का शेड्यूल",
@@ -59,8 +55,6 @@ const hi: UiDict = {
   add_entry: "एंट्री जोड़ें",
   pending: "पेंडिंग",
   reports: "रिपोर्ट्स",
-  light: "लाइट",
-  dark: "डार्क",
   lang_confirm_title: "भाषा बदलें?",
   lang_confirm_body: "ऐप की भाषा {from} से {to} में बदलें?",
   yes: "हाँ",
@@ -78,7 +72,6 @@ const hi: UiDict = {
 };
 
 const mr: UiDict = {
-  theme: "थीम",
   language: "भाषा",
   calendar_view: "कॅलेंडर दृश्य",
   todays_schedule: "आजचे वेळापत्रक",
@@ -95,8 +88,6 @@ const mr: UiDict = {
   add_entry: "नोंद जोडा",
   pending: "प्रलंबित",
   reports: "अहवाल",
-  light: "लाइट",
-  dark: "डार्क",
   lang_confirm_title: "भाषा बदलायची?",
   lang_confirm_body: "अॅपची भाषा {from} वरून {to} मध्ये बदलायची?",
   yes: "होय",

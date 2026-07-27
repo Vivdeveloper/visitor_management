@@ -36,14 +36,7 @@ export function FloatingNavbar() {
   const lastYRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const immersivePath =
-    location.pathname.startsWith("/check-in") ||
-    location.pathname.startsWith("/pass") ||
-    location.pathname.startsWith("/my-pass") ||
-    location.pathname.startsWith("/checkout");
-
   useEffect(() => {
-    if (immersivePath) return;
     const scroller =
       (document.getElementById("vms-scroll-root") as HTMLElement | null) ||
       (document.querySelector(".m-content") as HTMLElement | null) ||
@@ -87,9 +80,7 @@ export function FloatingNavbar() {
       window.removeEventListener("scroll", onScroll);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [location.pathname, immersivePath]);
-
-  if (immersivePath) return null;
+  }, [location.pathname]);
 
   return (
     <nav

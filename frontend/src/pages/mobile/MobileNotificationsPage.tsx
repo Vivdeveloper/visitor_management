@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 const NOTIFICATIONS = [
   {
@@ -44,24 +44,24 @@ const NOTIFICATIONS = [
 ];
 
 export function MobileNotificationsPage() {
-  const navigate = useNavigate();
+  usePageChrome({
+    title: "Notifications",
+    subtitle: "Alerts & updates",
+    showBack: true,
+    showNotification: false,
+    showProfile: false,
+  });
 
   return (
     <div className="vm-home-page">
-      <header className="vm-page-header">
-        <button type="button" className="vm-back-btn" onClick={() => navigate(-1)} aria-label="Back">
-          ‹
-        </button>
-        <h1 className="vm-page-title" style={{ fontSize: "1.3rem" }}>
-          Notifications
-        </h1>
+      <div className="vm-notifications-actions" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.75rem" }}>
         <button
           type="button"
           style={{ background: "none", border: "none", color: "#2563EB", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
         >
           Mark all as read
         </button>
-      </header>
+      </div>
 
       <main className="vm-main-body">
         <div className="vm-menu-card" style={{ padding: "0.5rem 1rem" }}>

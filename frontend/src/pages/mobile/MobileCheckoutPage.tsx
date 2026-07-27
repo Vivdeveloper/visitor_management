@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { securityApi, visitorApi } from "@/api/vms";
 import { extractError } from "@/lib/format";
-import { HeaderBar } from "@/components/common/HeaderBar";
+import { usePageChrome } from "@/context/PageChromeContext";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
 
 type VisitorDoc = {
@@ -20,6 +20,12 @@ export function MobileCheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkedOutSuccess, setCheckedOutSuccess] = useState(false);
+
+  usePageChrome({
+    title: "Check-out",
+    subtitle: "Visitor exit",
+    showBack: true,
+  });
 
   useEffect(() => {
     if (!routeName) return;
@@ -59,7 +65,6 @@ export function MobileCheckoutPage() {
   if (checkedOutSuccess) {
     return (
       <div className="vm-home-page">
-        <HeaderBar title="Check-out" showNotification showProfile />
 
         <main className="vm-main-body" style={{ marginTop: "1rem" }}>
           <div className="vm-status-circle circle-green-light" style={{ width: "80px", height: "80px", borderRadius: "50%", background: "#DCFCE7", color: "#16A34A", margin: "0 auto 1rem", display: "grid", placeItems: "center", fontSize: "2.2rem" }}>
@@ -110,7 +115,6 @@ export function MobileCheckoutPage() {
 
   return (
     <div className="vm-home-page">
-      <HeaderBar title="Check-out" showNotification showProfile />
 
       <main className="vm-main-body" style={{ marginTop: "1rem", background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
         <CheckoutConfirmationCard

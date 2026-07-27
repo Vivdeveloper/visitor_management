@@ -8,7 +8,7 @@ import {
 } from "@/api/vms";
 import { formatTime } from "@/lib/format";
 import { useAppLanguage } from "@/context/AppLanguageContext";
-import { HeaderBar } from "@/components/common/HeaderBar";
+import { usePageChrome } from "@/context/PageChromeContext";
 import { DashboardKpis } from "@/components/dashboard/DashboardKpis";
 import { RecentVisitorsList, type RecentVisitorItem } from "@/components/dashboard/RecentVisitorsList";
 import { IconApprovals } from "@/components/ui/MobileIcons";
@@ -40,6 +40,15 @@ function formatClock(now: Date) {
 export function MobileHomePage() {
   const navigate = useNavigate();
   const { lang } = useAppLanguage();
+
+  usePageChrome({
+    title: "Precious Alloys",
+    subtitle: "MAIN GATE DESK",
+    showBack: false,
+    showNotification: true,
+    showProfile: true,
+  });
+
   const [kpis, setKpis] = useState<DashboardKpiData>({});
   const [recentRows, setRecentRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +95,6 @@ export function MobileHomePage() {
 
   return (
     <div className="vm-home-page">
-      <HeaderBar title="Precious Alloys" showNotification showProfile />
 
       <div style={{ padding: "0.55rem 0.1rem 0.2rem" }}>
         <button
@@ -150,26 +158,76 @@ export function MobileHomePage() {
           loading={loading}
         />
 
-        <section className="vm-gate-quick-actions" aria-label="Quick actions">
-          <button type="button" className="vm-gate-action" onClick={() => navigate("/check-in")}>
-            <span className="vm-gate-action-icon is-primary" aria-hidden>+</span>
-            <span className="vm-gate-action-label">Add Entry</span>
-          </button>
-          <button type="button" className="vm-gate-action" onClick={() => navigate("/approvals")}>
-            <span className="vm-gate-action-icon is-amber" aria-hidden>!</span>
-            <span className="vm-gate-action-label">Pending</span>
-            {!loading && pendingApproval > 0 ? (
-              <span className="vm-gate-action-badge">{pendingApproval}</span>
-            ) : null}
-          </button>
-          <button type="button" className="vm-gate-action" onClick={() => navigate("/inside?status=inside")}>
-            <span className="vm-gate-action-icon is-green" aria-hidden>●</span>
-            <span className="vm-gate-action-label">Inside</span>
-          </button>
-          <button type="button" className="vm-gate-action" onClick={() => navigate("/inside?status=all")}>
-            <span className="vm-gate-action-icon is-blue" aria-hidden>≡</span>
-            <span className="vm-gate-action-label">Visitors</span>
-          </button>
+        <section className="vm-quick-actions-section" aria-label="Quick actions">
+          <div className="vm-quick-actions-header">
+            <h2 className="vm-quick-actions-title">Quick Actions</h2>
+            <p className="vm-quick-actions-subtitle">Perform common tasks quickly</p>
+          </div>
+
+          <div className="vm-gate-quick-actions">
+            <button
+              type="button"
+              className="vm-gate-action action-add-entry"
+              onClick={() => navigate("/check-in")}
+            >
+              <div className="vm-gate-action-icon-wrapper is-primary">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </div>
+              <span className="vm-gate-action-label">Add Entry</span>
+              <span className="vm-gate-action-sub">Register new visitor</span>
+            </button>
+
+            <button
+              type="button"
+              className="vm-gate-action action-pending"
+              onClick={() => navigate("/approvals")}
+            >
+              <div className="vm-gate-action-icon-wrapper is-amber">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                {!loading && pendingApproval > 0 ? (
+                  <span className="vm-gate-action-badge">{pendingApproval}</span>
+                ) : null}
+              </div>
+              <span className="vm-gate-action-label">Pending</span>
+              <span className="vm-gate-action-sub">Review approvals</span>
+            </button>
+
+            <button
+              type="button"
+              className="vm-gate-action action-inside"
+              onClick={() => navigate("/inside?status=inside")}
+            >
+              <div className="vm-gate-action-icon-wrapper is-green">
+                <span className="vm-gate-action-dot" aria-hidden />
+              </div>
+              <span className="vm-gate-action-label">Inside</span>
+              <span className="vm-gate-action-sub">View live visitors</span>
+            </button>
+
+            <button
+              type="button"
+              className="vm-gate-action action-visitors"
+              onClick={() => navigate("/inside?status=all")}
+            >
+              <div className="vm-gate-action-icon-wrapper is-purple">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <span className="vm-gate-action-label">Visitors</span>
+              <span className="vm-gate-action-sub">View all visitors</span>
+            </button>
+          </div>
         </section>
 
         <RecentVisitorsList visitors={recentVisitors} loading={loading} />

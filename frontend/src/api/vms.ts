@@ -228,6 +228,8 @@ export const visitorApi = {
       limit,
     }),
   get: (name: string) => callMethod("visitor.get_visitor", { name }),
+  update: (name: string, payload: Record<string, unknown>) =>
+    callMethod("visitor.update_visitor", { name, ...payload }),
   create: (payload: Record<string, unknown>) => callMethod("visitor.create_visitor", payload),
   /** Extended list via core Frappe client (fields must exist on Visitor Entry DocType). */
   listDetailed: (limit = 100) =>
@@ -238,6 +240,7 @@ export const visitorApi = {
         "full_name",
         "mobile",
         "status",
+        "person_to_meet",
         "person_to_meet_name",
         "floor",
         "modified",
@@ -317,8 +320,8 @@ export const securityApi = {
     callMethod("security.check_in_by_token", { token, live_image }),
   checkOutByToken: (token: string, remarks?: string) =>
     callMethod("security.check_out_by_token", { token, remarks }),
-  checkIn: (visitor_entry: string, live_image?: string) =>
-    callMethod("checkin.check_in", { visitor_entry, live_image }),
+  checkIn: (visitor_entry: string, live_image?: string, floor?: string) =>
+    callMethod("checkin.check_in", { visitor_entry, live_image, floor }),
   checkOut: (visitor_entry: string, remarks?: string) =>
     callMethod("checkout.check_out", { visitor_entry, remarks }),
 };

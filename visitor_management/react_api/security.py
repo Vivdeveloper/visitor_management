@@ -46,7 +46,7 @@ def verify_visitor(visitor_entry: str | None = None) -> dict:
 		"pass_valid": pass_ok,
 		"pass_reason": validation.get("reason"),
 		"can_check_in": doc.status == "Approved",
-		"can_check_out": doc.status == "Meeting Done",
+		"can_check_out": doc.status in ("Checked In", "Meeting Done"),
 	}
 
 
@@ -67,7 +67,7 @@ def exit_queue() -> list:
 	_ensure_gate()
 	return frappe.get_all(
 		"Visitor Entry",
-		filters={"status": "Meeting Done"},
+		filters={"status": ["in", ["Checked In", "Meeting Done"]]},
 		fields=[
 			"name",
 			"full_name",

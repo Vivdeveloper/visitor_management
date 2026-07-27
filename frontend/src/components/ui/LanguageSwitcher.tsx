@@ -4,7 +4,7 @@ import { ut } from "@/i18n/uiChrome";
 
 type LanguageSwitcherProps = {
   /** compact = profile popup row · settings = full settings row */
-  variant?: "compact" | "settings";
+  variant?: "compact" | "settings" | "icon";
   className?: string;
 };
 
@@ -31,12 +31,20 @@ export function LanguageSwitcher({ variant = "compact", className = "" }: Langua
 
   return (
     <div
-      className={`vm-lang-switch${variant === "settings" ? " is-settings" : ""} ${className}`.trim()}
+      className={`vm-lang-switch${
+        variant === "settings" ? " is-settings" : ""
+      }${variant === "icon" ? " is-icon" : ""} ${className}`.trim()}
       ref={rootRef}
     >
       <button
         type="button"
-        className={variant === "settings" ? "vm-settings-row" : "vm-profile-popup-action"}
+        className={
+          variant === "settings"
+            ? "vm-settings-row"
+            : variant === "icon"
+              ? "vm-lang-icon-btn"
+              : "vm-profile-popup-action"
+        }
         aria-expanded={menuOpen}
         aria-controls={menuId}
         aria-haspopup="listbox"
@@ -53,6 +61,17 @@ export function LanguageSwitcher({ variant = "compact", className = "" }: Langua
             </span>
             <span className="vm-profile-popup-action-trail" aria-hidden>
               {menuOpen ? "▴" : "▾"}
+            </span>
+          </>
+        ) : variant === "icon" ? (
+          <>
+            <span className="vm-lang-icon" aria-hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20" />
+                <path d="M12 2a15.3 15.3 0 0 1 0 20" />
+                <path d="M12 2a15.3 15.3 0 0 0 0 20" />
+              </svg>
             </span>
           </>
         ) : (

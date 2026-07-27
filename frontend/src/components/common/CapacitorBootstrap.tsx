@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useTheme } from "@/context/ThemeContext";
 
 function isCapacitorNative(): boolean {
   if (typeof window === "undefined") return false;
@@ -11,8 +10,6 @@ function isCapacitorNative(): boolean {
  * Native-only bootstrap. Browser PWA never loads Capacitor plugins.
  */
 export function CapacitorBootstrap() {
-  const { theme } = useTheme();
-
   useEffect(() => {
     if (!isCapacitorNative()) return;
 
@@ -23,7 +20,7 @@ export function CapacitorBootstrap() {
       .then(async (mod) => {
         if (cancelled) return;
         mod.initNativeTapToDismissKeyboard();
-        teardown = await mod.initCapacitorNative(theme);
+        teardown = await mod.initCapacitorNative();
       })
       .catch(() => undefined);
 
@@ -31,14 +28,7 @@ export function CapacitorBootstrap() {
       cancelled = true;
       teardown?.();
     };
-  }, [theme]);
-
-  useEffect(() => {
-    if (!isCapacitorNative()) return;
-    void import("@/native/capacitor-init")
-      .then((mod) => mod.syncNativeStatusBar(theme))
-      .catch(() => undefined);
-  }, [theme]);
+  }, []);
 
   return null;
 }

@@ -160,12 +160,17 @@ def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dic
 
 
 @frappe.whitelist()
-def check_in(visitor_entry: str | None = None) -> dict:
+def check_in(visitor_entry: str | None = None, floor: str | None = None) -> dict:
 	"""Approved → Checked In (+ auto gate pass)."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
 	if doc.status != "Approved":
 		frappe.throw(_("Only Approved visitors can check in. Current status: {0}").format(doc.status))
+
+	if floor:
+		doc.floor = floor
+	if not doc.floor:
+		frappe.throw(_("Please select a floor before check-in."))
 
 	now = now_datetime()
 	doc.status = "Checked In"
@@ -250,11 +255,11 @@ def complete_meeting(visitor_entry: str | None = None, remarks: str | None = Non
 
 @frappe.whitelist()
 def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Meeting Done → Checked Out (Exit)."""
+	"""Checked In / Meeting Done → Checked Out (Exit). Meeting Done is optional."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
-	if doc.status != "Meeting Done":
-		frappe.throw(_("Checkout allowed after Meeting Done. Current status: {0}").format(doc.status))
+	if doc.status not in ("Checked In", "Meeting Done"):
+		frappe.throw(_("Checkout allowed after Check In. Current status: {0}").format(doc.status))
 
 	now = now_datetime()
 	doc.status = "Checked Out"

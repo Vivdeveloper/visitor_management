@@ -9,7 +9,7 @@ from visitor_management.visitor_management.doctype.visitor_entry import visitor_
 
 
 @frappe.whitelist()
-def check_in(visitor_entry: str | None = None, live_image: str | None = None) -> dict:
+def check_in(visitor_entry: str | None = None, live_image: str | None = None, floor: str | None = None) -> dict:
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	return {"success": True, **ve.check_in(visitor_entry)}
+	return {"success": True, **ve.check_in(visitor_entry, floor=floor)}

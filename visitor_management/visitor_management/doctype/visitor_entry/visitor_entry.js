@@ -58,39 +58,11 @@ function add_gate_actions(frm) {
 
 	// 2) Approved → Check In (+ auto gate pass)
 	if (frm.doc.status === "Approved") {
-		frm.add_custom_button(__("Check In"), () => {
-			frappe.confirm(__("Check in this visitor and generate gate pass?"), () => {
-				frappe.call({
-					method: `${VE}.check_in`,
-					args: { visitor_entry: frm.doc.name },
-					freeze: true,
-					callback(r) {
-						if (!r.exc) {
-							const msg = r.message || {};
-							frappe.show_alert({
-								message: msg.message || __("Checked in"),
-								indicator: "green",
-							});
-							if (msg.pass_url) {
-								frappe.msgprint({
-									title: __("Gate Pass Ready"),
-									message: __(
-										"Pass generated on check-in:<br><a href='{0}' target='_blank'>{0}</a>",
-										[msg.pass_url]
-									),
-									indicator: "blue",
-								});
-							}
-							frm.reload_doc();
-						}
-					},
-				});
-			});
-		}, __("Gate"));
+		frm.add_custom_button(__("Check In"), () => prompt_check_in(frm), __("Gate"));
 	}
 
-	// 4) Meeting Done → Check Out (Exit)
-	if (frm.doc.status === "Meeting Done") {
+	// 4) Checked In / Meeting Done → Check Out (Exit). Meeting Done is optional.
+	if (frm.doc.status === "Checked In" || frm.doc.status === "Meeting Done") {
 		frm.add_custom_button(__("Check Out"), () => {
 			frappe.confirm(__("Check out this visitor?"), () => {
 				frappe.call({
@@ -110,6 +82,53 @@ function add_gate_actions(frm) {
 			});
 		}, __("Gate"));
 	}
+}
+
+function prompt_check_in(frm) {
+	frappe.prompt(
+		[
+			{
+				fieldname: "floor",
+				fieldtype: "Link",
+				options: "Floor",
+				label: __("Floor No."),
+				reqd: 1,
+				default: frm.doc.floor || "",
+			},
+		],
+		(values) => {
+			frappe.call({
+				method: `${VE}.check_in`,
+				args: {
+					visitor_entry: frm.doc.name,
+					floor: values.floor,
+				},
+				freeze: true,
+				callback(r) {
+					if (!r.exc) {
+						const msg = r.message || {};
+						frappe.show_alert({
+							message: msg.message || __("Checked in"),
+							indicator: "green",
+						});
+						if (msg.pass_url) {
+							frappe.msgprint({
+								title: __("Gate Pass Ready"),
+								message: __(
+									"Pass generated on check-in:<br><a href='{0}' target='_blank'>{0}</a>",
+									[msg.pass_url]
+								),
+								indicator: "blue",
+							});
+						}
+						frm.reload_doc();
+					}
+				},
+			});
+		},
+		__("Check In Visitor"),
+		__("Check In")
+	);
 }
 
 function prompt_remarks(frm, action) {

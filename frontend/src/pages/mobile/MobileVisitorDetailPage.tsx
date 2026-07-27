@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { frappeGetList, visitorApi } from "@/api/vms";
 import { extractError, formatDate, formatTime } from "@/lib/format";
-import { HeaderBar } from "@/components/common/HeaderBar";
-
+import { usePageChrome } from "@/context/PageChromeContext";
+import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 type VisitorDoc = {
   name?: string;
   full_name?: string;
   mobile?: string;
+  photo?: string;
   email?: string;
   status?: string;
   visitor_company?: string;
@@ -63,6 +64,14 @@ export function MobileVisitorDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  usePageChrome({
+    title: "Visitor Details",
+    subtitle: routeName || "Visitor Entry",
+    showBack: true,
+    showNotification: false,
+    showProfile: false,
+  });
+
   useEffect(() => {
     if (!routeName) return;
     let cancelled = false;
@@ -104,11 +113,10 @@ export function MobileVisitorDetailPage() {
   }, [routeName]);
 
   const status = visitor?.status || "";
-  const canCheckout = status === "Meeting Done";
+  const canCheckout = status === "Checked In" || status === "Meeting Done";
 
   return (
     <div className="vm-home-page">
-      <HeaderBar title="Visitor Details" showBack showNotification={false} showProfile={false} />
 
       {loading ? <p className="vm-empty-hint">Loading…</p> : null}
       {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
@@ -117,7 +125,16 @@ export function MobileVisitorDetailPage() {
         <main className="vm-main-body vm-detail-stack">
           <div className="vm-overview-card vm-detail-hero">
             <p className="vm-detail-kicker">{visitor.name}</p>
-            <h1 className="vm-page-title">{visitor.full_name || visitor.name}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+              <VisitorAvatar
+                name={visitor.full_name || visitor.name || ""}
+                photo={visitor.photo}
+                size={44}
+              />
+              <h1 className="vm-page-title" style={{ margin: 0 }}>
+                {visitor.full_name || visitor.name}
+              </h1>
+            </div>
             <span className="vm-status-pill">{status || "—"}</span>
           </div>
 

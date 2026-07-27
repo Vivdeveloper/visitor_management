@@ -22,6 +22,7 @@ import {
   vt,
 } from "@/i18n/visitorJourney";
 import { useAppLanguage } from "@/context/AppLanguageContext";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 type JourneyStep =
   | "mobile"
@@ -97,6 +98,15 @@ export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { lang, setLang } = useAppLanguage();
+
+  usePageChrome({
+    title: "Add Entry",
+    subtitle: "Visitor Entry & Desk Verification",
+    showBack: true,
+    backTo: "/",
+    showNotification: true,
+    showProfile: true,
+  });
 
   const [step, setStep] = useState<JourneyStep>("mobile");
   const [busy, setBusy] = useState(false);
@@ -330,25 +340,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   }
 
   function applyReturningVisitor(row: VisitorListRow & Record<string, unknown>) {
-    const first =
-      (row.first_name as string | undefined) ||
-      (row.full_name || "").trim().split(/\s+/)[0] ||
-      "";
-    const parts = (row.full_name || "").trim().split(/\s+/);
-    const last =
-      (row.last_name as string | undefined) ||
-      (parts.length > 1 ? parts[parts.length - 1] : "");
-    const middle =
-      (row.middle_name as string | undefined) ||
-      (parts.length > 2 ? parts.slice(1, -1).join(" ") : "");
-
     setForm((prev) => ({
       ...prev,
-      first_name: first,
-      middle_name: middle,
-      last_name: last,
-      email: (row.email as string | undefined) || prev.email,
-      gender: (row.gender as string | undefined) || prev.gender,
       visitor_company: row.visitor_company || prev.visitor_company,
       visitor_location: (row.visitor_location as string | undefined) || prev.visitor_location,
       person_to_meet: (row.person_to_meet as string | undefined) || row.person_to_meet_name || prev.person_to_meet,
@@ -643,7 +636,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
 
   return (
-    <section className="m-page vj-page vm-immersive">
+    <section className="m-page vj-page">
       {step === "mobile" ? (
         <form className="vj-screen vm-verify-screen vm-mobile-minimal" onSubmit={(e) => void onContinueMobile(e)} lang={lang}>
           <div className="vm-login-logo-card">

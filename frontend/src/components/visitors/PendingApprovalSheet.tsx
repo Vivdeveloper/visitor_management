@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   approvalApi,
   settingsApi,
@@ -13,29 +13,33 @@ type SheetMode = "actions" | "accept" | "reject" | "transfer";
 type Props = {
   visitor: VisitorListRow;
   open: boolean;
+  initialMode?: SheetMode;
   onClose: () => void;
   onDone: () => void;
   onViewDetails: () => void;
 };
 
-export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDetails }: Props) {
+export function PendingApprovalSheet({ visitor, open, initialMode = "actions", onClose, onDone, onViewDetails }: Props) {
   const [mode, setMode] = useState<SheetMode>("actions");
   const [remarks, setRemarks] = useState("");
   const [hostQuery, setHostQuery] = useState("");
   const [hosts, setHosts] = useState<HostOption[]>([]);
   const [transferTo, setTransferTo] = useState<HostOption | null>(null);
+  const [hostDropdownOpen, setHostDropdownOpen] = useState(false);
+  const hostDropdownRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setMode("actions");
+    setMode(initialMode);
     setRemarks("");
     setHostQuery("");
     setTransferTo(null);
+    setHostDropdownOpen(false);
     setError(null);
     setBusy(false);
-  }, [open, visitor.name]);
+  }, [open, visitor.name, initialMode]);
 
   useEffect(() => {
     if (!open || mode !== "transfer") return;
@@ -55,13 +59,30 @@ export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDet
     };
   }, [open, mode]);
 
+  useEffect(() => {
+    if (!hostDropdownOpen) return;
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!hostDropdownRef.current?.contains(event.target as Node)) {
+        setHostDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [hostDropdownOpen]);
+
   if (!open) return null;
 
-  const filteredHosts = hosts.filter((h) => {
-    const q = hostQuery.trim().toLowerCase();
-    if (!q) return true;
-    return `${h.label} ${h.value} ${h.email || ""}`.toLowerCase().includes(q);
-  });
+  const filteredHosts = hosts
+    .filter((h) => h.value !== visitor.person_to_meet)
+    .filter((h) => {
+      const q = hostQuery.trim().toLowerCase();
+      if (!q) return true;
+      return `${h.label} ${h.value} ${h.email || ""}`.toLowerCase().includes(q);
+    });
 
   async function runAccept() {
     setBusy(true);
@@ -279,36 +300,73 @@ export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDet
             <label className="vm-sheet-label" htmlFor="pa-transfer-host">
               Transfer to
             </label>
-            <input
-              id="pa-transfer-host"
-              className="vm-input-field"
-              value={hostQuery}
-              onChange={(e) => setHostQuery(e.target.value)}
-              placeholder="Search person to meet"
-              aria-label="Search person to meet"
-            />
-            <div className="vm-sheet-host-list">
-              {filteredHosts.length === 0 ? (
-                <p className="vm-empty-hint">No people found</p>
-              ) : (
-                filteredHosts.slice(0, 8).map((host) => {
-                  const selected = transferTo?.value === host.value;
-                  return (
-                    <button
-                      key={host.value}
-                      type="button"
-                      className={`vm-sheet-host-row${selected ? " is-selected" : ""}`}
-                      onClick={() => setTransferTo(host)}
-                    >
-                      <span className="vm-activity-avatar avatar-blue">{initials(host.label)}</span>
-                      <span className="vm-sheet-host-copy">
-                        <strong>{host.label}</strong>
-                        <span>{host.email || host.value}</span>
-                      </span>
-                    </button>
-                  );
-                })
-              )}
+            <div className="vm-transfer-host-dropdown" ref={hostDropdownRef}>
+              <button
+                id="pa-transfer-host"
+                type="button"
+                className={`vm-transfer-host-trigger${hostDropdownOpen ? " is-open" : ""}${transferTo ? " has-value" : ""}`}
+                aria-haspopup="listbox"
+                aria-expanded={hostDropdownOpen}
+                onClick={() => setHostDropdownOpen((open) => !open)}
+              >
+                {transferTo ? (
+                  <>
+                    <span className="vm-activity-avatar avatar-blue">{initials(transferTo.label)}</span>
+                    <span className="vm-transfer-host-trigger-copy">
+                      <strong>{transferTo.label}</strong>
+                      <span>{transferTo.email || transferTo.value}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="vm-transfer-host-placeholder">Select person to meet</span>
+                )}
+                <svg className="vm-transfer-host-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+
+              {hostDropdownOpen ? (
+                <div className="vm-transfer-host-menu" role="listbox" aria-label="Transfer to">
+                  <input
+                    className="vm-input-field vm-transfer-host-search"
+                    value={hostQuery}
+                    onChange={(e) => setHostQuery(e.target.value)}
+                    placeholder="Search person to meet"
+                    aria-label="Search person to meet"
+                    autoFocus
+                  />
+                  <div className="vm-sheet-host-list">
+                    {filteredHosts.length === 0 ? (
+                      <p className="vm-empty-hint">No people found</p>
+                    ) : (
+                      filteredHosts.slice(0, 8).map((host) => {
+                        const selected = transferTo?.value === host.value;
+                        return (
+                          <button
+                            key={host.value}
+                            type="button"
+                            role="option"
+                            aria-selected={selected}
+                            className={`vm-sheet-host-row${selected ? " is-selected" : ""}`}
+                            onClick={() => {
+                              setTransferTo(host);
+                              setHostQuery("");
+                              setHostDropdownOpen(false);
+                              setError(null);
+                            }}
+                          >
+                            <span className="vm-activity-avatar avatar-blue">{initials(host.label)}</span>
+                            <span className="vm-sheet-host-copy">
+                              <strong>{host.label}</strong>
+                              <span>{host.email || host.value}</span>
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <label className="vm-sheet-label" htmlFor="pa-transfer-remarks">
               Reason / Remarks (required)

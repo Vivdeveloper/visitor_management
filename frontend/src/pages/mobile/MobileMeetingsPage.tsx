@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { visitorApi, type VisitorListRow } from "@/api/vms";
 import { extractError, formatTime, initials } from "@/lib/format";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 function toInputDate(d: Date) {
   const y = d.getFullYear();
@@ -98,6 +99,16 @@ function cardTheme(status?: string) {
 export function MobileMeetingsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  usePageChrome({
+    title: "Meetings",
+    subtitle: "Scheduled visits",
+    showBack: true,
+    backTo: "/",
+    showNotification: false,
+    showProfile: false,
+  });
+
   const paramDate = searchParams.get("date");
   const today = toInputDate(new Date());
 

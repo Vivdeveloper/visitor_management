@@ -6,13 +6,13 @@ import {
   type VisitorListRow,
 } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/context/ThemeContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
+import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { formatTime, initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
 
@@ -58,7 +58,6 @@ export function HeaderBar({
 }: HeaderBarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { lang } = useAppLanguage();
   const [popup, setPopup] = useState<PopupKind>("none");
   const [pending, setPending] = useState<DashboardQueueItem[]>([]);
@@ -159,46 +158,53 @@ export function HeaderBar({
 
               {popup === "notifications" ? (
                 <div className="vm-topbar-popup vm-notif-popup" role="dialog" aria-label="Notifications">
-                  <div className="vm-topbar-popup-head">
+                  <div className="vm-notif-popup-head">
                     <strong>Pending Approvals</strong>
-                    <span className="vm-topbar-popup-count">{pendingLoading ? "…" : pendingCount}</span>
+                    <span className="vm-notif-popup-count">{pendingLoading ? "…" : pendingCount}</span>
                   </div>
-                  <div className="vm-notif-list">
+
+                  <div className="vm-notif-popup-body">
                     {pendingLoading ? (
-                      <p className="vm-empty-hint">Loading live queue…</p>
+                      <p className="vm-notif-popup-empty">Loading live queue…</p>
                     ) : pending.length === 0 ? (
-                      <p className="vm-empty-hint">No pending approvals</p>
+                      <p className="vm-notif-popup-empty">No pending approvals</p>
                     ) : (
-                      pending.map((item) => (
-                        <button
-                          key={item.name}
-                          type="button"
-                          className="vm-notif-row"
-                          onClick={() => {
-                            setActionVisitor(toVisitorRow(item));
-                            setPopup("none");
-                          }}
-                        >
-                          <div className="vm-activity-avatar avatar-orange" style={{ width: 34, height: 34, fontSize: "0.72rem" }}>
-                            {initials(item.full_name || item.name)}
-                          </div>
-                          <div className="vm-notif-copy">
-                            <strong>{item.full_name || item.name}</strong>
-                            <span>{item.person_to_meet_name || item.host_name || "Awaiting assignment"}</span>
-                          </div>
-                          <span className="vm-notif-time">
-                            {formatTime(item.check_in || item.checked_in_on || item.modified) || "—"}
-                          </span>
-                        </button>
-                      ))
+                      <ul className="vm-notif-list" role="list">
+                        {pending.map((item) => (
+                          <li key={item.name}>
+                            <button
+                              type="button"
+                              className="vm-notif-row"
+                              onClick={() => {
+                                setActionVisitor(toVisitorRow(item));
+                                setPopup("none");
+                              }}
+                            >
+                              <VisitorAvatar
+                                name={item.full_name || item.name}
+                                size={40}
+                                className="vm-notif-avatar avatar-orange"
+                              />
+                              <div className="vm-notif-copy">
+                                <strong>{item.full_name || item.name}</strong>
+                                <span>{item.person_to_meet_name || item.host_name || "Awaiting assignment"}</span>
+                              </div>
+                              <span className="vm-notif-time">
+                                {formatTime(item.check_in || item.checked_in_on || item.modified || item.creation) || "—"}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
+
                   <button
                     type="button"
-                    className="vm-topbar-popup-link"
+                    className="vm-notif-popup-footer"
                     onClick={() => {
                       setPopup("none");
-                      navigate("/inside?status=pending");
+                      navigate("/approvals");
                     }}
                   >
                     Open visitors queue ›
@@ -207,6 +213,8 @@ export function HeaderBar({
               ) : null}
             </div>
           ) : null}
+
+          <LanguageSwitcher variant="icon" />
 
           {showProfile ? (
             <div className="vm-topbar-popwrap">
@@ -239,36 +247,6 @@ export function HeaderBar({
                       <span>{user?.email || user?.user || "Signed in"}</span>
                     </div>
                   </div>
-
-                  <div className="vm-profile-popup-row">
-                    <span>{ut(lang, "theme")}</span>
-                    <button
-                      type="button"
-                      className={`vm-theme-glow${theme === "dark" ? " is-dark" : " is-light"}`}
-                      onClick={toggleTheme}
-                      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-                    >
-                      <span className="vm-theme-glow-track" aria-hidden>
-                        <span className="vm-theme-glow-label">
-                          {theme === "dark" ? ut(lang, "dark").toLowerCase() : ut(lang, "light").toLowerCase()}
-                        </span>
-                      </span>
-                      <span className="vm-theme-glow-knob" aria-hidden>
-                        {theme === "dark" ? (
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                            <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3 7 7 0 1 0 21 14.3Z" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
-                            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6" strokeLinecap="round" />
-                          </svg>
-                        )}
-                      </span>
-                    </button>
-                  </div>
-
-                  <LanguageSwitcher variant="compact" />
 
                   <button
                     type="button"

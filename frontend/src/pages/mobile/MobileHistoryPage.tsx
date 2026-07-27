@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { visitorApi } from "@/api/vms";
 import { initials } from "@/lib/format";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 type Row = {
   name: string;
@@ -13,6 +14,15 @@ type Row = {
 type Tab = "all" | "in" | "out";
 
 export function MobileHistoryPage() {
+  usePageChrome({
+    title: "History",
+    subtitle: "Visitor log",
+    showBack: true,
+    backTo: "/inside",
+    showNotification: false,
+    showProfile: false,
+  });
+
   const [tab, setTab] = useState<Tab>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);

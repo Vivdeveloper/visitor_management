@@ -1,12 +1,6 @@
 import { Link } from "react-router-dom";
-import type { ThemeMode } from "@/context/ThemeContext";
 
-type AccountPreferencesListProps = {
-  theme?: ThemeMode;
-  onToggleTheme?: () => void;
-};
-
-export function AccountPreferencesList({ theme = "light", onToggleTheme }: AccountPreferencesListProps) {
+export function AccountPreferencesList() {
   return (
     <div>
       <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--vms-muted)", display: "block", marginBottom: "0.5rem", paddingLeft: "0.25rem" }}>
@@ -32,18 +26,6 @@ export function AccountPreferencesList({ theme = "light", onToggleTheme }: Accou
           </div>
           <span style={{ color: "var(--vms-placeholder)" }}>❯</span>
         </Link>
-
-        <button type="button" className="vm-menu-item" style={{ padding: "0.85rem 0", width: "100%", border: 0, background: "transparent", cursor: "pointer" }} onClick={onToggleTheme}>
-          <div className="vm-menu-item-left">
-            <span className="vm-menu-icon-bg" style={{ background: theme === "dark" ? "#1a1a1a" : "#EFF6FF" }}>🎨</span>
-            <div style={{ textAlign: "left" }}>
-              <span className="vm-menu-title" style={{ fontSize: "0.9rem" }}>Theme</span>
-            </div>
-          </div>
-          <span style={{ fontSize: "0.8rem", color: "var(--vms-muted)", fontWeight: 600 }}>
-            {theme === "dark" ? "Dark" : "Light"} ❯
-          </span>
-        </button>
       </div>
     </div>
   );

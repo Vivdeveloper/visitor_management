@@ -26,23 +26,18 @@ function navigateToPath(path: string) {
   }
 }
 
-async function configureStatusBar(theme: "light" | "dark") {
+async function configureStatusBar() {
   if (!isNativePlatform()) return;
   try {
     await StatusBar.setOverlaysWebView({ overlay: false });
-    if (theme === "dark") {
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: "#14213D" });
-    } else {
-      await StatusBar.setStyle({ style: Style.Light });
-      await StatusBar.setBackgroundColor({ color: "#0A3D91" });
-    }
+    await StatusBar.setStyle({ style: Style.Light });
+    await StatusBar.setBackgroundColor({ color: "#0A3D91" });
   } catch {
     /* status bar unavailable */
   }
 }
 
-export async function initCapacitorNative(theme: "light" | "dark"): Promise<() => void> {
+export async function initCapacitorNative(): Promise<() => void> {
   if (!isNativePlatform()) {
     return startOfflineSyncListener();
   }
@@ -56,7 +51,7 @@ export async function initCapacitorNative(theme: "light" | "dark"): Promise<() =
     document.documentElement.classList.add("cap-ios");
   }
 
-  await configureStatusBar(theme);
+  await configureStatusBar();
   await lockPortrait();
 
   void SplashScreen.hide();
@@ -99,8 +94,8 @@ export async function initCapacitorNative(theme: "light" | "dark"): Promise<() =
   };
 }
 
-export function syncNativeStatusBar(theme: "light" | "dark"): void {
-  void configureStatusBar(theme);
+export function syncNativeStatusBar(): void {
+  void configureStatusBar();
 }
 
 /** Blur focused input when tapping non-interactive areas on native. */

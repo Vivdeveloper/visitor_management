@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
-import { formatTime } from "@/lib/format";
+import { formatTime, resolveFileUrl } from "@/lib/format";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 
 type Props = {
@@ -9,6 +10,9 @@ type Props = {
   onApprove?: (item: VisitorListRow) => void;
   onReject?: (item: VisitorListRow) => void;
   onNotifyHost?: (item: VisitorListRow) => void;
+  onTransfer?: (item: VisitorListRow) => void;
+  onViewDetails?: (item: VisitorListRow) => void;
+  onCallHost?: (item: VisitorListRow) => void;
   onGenerateGatePass?: (item: VisitorListRow) => void;
   onCheckIn?: (item: VisitorListRow) => void;
   onMeetingDone?: (item: VisitorListRow) => void;
@@ -27,7 +31,7 @@ function statusTone(status?: string) {
 function statusLabel(status?: string) {
   if (!status) return "—";
   if (status === "Pending Approval") return "Pending";
-  if (status === "Meeting Done") return "Inside";
+  if (status === "Meeting Done") return "Meeting Done";
   if (status === "Approved") return "Approved";
   return status;
 }
@@ -39,23 +43,59 @@ export function PendingDecisionCard({
   onApprove,
   onReject,
   onNotifyHost,
+  onTransfer,
+  onViewDetails,
+  onCallHost,
   onGenerateGatePass,
   onCheckIn,
   onMeetingDone,
   onCheckOut,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [photoPreviewSrc, setPhotoPreviewSrc] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const visitorName = item.full_name || item.name;
   const hostName = item.person_to_meet_name || "—";
   const purpose = item.visit_purpose_type || "—";
-  const timeLabel = formatTime(item.check_in || item.checked_in_on || item.modified || item.creation) || "15:46";
+  const rawTimestamp = item.check_in || item.checked_in_on || item.modified || item.creation;
+  const dateLabel = (() => {
+    if (!rawTimestamp) return "";
+    const d = new Date(rawTimestamp);
+    if (isNaN(d.getTime())) return "";
+    // Compact date: "27 Jul"
+    return d.toLocaleDateString([], { day: "2-digit", month: "short" });
+  })();
+  const timeLabel = formatTime(rawTimestamp) || "—";
+  const dateTimeLabel = dateLabel ? `${dateLabel} • ${timeLabel}` : timeLabel;
   const displayStatus = statusLabel(item.status);
   const tone = statusTone(item.status);
 
   const isPending = item.status === "Pending Approval" || item.status === "Pending";
   const isApproved = item.status === "Approved";
+  const isMeetingDone = item.status === "Meeting Done";
+  const showInsideActions = !!(onMeetingDone || onCheckOut);
+  const showCardMenu = !!(onTransfer || onViewDetails || onCallHost);
+  const showPendingActions = isPending && (!!onReject || !!onNotifyHost || !!onApprove);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [menuOpen]);
 
   return (
-    <div
+    <>
+      <div
       className={`vm-pending-redesign-card${busy ? " is-busy" : ""}`}
       data-status={item.status}
     >
@@ -67,11 +107,30 @@ export function PendingDecisionCard({
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onOpen?.()}
       >
-        <VisitorAvatar
-          name={visitorName}
-          photo={item.photo}
-          className={`vm-pending-redesign-avatar ${tone}`}
-        />
+        <button
+          type="button"
+          aria-label={`Preview photo for ${visitorName}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const src = resolveFileUrl(item.photo);
+            if (src) setPhotoPreviewSrc(src);
+          }}
+          style={{
+            background: "transparent",
+            border: 0,
+            padding: 0,
+            margin: 0,
+            cursor: item.photo ? "pointer" : "default",
+            borderRadius: 12,
+          }}
+        >
+          <VisitorAvatar
+            name={visitorName}
+            photo={item.photo}
+            className={`vm-pending-redesign-avatar ${tone}`}
+          />
+        </button>
 
         <div className="vm-pending-redesign-title-block">
           <strong className="vm-pending-redesign-name">{visitorName}</strong>
@@ -86,9 +145,90 @@ export function PendingDecisionCard({
         </div>
 
         <div className="vm-pending-redesign-time-block">
+          {showCardMenu ? (
+            <div className="vm-pending-card-menu-wrap" ref={menuRef}>
+              <button
+                type="button"
+                className="vm-pending-card-menu-btn"
+                aria-label={`More actions for ${visitorName}`}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((open) => !open);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden>
+                  <circle cx="12" cy="5" r="1.75" />
+                  <circle cx="12" cy="12" r="1.75" />
+                  <circle cx="12" cy="19" r="1.75" />
+                </svg>
+              </button>
+
+              {menuOpen ? (
+                <div className="vm-pending-card-menu" role="menu">
+                  {isPending && onTransfer ? (
+                    <button
+                      type="button"
+                      className="vm-pending-card-menu-item"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        onTransfer(item);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                        <path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7" />
+                      </svg>
+                      <span>Transfer</span>
+                    </button>
+                  ) : null}
+
+                  {onViewDetails ? (
+                    <button
+                      type="button"
+                      className="vm-pending-card-menu-item"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        onViewDetails(item);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                      </svg>
+                      <span>View Details</span>
+                    </button>
+                  ) : null}
+
+                  {onCallHost ? (
+                    <button
+                      type="button"
+                      className="vm-pending-card-menu-item"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen(false);
+                        onCallHost(item);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                        <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
+                      </svg>
+                      <span>Call Host</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <span className="vm-pending-redesign-id">{item.name}</span>
           <div className="vm-pending-redesign-time-row">
-            <span className="vm-pending-redesign-time">{timeLabel}</span>
+            <span className="vm-pending-redesign-time">{dateTimeLabel}</span>
             <svg className="vm-pending-redesign-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="m6 9 6 6 6-6" />
             </svg>
@@ -142,63 +282,69 @@ export function PendingDecisionCard({
         </div>
       </div>
 
-      {/* Action Buttons Row — Only shown for Pending Approval visitors */}
-      {isPending ? (
+      {/* Action Buttons Row */}
+      {showPendingActions ? (
         <div className="vm-pending-redesign-actions">
-          <button
-            type="button"
-            className="vm-redesign-act-btn is-reject"
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation();
-              onReject?.(item);
-            }}
-            aria-label={`Reject ${visitorName}`}
-          >
-            <span className="vm-redesign-act-icon" aria-hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="9" />
-                <path d="m15 9-6 6M9 9l6 6" />
-              </svg>
-            </span>
-            <span>Reject</span>
-          </button>
+          {onReject ? (
+            <button
+              type="button"
+              className="vm-redesign-act-btn is-reject"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject?.(item);
+              }}
+              aria-label={`Reject ${visitorName}`}
+            >
+              <span className="vm-redesign-act-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m15 9-6 6M9 9l6 6" />
+                </svg>
+              </span>
+              <span>Reject</span>
+            </button>
+          ) : null}
 
-          <button
-            type="button"
-            className="vm-redesign-act-btn is-bell"
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation();
-              onNotifyHost?.(item);
-            }}
-            aria-label={`Notify host for ${visitorName}`}
-            title="Push notification to host"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            className="vm-redesign-act-btn is-accept"
-            disabled={busy}
-            onClick={(e) => {
-              e.stopPropagation();
-              onApprove?.(item);
-            }}
-            aria-label={`Accept ${visitorName}`}
-          >
-            <span className="vm-redesign-act-icon" aria-hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <circle cx="12" cy="12" r="9" />
-                <path d="m9 12 2 2 4-4" />
+          {onNotifyHost ? (
+            <button
+              type="button"
+              className="vm-redesign-act-btn is-bell"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNotifyHost?.(item);
+              }}
+              aria-label={`Notify host for ${visitorName}`}
+              title="Push notification to host"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-            </span>
-            <span>Accept</span>
-          </button>
+            </button>
+          ) : null}
+
+          {onApprove ? (
+            <button
+              type="button"
+              className="vm-redesign-act-btn is-accept"
+              disabled={busy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove?.(item);
+              }}
+              aria-label={`Accept ${visitorName}`}
+            >
+              <span className="vm-redesign-act-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </span>
+              <span>Accept</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -250,19 +396,25 @@ export function PendingDecisionCard({
         </div>
       ) : null}
 
-      {/* Inside tab — Meeting Done & Check Out */}
-      {(onMeetingDone || onCheckOut) ? (
-        <div className={`vm-pending-redesign-actions is-approved-pass${onMeetingDone && onCheckOut ? " has-both" : ""}`}>
+      {/* Inside tab — Meeting Done (locks after complete) & Check Out (always available) */}
+      {showInsideActions ? (
+        <div className="vm-pending-redesign-actions is-approved-pass has-both">
           {onMeetingDone ? (
             <button
               type="button"
-              className="vm-redesign-act-btn is-meeting-done"
-              disabled={busy}
+              className={`vm-redesign-act-btn is-meeting-done${isMeetingDone ? " is-done" : ""}`}
+              disabled={busy || isMeetingDone || !onMeetingDone}
               onClick={(e) => {
                 e.stopPropagation();
+                if (isMeetingDone || !onMeetingDone) return;
                 onMeetingDone(item);
               }}
-              aria-label={`Mark meeting done for ${visitorName}`}
+              aria-label={
+                isMeetingDone
+                  ? `Meeting already completed for ${visitorName}`
+                  : `Mark meeting done for ${visitorName}`
+              }
+              title={isMeetingDone ? "Meeting already completed" : "Mark meeting done"}
             >
               <span className="vm-redesign-act-icon" aria-hidden>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -297,6 +449,47 @@ export function PendingDecisionCard({
           ) : null}
         </div>
       ) : null}
-    </div>
+      </div>
+
+      {photoPreviewSrc ? (
+        <div className="vm-confirm-modal-root" role="dialog" aria-modal="true" aria-label="Photo preview">
+          <button
+            type="button"
+            className="vm-confirm-modal-backdrop"
+            onClick={() => setPhotoPreviewSrc(null)}
+            aria-label="Close photo preview"
+          />
+          <div className="vm-confirm-modal-card" style={{ padding: "0.85rem", width: "min(100%, 440px)" }}>
+            <button
+              type="button"
+              className="vm-confirm-modal-close"
+              onClick={() => setPhotoPreviewSrc(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div
+              style={{
+                borderRadius: 18,
+                overflow: "hidden",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+              }}
+            >
+              <img
+                src={photoPreviewSrc}
+                alt={`${visitorName} photo`}
+                style={{
+                  width: "100%",
+                  maxHeight: "72vh",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

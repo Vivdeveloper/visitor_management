@@ -1,70 +1,99 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approvalApi, meetingApi, passApi, securityApi, visitorApi, type VisitorListRow } from "@/api/vms";
-import { HeaderBar } from "@/components/common/HeaderBar";
+import { approvalApi, frappeGetList, meetingApi, passApi, securityApi, visitorApi, type VisitorListRow } from "@/api/vms";
 import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToast";
 import { PendingDecisionCard } from "@/components/approvals/PendingDecisionCard";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
+import { CheckInFloorModal } from "@/components/approvals/CheckInFloorModal";
 import { GatePassActionsModal } from "@/components/approvals/GatePassActionsModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
+const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
 
-type TabId = "pending" | "approved" | "inside" | "checked_out";
-type DateFilterMode = "all" | "today" | "week" | "custom";
+type TabId = "all" | "pending" | "approved" | "inside";
+type DateFilterMode = "today" | "yesterday" | "week";
 
-function matchesDateFilter(
-  rawDate: string | undefined | null,
-  mode: DateFilterMode,
-  customDate: string,
-): boolean {
-  if (mode === "all" && !customDate) return true;
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getWeekStart(date: Date): Date {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function matchesDateFilter(rawDate: string | undefined | null, mode: DateFilterMode): boolean {
   if (!rawDate) return false;
 
   const d = new Date(rawDate);
   if (isNaN(d.getTime())) return false;
 
-  const isoDate = d.toISOString().split("T")[0];
-  const todayIso = new Date().toISOString().split("T")[0];
+  const isoDate = toIsoDate(d);
+  const today = new Date();
+  const todayIso = toIsoDate(today);
 
   if (mode === "today") {
     return isoDate === todayIso;
   }
 
-  if (mode === "week") {
-    const diffMs = new Date().getTime() - d.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-    return diffDays >= 0 && diffDays <= 7;
+  if (mode === "yesterday") {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return isoDate === toIsoDate(yesterday);
   }
 
-  if (mode === "custom" && customDate) {
-    return isoDate === customDate;
+  if (mode === "week") {
+    const weekStart = getWeekStart(today);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    return d >= weekStart && d <= weekEnd;
   }
 
   return true;
 }
 
 const TABS: Array<{ id: TabId; label: string; match: (s?: string) => boolean }> = [
-  { id: "pending", label: "Pending", match: (s) => s === "Pending Approval" },
+  { id: "all", label: "All", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
+  { id: "pending", label: "Pending", match: (s) => s === "Pending Approval" || s === "Pending" },
   { id: "approved", label: "Approved", match: (s) => s === "Approved" },
   { id: "inside", label: "Inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
-  { id: "checked_out", label: "Checked Out", match: (s) => s === "Checked Out" },
 ];
 
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
+
+  usePageChrome({
+    title: "Pending",
+    subtitle: "Approvals queue",
+    showBack: true,
+    backTo: "/",
+    showNotification: true,
+    showProfile: true,
+  });
+
   const [tab, setTab] = useState<TabId>("pending");
   const [query, setQuery] = useState("");
-  const [dateMode, setDateMode] = useState<DateFilterMode>("all");
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [dateMode, setDateMode] = useState<DateFilterMode>("week");
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [active, setActive] = useState<VisitorListRow | null>(null);
+  const [sheetMode, setSheetMode] = useState<"actions" | "reject" | "transfer">("transfer");
   const [toast, setToast] = useState<ErpToastData | null>(null);
   const [confirmVisitor, setConfirmVisitor] = useState<VisitorListRow | null>(null);
+  const [checkInVisitor, setCheckInVisitor] = useState<VisitorListRow | null>(null);
   const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
   const [passBusy, setPassBusy] = useState(false);
   const statusMapRef = useState(() => new Map<string, string>())[0];
@@ -132,6 +161,7 @@ export function MobileApprovalsPage() {
   );
 
   const handleReject = useCallback((item: VisitorListRow) => {
+    setSheetMode("reject");
     setActive(item);
   }, []);
 
@@ -153,15 +183,17 @@ export function MobileApprovalsPage() {
   }, []);
 
   const handleCheckIn = useCallback(
-    async (visitor: VisitorListRow) => {
+    async (visitor: VisitorListRow, floor: string) => {
       setBusy(visitor.name);
       setError(null);
       try {
-        await securityApi.checkIn(visitor.name);
+        await visitorApi.update(visitor.name, { floor });
+        await securityApi.checkIn(visitor.name, undefined, floor);
+        setCheckInVisitor(null);
         setToast({
           id: Date.now().toString(),
           title: "Visitor Checked In",
-          message: `${visitor.full_name || visitor.name} has been checked in successfully.`,
+          message: `${visitor.full_name || visitor.name} checked in on ${floor}.`,
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         });
         void load();
@@ -173,6 +205,46 @@ export function MobileApprovalsPage() {
     },
     [load],
   );
+
+  const handleCallHost = useCallback(async (item: VisitorListRow) => {
+    const hostId = item.person_to_meet;
+    if (!hostId) {
+      setToast({
+        id: Date.now().toString(),
+        title: "Host phone unavailable",
+        message: "No host assigned for this visitor.",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+      return;
+    }
+
+    try {
+      const users = await frappeGetList<{ name: string; mobile_no?: string; phone?: string }>({
+        doctype: "User",
+        fields: ["name", "mobile_no", "phone"],
+        filters: { name: hostId },
+        limit_page_length: 1,
+      });
+      const phone = users[0]?.mobile_no || users[0]?.phone;
+      if (!phone) {
+        setToast({
+          id: Date.now().toString(),
+          title: "Host phone unavailable",
+          message: `${item.person_to_meet_name || "Host"} has no phone number on file.`,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        return;
+      }
+      window.location.href = `tel:${phone.replace(/\s+/g, "")}`;
+    } catch {
+      setToast({
+        id: Date.now().toString(),
+        title: "Could not call host",
+        message: "Unable to fetch host contact details.",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+    }
+  }, []);
 
   const handleMeetingDone = useCallback(
     async (visitor: VisitorListRow) => {
@@ -297,18 +369,20 @@ export function MobileApprovalsPage() {
 
   const counts = useMemo(() => {
     const next: Record<TabId, number> = {
+      all: 0,
       pending: 0,
       approved: 0,
       inside: 0,
-      checked_out: 0,
     };
     for (const row of rows) {
+      const itemDate = row.check_in || row.checked_in_on || row.modified || row.creation;
+      if (!matchesDateFilter(itemDate, dateMode)) continue;
       for (const t of TABS) {
         if (t.match(row.status)) next[t.id] += 1;
       }
     }
     return next;
-  }, [rows]);
+  }, [rows, dateMode]);
 
   const filteredItems = useMemo(() => {
     const def = TABS.find((t) => t.id === tab) || TABS[0];
@@ -317,18 +391,19 @@ export function MobileApprovalsPage() {
       .filter((item) => def.match(item.status))
       .filter((item) => {
         const itemDate = item.check_in || item.checked_in_on || item.modified || item.creation;
-        return matchesDateFilter(itemDate, dateMode, selectedDate);
+        return matchesDateFilter(itemDate, dateMode);
       })
       .filter((item) => {
         if (!q) return true;
         const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
         return haystack.includes(q);
       });
-  }, [rows, tab, query, dateMode, selectedDate]);
+  }, [rows, tab, query, dateMode]);
+
+  const viewOnlyAll = tab === "all";
 
   return (
     <div className="vm-home-page vm-approvals-page">
-      <HeaderBar title="Precious Alloys" showNotification showProfile />
       <ErpNextToast toast={toast} onClose={() => setToast(null)} />
 
       <main className="vm-main-body vm-approvals-stack vm-page-content-start">
@@ -364,69 +439,42 @@ export function MobileApprovalsPage() {
           ))}
         </div>
 
-        {/* Quick Date Filter Bar below tabs */}
         <div className="vm-approvals-filter-bar">
           <div className="vm-approvals-filter-pills">
             <button
               type="button"
-              className={`vm-filter-pill${dateMode === "all" ? " is-active" : ""}`}
-              onClick={() => {
-                setDateMode("all");
-                setSelectedDate("");
-              }}
-            >
-              All
-            </button>
-
-            <button
-              type="button"
               className={`vm-filter-pill${dateMode === "today" ? " is-active" : ""}`}
-              onClick={() => {
-                setDateMode("today");
-                setSelectedDate("");
-              }}
+              onClick={() => setDateMode("today")}
             >
               Today
             </button>
 
             <button
               type="button"
+              className={`vm-filter-pill${dateMode === "yesterday" ? " is-active" : ""}`}
+              onClick={() => setDateMode("yesterday")}
+            >
+              Yesterday
+            </button>
+
+            <button
+              type="button"
               className={`vm-filter-pill${dateMode === "week" ? " is-active" : ""}`}
-              onClick={() => {
-                setDateMode("week");
-                setSelectedDate("");
-              }}
+              onClick={() => setDateMode("week")}
             >
               This Week
             </button>
-
-            <label className={`vm-filter-pill vm-filter-date-picker${dateMode === "custom" ? " is-active" : ""}`}>
-              <span>📅 {selectedDate || "Pick Date"}</span>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDate(e.target.value);
-                    setDateMode("custom");
-                  }
-                }}
-                className="vm-filter-date-input"
-              />
-            </label>
           </div>
 
-          {/* Clear Filter Button */}
-          {dateMode !== "all" || selectedDate || query ? (
+          {dateMode !== "week" || query ? (
             <button
               type="button"
               className="vm-filter-clear-btn"
               onClick={() => {
-                setDateMode("all");
-                setSelectedDate("");
+                setDateMode("week");
                 setQuery("");
               }}
-              title="Clear all filters"
+              title="Clear filters"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                 <path d="M18 6 6 18M6 6l12 12" />
@@ -451,27 +499,39 @@ export function MobileApprovalsPage() {
               key={item.name}
               item={item}
               busy={busy === item.name}
-              onOpen={() => {
-                if (item.status === "Pending Approval") {
-                  setActive(item);
-                  return;
-                }
-                navigate(`/visitor/${encodeURIComponent(item.name)}`);
-              }}
-              onApprove={() => void handleApprove(item)}
-              onReject={() => handleReject(item)}
-              onNotifyHost={() => handleNotifyHost(item)}
+              onOpen={viewOnlyAll ? undefined : () => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
+              onApprove={viewOnlyAll ? undefined : () => void handleApprove(item)}
+              onReject={viewOnlyAll ? undefined : () => handleReject(item)}
+              onNotifyHost={viewOnlyAll ? undefined : () => handleNotifyHost(item)}
+              onTransfer={
+                viewOnlyAll
+                  ? undefined
+                  : (v) => {
+                      setSheetMode("transfer");
+                      setActive(v);
+                    }
+              }
+              onViewDetails={viewOnlyAll ? undefined : (v) => navigate(`/visitor/${encodeURIComponent(v.name)}`)}
+              onCallHost={viewOnlyAll ? undefined : (v) => void handleCallHost(v)}
               onGenerateGatePass={
-                item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
+                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
               }
               onCheckIn={
-                item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
+                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setCheckInVisitor(v) : undefined
               }
               onMeetingDone={
-                item.status && INSIDE_STATUSES.has(item.status) ? (v) => void handleMeetingDone(v) : undefined
+                viewOnlyAll
+                  ? undefined
+                  : item.status === "Checked In"
+                    ? (v) => void handleMeetingDone(v)
+                    : undefined
               }
               onCheckOut={
-                item.status && INSIDE_STATUSES.has(item.status) ? (v) => void handleCheckOut(v) : undefined
+                viewOnlyAll
+                  ? undefined
+                  : item.status === "Checked In" || item.status === "Meeting Done"
+                    ? (v) => void handleCheckOut(v)
+                    : undefined
               }
             />
           ))}
@@ -482,6 +542,7 @@ export function MobileApprovalsPage() {
         <PendingApprovalSheet
           visitor={active}
           open
+          initialMode={sheetMode}
           onClose={() => setActive(null)}
           onDone={() => {
             const v = active;
@@ -496,6 +557,14 @@ export function MobileApprovalsPage() {
           }}
         />
       ) : null}
+
+      <CheckInFloorModal
+        visitor={checkInVisitor}
+        open={!!checkInVisitor}
+        busy={!!checkInVisitor && busy === checkInVisitor.name}
+        onClose={() => setCheckInVisitor(null)}
+        onConfirm={handleCheckIn}
+      />
 
       <VisitorCheckInConfirmModal
         visitor={confirmVisitor}

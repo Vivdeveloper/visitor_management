@@ -3,8 +3,18 @@ import { Link } from "react-router-dom";
 import { securityApi } from "@/api/vms";
 import { extractError, initials } from "@/lib/format";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 export function MobileScanPage() {
+  usePageChrome({
+    title: "Scan QR",
+    subtitle: "Gate verification",
+    showBack: true,
+    backTo: "/",
+    showNotification: false,
+    showProfile: false,
+  });
+
   const [token, setToken] = useState("");
   const [remarks, setRemarks] = useState("");
   const [message, setMessage] = useState<string | null>(null);

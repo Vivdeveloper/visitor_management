@@ -12,8 +12,7 @@ import { VisitorTrendChart } from "@/components/dashboard/VisitorTrendChart";
 import { VisitorBarChart } from "@/components/dashboard/VisitorBarChart";
 import { VisitorCalendarGrid } from "@/components/dashboard/VisitorCalendarGrid";
 import { AnalyticsInsightWidgets } from "@/components/dashboard/AnalyticsInsightWidgets";
-import { HeaderBar } from "@/components/common/HeaderBar";
-
+import { usePageChrome } from "@/context/PageChromeContext";
 type MeetAgg = { name: string; count: number; color: string };
 type SubTab = "overview" | "visitors" | "meet";
 type ChartMode = "line" | "bar" | "calendar";
@@ -54,6 +53,15 @@ function rowDate(r: VisitorListRow) {
 
 export function MobileAnalyticsPage() {
   const navigate = useNavigate();
+
+  usePageChrome({
+    title: "Reports",
+    subtitle: "Visitor analytics",
+    showBack: false,
+    showNotification: true,
+    showProfile: true,
+  });
+
   const [subTab, setSubTab] = useState<SubTab>("overview");
   const [chartMode, setChartMode] = useState<ChartMode>("line");
   const [selectedDate, setSelectedDate] = useState(() => toInputDate(new Date()));
@@ -141,7 +149,6 @@ export function MobileAnalyticsPage() {
 
   return (
     <div className="vm-home-page vm-reports-page">
-      <HeaderBar title="Precious Alloys" showNotification showProfile />
 
       <header className="vm-reports-head">
         <div>

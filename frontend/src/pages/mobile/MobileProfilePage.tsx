@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/context/ThemeContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { frappeGetList } from "@/api/vms";
-import { HeaderBar } from "@/components/common/HeaderBar";
 import { ProfileHeroCard } from "@/components/profile/ProfileHeroCard";
 import { SettingsGroups } from "@/components/profile/SettingsGroups";
 import { ut } from "@/i18n/uiChrome";
+import { usePageChrome } from "@/context/PageChromeContext";
 
 type EmployeeRow = {
   name?: string;
@@ -18,8 +17,17 @@ type EmployeeRow = {
 
 export function MobileProfilePage() {
   const { user, logout, isAuthenticated } = useAuth();
-  const { theme, setTheme } = useTheme();
   const { lang } = useAppLanguage();
+
+  usePageChrome({
+    title: ut(lang, "profile"),
+    subtitle: "Account & settings",
+    showBack: true,
+    backTo: "/",
+    showNotification: false,
+    showProfile: false,
+  });
+
   const [department, setDepartment] = useState("—");
   const [employeeId, setEmployeeId] = useState(user?.user || "—");
   const [showProfileCard, setShowProfileCard] = useState(true);
@@ -59,7 +67,6 @@ export function MobileProfilePage() {
 
   return (
     <div className="vm-home-page">
-      <HeaderBar title="Precious Alloys" showNotification showProfile />
 
       <main className="vm-main-body vm-page-content-start vm-profile-page">
         {showProfileCard ? (
@@ -74,8 +81,6 @@ export function MobileProfilePage() {
         ) : null}
 
         <SettingsGroups
-          theme={theme}
-          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           showProfileCard={showProfileCard}
           onToggleProfileCard={() => setShowProfileCard((prev) => !prev)}
         />

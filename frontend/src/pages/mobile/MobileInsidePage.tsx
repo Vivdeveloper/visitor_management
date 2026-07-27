@@ -6,8 +6,7 @@ import { SlidingStatusFilter, type StatusFilterOption } from "@/components/ui/Sl
 import { IconApprovals } from "@/components/ui/MobileIcons";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
-import { HeaderBar } from "@/components/common/HeaderBar";
-
+import { usePageChrome } from "@/context/PageChromeContext";
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 
 type FilterId = "all" | "pending" | "inside" | "approved" | "checked_out";
@@ -45,6 +44,15 @@ function parseFilter(raw: string | null): FilterId {
 export function MobileInsidePage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+
+  usePageChrome({
+    title: "Live Visitors",
+    subtitle: "On premises",
+    showBack: false,
+    showNotification: true,
+    showProfile: true,
+  });
+
   const filter = parseFilter(params.get("status"));
 
   const [rows, setRows] = useState<VisitorListRow[]>([]);
@@ -118,7 +126,6 @@ export function MobileInsidePage() {
 
   return (
     <div className="vm-home-page vm-visitors-page">
-      <HeaderBar title="Precious Alloys" showNotification showProfile />
 
       <header className="vm-live-visitors-head">
         <div className="vm-live-visitors-title-row">

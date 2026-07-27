@@ -1,13 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { ThemeMode } from "@/context/ThemeContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { ut } from "@/i18n/uiChrome";
 
 type SettingsGroupsProps = {
-  theme?: ThemeMode;
-  onToggleTheme?: () => void;
   showProfileCard?: boolean;
   onToggleProfileCard?: () => void;
 };
@@ -82,8 +79,6 @@ function SettingsRow({
 }
 
 export function SettingsGroups({
-  theme = "light",
-  onToggleTheme,
   showProfileCard = true,
   onToggleProfileCard,
 }: SettingsGroupsProps) {
@@ -109,11 +104,6 @@ export function SettingsGroups({
       </SettingsGroup>
 
       <SettingsGroup id="appearance" title={ut(lang, "appearance")} open={openGroups.appearance} onToggle={toggle}>
-        <SettingsRow
-          label={ut(lang, "theme")}
-          value={theme === "dark" ? ut(lang, "dark") : ut(lang, "light")}
-          onClick={onToggleTheme}
-        />
         <LanguageSwitcher variant="settings" />
       </SettingsGroup>
 
