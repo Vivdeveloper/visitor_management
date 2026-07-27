@@ -103,24 +103,8 @@ export function VisitorDetailsForm({
     else onIdProofCapture(file);
   }
 
-  const purposes = masters.visit_purpose_types?.length
-    ? masters.visit_purpose_types
-    : [
-        { name: "Meeting", visit_purpose_type_name: "Meeting" },
-        { name: "Interview", visit_purpose_type_name: "Interview" },
-        { name: "Maintenance", visit_purpose_type_name: "Maintenance" },
-        { name: "Delivery", visit_purpose_type_name: "Delivery" },
-        { name: "Personal", visit_purpose_type_name: "Personal" },
-      ];
-  const idTypes = masters.id_proof_types?.length
-    ? masters.id_proof_types
-    : [
-        { name: "Aadhar Card", id_proof_type_name: "Aadhar Card" },
-        { name: "PAN", id_proof_type_name: "PAN" },
-        { name: "Driving License", id_proof_type_name: "Driving License" },
-        { name: "Passport", id_proof_type_name: "Passport" },
-        { name: "Voter ID", id_proof_type_name: "Voter ID" },
-      ];
+  const purposes = masters.visit_purpose_types || [];
+  const idTypes = masters.id_proof_types || [];
 
   function extractFloorNo(raw?: string): string | null {
     const s = String(raw ?? "").trim();
@@ -185,13 +169,7 @@ export function VisitorDetailsForm({
       return a.display.localeCompare(b.display);
     });
   })();
-  const vehicles = masters.vehicle_types?.length
-    ? masters.vehicle_types
-    : [
-        { name: "Two Wheeler", vehicle_type_name: "Two Wheeler" },
-        { name: "Four Wheeler", vehicle_type_name: "Four Wheeler" },
-        { name: "Other", vehicle_type_name: "Other" },
-      ];
+  const vehicles = masters.vehicle_types || [];
 
   return (
     <form onSubmit={onSubmit} className="vm-visitor-form" lang={lang}>

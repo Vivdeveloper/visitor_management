@@ -32,21 +32,9 @@ def get_masters() -> dict:
 		"floors": active_list("Floor", ["name", "floor_name", "building", "tower", "floor_number"]),
 		"units": active_list("Unit", ["name", "unit_name", "floor", "unit_code"]),
 		"departments": active_list("VMS Department", ["name", "department_name", "organization"]),
-		"visit_purpose_types": frappe.get_all(
-			"Visit Purpose Type",
-			fields=["name", "visit_purpose_type_name"],
-			limit_page_length=100,
-		),
-		"vehicle_types": frappe.get_all(
-			"Vehicle Type",
-			fields=["name", "vehicle_type_name"],
-			limit_page_length=100,
-		),
-		"id_proof_types": frappe.get_all(
-			"ID Proof Type",
-			fields=["name", "id_proof_type_name"],
-			limit_page_length=100,
-		),
+		"visit_purpose_types": active_list("Visit Purpose Type", ["name", "visit_purpose_type_name"], order_by="visit_purpose_type_name asc, name asc"),
+		"vehicle_types": active_list("Vehicle Type", ["name", "vehicle_type_name"], order_by="vehicle_type_name asc, name asc"),
+		"id_proof_types": active_list("ID Proof Type", ["name", "id_proof_type_name"], order_by="id_proof_type_name asc, name asc"),
 		"security_shifts": active_list("Security Shift", ["name", "shift_name", "start_time", "end_time"]),
 	}
 
