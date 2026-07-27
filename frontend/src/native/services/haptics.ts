@@ -25,3 +25,15 @@ export async function selectionChanged(): Promise<void> {
   if (!isNativePlatform()) return;
   await Haptics.selectionChanged();
 }
+
+/** Urgent repeating pattern for host approval alerts. */
+export async function alertUrgent(): Promise<void> {
+  if (!isNativePlatform()) return;
+  try {
+    await Haptics.vibrate({ duration: 420 });
+    await new Promise((resolve) => window.setTimeout(resolve, 520));
+    await Haptics.vibrate({ duration: 280 });
+  } catch {
+    /* haptics unavailable */
+  }
+}

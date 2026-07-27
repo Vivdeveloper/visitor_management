@@ -4,7 +4,7 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { isNativePlatform, isAndroid, isIos } from "@/native/platform";
 import { lockPortrait } from "@/native/services/screenOrientation";
 import { onKeyboardChange, hideKeyboard } from "@/native/services/keyboard";
-import { initPushNotifications } from "@/native/services/notifications";
+import { initPushNotifications, ensureUrgentNotificationChannel } from "@/native/services/notifications";
 import { startOfflineSyncListener } from "@/offline/sync";
 
 function resolveDeepLinkPath(url: string): string | null {
@@ -53,6 +53,7 @@ export async function initCapacitorNative(): Promise<() => void> {
 
   await configureStatusBar();
   await lockPortrait();
+  await ensureUrgentNotificationChannel();
 
   void SplashScreen.hide();
 

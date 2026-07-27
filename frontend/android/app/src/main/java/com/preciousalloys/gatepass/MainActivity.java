@@ -17,6 +17,9 @@ public class MainActivity extends BridgeActivity {
 
     private void createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager == null) return;
+
             NotificationChannel channel = new NotificationChannel(
                 "gatepass_default",
                 "GatePass Alerts",
@@ -24,10 +27,19 @@ public class MainActivity extends BridgeActivity {
             );
             channel.setDescription("Visitor approvals, check-ins, and gate notifications");
             channel.enableVibration(true);
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+            manager.createNotificationChannel(channel);
+
+            NotificationChannel urgent = new NotificationChannel(
+                "gatepass_urgent",
+                "Urgent Host Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            urgent.setDescription("High-priority visitor approval alerts with sound and vibration");
+            urgent.enableVibration(true);
+            urgent.setVibrationPattern(new long[] { 0, 280, 120, 280, 120, 420 });
+            urgent.enableLights(true);
+            urgent.setBypassDnd(false);
+            manager.createNotificationChannel(urgent);
         }
     }
 }

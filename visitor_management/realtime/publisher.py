@@ -5,6 +5,39 @@ from __future__ import annotations
 import frappe
 
 
+def publish_vms_event(
+	event: str, payload: dict | None = None, user: str | None = None
+) -> None:
+	"""Publish a generic VMS realtime event.
+
+	- Always emits `vms_visitor_update` for existing listeners.
+	- Emits event-specific channels (e.g. `vms_host_alert`) for targeted UX.
+	"""
+	message = {"event": event, **(payload or {})}
+	try:
+		frappe.publish_realtime(
+			event="vms_visitor_update",
+			message=message,
+			after_commit=True,
+		)
+		if user:
+			frappe.publish_realtime(
+				event="vms_visitor_update",
+				message=message,
+				user=user,
+				after_commit=True,
+			)
+		if event == "host_notified":
+			frappe.publish_realtime(
+				event="vms_host_alert",
+				message=message,
+				user=user,
+				after_commit=True,
+			)
+	except Exception:
+		frappe.log_error(title="VMS realtime publish failed")
+
+
 def publish_visitor_update(visitor_entry: str, event: str, data: dict | None = None) -> None:
 	"""Notify SPA / desk listeners (no SMS/push in Phase 5)."""
 	payload = {"visitor_entry": visitor_entry, "event": event, **(data or {})}

@@ -81,35 +81,35 @@ define(['./workbox-60fee754'], (function (workbox) { 'use strict';
    * See https://goo.gl/S9QRab
    */
   workbox.precacheAndRoute([{
+    "url": "vms-chunk-web6.js",
+    "revision": "5a559c89230cd3a5777c90308e0985ce"
+  }, {
     "url": "vms-chunk-web5.js",
-    "revision": "fc28d69402c2e3a923fa940c3cbd1210"
+    "revision": "06465979837aef240e0229331b55f237"
   }, {
     "url": "vms-chunk-web4.js",
-    "revision": "d32e5b8364f78be8288b70ddec54f734"
+    "revision": "1fa9c2f8cec750ec0f41f8973c6dba08"
   }, {
     "url": "vms-chunk-web3.js",
-    "revision": "1e7ada62b51c767691eba390b6f2e4ab"
+    "revision": "bf853d15c2053097bb0577b072363a39"
   }, {
     "url": "vms-chunk-web2.js",
-    "revision": "4be4787bb1d37c9fb6707646d12c06ff"
+    "revision": "dc1cf54dba031e49d063cbccf2a3ed30"
   }, {
     "url": "vms-chunk-web.js",
-    "revision": "1f16b2593c2423e3e1ba592d369cb143"
-  }, {
-    "url": "vms-chunk-index2.js",
-    "revision": "f16e1e09fb96b20db1cd43d818ea15d8"
+    "revision": "a32da1010fbaaba9a03a9b8f8925abde"
   }, {
     "url": "vms-chunk-index.js",
-    "revision": "c3b510051ed082fee2f6ddb680158d69"
+    "revision": "ca6a8774253dc0d0358c8ecceac9469b"
   }, {
     "url": "vms-chunk-capacitor-init.js",
-    "revision": "8c0bf7cacba6f7c4d5640736f9ffa797"
+    "revision": "bd2e4c361078dc91a0c8e0b946814bc0"
   }, {
     "url": "vms-asset-index.css",
-    "revision": "009217fcbdf7c3114191a0ef7aca4759"
+    "revision": "0783e5d8d7fc6b1651d665a3e4d90c7a"
   }, {
     "url": "vms-app.js",
-    "revision": "885baf5eac2107471f15dd3f1876f01b"
+    "revision": "ce3d645be6ab3ba8d6c955551bd31526"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

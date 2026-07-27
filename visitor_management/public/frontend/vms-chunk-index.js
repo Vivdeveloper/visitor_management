@@ -1,2 +1,2 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["vms-chunk-web5.js","vms-chunk-index2.js"])))=>i.map(i=>d[i]);
-import{_ as e}from"./vms-app.js";import{r as o}from"./vms-chunk-index2.js";const i=o("Network",{web:()=>e(()=>import("./vms-chunk-web5.js"),__vite__mapDeps([0,1])).then(r=>new r.NetworkWeb)});export{i as Network};
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["vms-chunk-web6.js","vms-app.js","vms-asset-index.css"])))=>i.map(i=>d[i]);
+import{r,_ as t}from"./vms-app.js";const _=r("Network",{web:()=>t(()=>import("./vms-chunk-web6.js"),__vite__mapDeps([0,1,2])).then(e=>new e.NetworkWeb)});export{_ as Network};

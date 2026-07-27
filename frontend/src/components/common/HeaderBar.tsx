@@ -16,8 +16,6 @@ import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { formatTime, initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
 
-import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToast";
-
 interface HeaderBarProps {
   title?: string;
   subtitle?: string;
@@ -63,7 +61,6 @@ export function HeaderBar({
   const [pending, setPending] = useState<DashboardQueueItem[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [actionVisitor, setActionVisitor] = useState<VisitorListRow | null>(null);
-  const [toast, setToast] = useState<ErpToastData | null>(null);
   const rootRef = useRef<HTMLElement>(null);
 
   const photo = resolveUserImage(user?.user_image);
@@ -110,7 +107,6 @@ export function HeaderBar({
 
   return (
     <header className="vm-topbar" ref={rootRef}>
-      <ErpNextToast toast={toast} onClose={() => setToast(null)} />
       <div className="vm-topbar-inner">
         <div className="vm-topbar-brand">
           {showBack ? (

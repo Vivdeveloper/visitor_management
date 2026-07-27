@@ -4,6 +4,7 @@ import { FloatingNavbar } from "@/components/navigation/FloatingNavbar";
 import { OfflineIndicator } from "@/components/common/OfflineIndicator";
 import { HeaderBar } from "@/components/common/HeaderBar";
 import { PageChromeProvider, usePageChromeState } from "@/context/PageChromeContext";
+import { HostAlertProvider } from "@/context/HostAlertContext";
 
 function AppTopBar() {
   const chrome = usePageChromeState();
@@ -116,6 +117,7 @@ export function MobileLayout() {
 
   return (
     <PageChromeProvider>
+      <HostAlertProvider>
       <div className="m-shell m-shell--chrome">
         <OfflineIndicator />
         <div className="m-app-topbar">
@@ -141,6 +143,7 @@ export function MobileLayout() {
         </main>
         <FloatingNavbar />
       </div>
+      </HostAlertProvider>
     </PageChromeProvider>
   );
 }

@@ -63,3 +63,38 @@ export function useVmsRealtime(onUpdate: () => void, enabled = true) {
     };
   }, [enabled]);
 }
+
+/** Listen for a specific VMS realtime event with payload. */
+export function useVmsRealtimeEvent<T = unknown>(
+  eventName: string,
+  onEvent: (payload: T) => void,
+  enabled = true,
+) {
+  const cb = useRef(onEvent);
+  cb.current = onEvent;
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    let socket: Socket | null = null;
+    const handler = (payload: T) => cb.current(payload);
+
+    try {
+      socket = io(socketHost(), {
+        withCredentials: true,
+        reconnectionAttempts: 5,
+        transports: ["websocket", "polling"],
+      });
+      socket.on(eventName, handler);
+    } catch {
+      // Realtime optional
+    }
+
+    return () => {
+      if (socket) {
+        socket.off(eventName, handler);
+        socket.disconnect();
+      }
+    };
+  }, [eventName, enabled]);
+}
