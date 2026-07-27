@@ -12,7 +12,7 @@ function dockLabel(lang: VisitorLang, to: string, fallback: string): string {
     "/": "home",
     "/approvals": "pending",
     "/check-in": "add_entry",
-    "/inside": "history",
+    "/inside": "inside",
     "/analytics": "reports",
   };
   const key = keyByPath[to];

@@ -351,7 +351,7 @@ export function PendingDecisionCard({
                 e.stopPropagation();
                 onGenerateGatePass(item);
               }}
-              aria-label={`Generate gate pass for ${visitorName}`}
+              aria-label={`View gate pass for ${visitorName}`}
             >
               <span className="vm-redesign-act-icon" aria-hidden>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
@@ -360,7 +360,7 @@ export function PendingDecisionCard({
                   <circle cx="16.5" cy="9.5" r="1.5" />
                 </svg>
               </span>
-              <span>Generate Gate Pass</span>
+              <span>View Gate Pass</span>
             </button>
           ) : null}
 

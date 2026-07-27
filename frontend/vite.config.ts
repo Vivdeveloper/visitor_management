@@ -74,11 +74,15 @@ export default defineConfig(({ command, mode }) => {
 								},
 								{
 									urlPattern: ({ url }) =>
-										url.pathname.startsWith("/assets/visitor_management/frontend/"),
-									handler: "CacheFirst",
+										url.pathname.startsWith("/assets/visitor_management/frontend/") &&
+										!url.pathname.endsWith(".png") &&
+										!url.pathname.endsWith(".svg") &&
+										!url.pathname.endsWith(".woff2"),
+									handler: "NetworkFirst",
 									options: {
 										cacheName: "vms-shell",
-										expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 30 },
+										networkTimeoutSeconds: 4,
+										expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 },
 									},
 								},
 							],

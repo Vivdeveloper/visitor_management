@@ -40,6 +40,13 @@
 			}
 			#root {
 				min-height: 100vh;
+				min-height: 100dvh;
+			}
+			@media (min-width: 768px) {
+				body.vms-auth-route,
+				body:has(.vm-auth-page) {
+					background: #dfe6ef;
+				}
 			}
 			.vms-boot {
 				color: #64748b;

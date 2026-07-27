@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import get_datetime, get_url, now_datetime
+from frappe.utils import get_datetime, now_datetime
 
 from visitor_management.services.otp_service import is_mobile_verified, normalize_mobile, validate_mobile
 from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
@@ -26,17 +26,21 @@ def _validate_pass(token: str) -> dict:
 
 
 def _payload(doc) -> dict:
+	"""Return pass fields from Visitor Entry only — never invent pass_url here."""
 	return {
 		"visitor_entry": doc.name,
+		"name": doc.name,
 		"full_name": doc.full_name,
 		"photo": doc.photo,
+		"mobile": doc.mobile,
 		"visitor_company": doc.visitor_company,
 		"person_to_meet_name": doc.person_to_meet_name,
 		"host_name": doc.person_to_meet_name,
 		"floor": doc.floor,
 		"status": doc.status,
 		"qr_expires_on": doc.qr_expires_on,
-		"pass_url": doc.pass_url or get_url(f"/vms/pass/{doc.name}"),
+		"checked_in_on": doc.get("checked_in_on"),
+		"pass_url": doc.get("pass_url"),
 	}
 
 
@@ -53,8 +57,11 @@ def send_pass_to_mobile(visitor_entry: str | None = None, mobile: str | None = N
 		frappe.throw(_("Visitor Entry is required"))
 	doc = frappe.get_doc("Visitor Entry", visitor_entry)
 	target_mobile = mobile or doc.mobile or ""
+	# Generation must go through Visitor Entry Python helper
 	pass_info = ve.generate_pass(visitor_entry)
-	pass_url = pass_info.get("pass_url") or get_url(f"/vms/pass/{doc.name}")
+	pass_url = pass_info.get("pass_url")
+	if not pass_url:
+		frappe.throw(_("Gate pass could not be generated."))
 
 	try:
 		from visitor_management.services.otp_service import send_sms
@@ -72,9 +79,21 @@ def send_pass_to_mobile(visitor_entry: str | None = None, mobile: str | None = N
 
 @frappe.whitelist()
 def get_pass(name: str | None = None) -> dict:
+	"""Load gate pass for display. Creates pass via Visitor Entry Python if missing."""
 	if not name:
 		frappe.throw(_("Visitor Entry name is required"))
+	if not frappe.db.exists("Visitor Entry", name):
+		frappe.throw(_("Visitor Entry {0} not found").format(name))
+
 	doc = frappe.get_doc("Visitor Entry", name)
+	# Only Python generate_pass / _assign_gate_pass may create pass_url
+	if not doc.get("pass_url"):
+		ve.generate_pass(name)
+		doc.reload()
+
+	if not doc.get("pass_url"):
+		frappe.throw(_("Gate pass was not generated for {0}").format(name))
+
 	return _payload(doc)
 
 
@@ -111,7 +130,6 @@ def list_my_passes(mobile: str | None = None) -> list:
 		limit_page_length=20,
 	)
 	for row in rows:
-		if not row.get("pass_url"):
-			row["pass_url"] = get_url(f"/vms/pass/{row['name']}")
+		# Do not invent pass URLs in Python list — only return DB value from generate_pass
 		row["host_name"] = row.get("person_to_meet_name")
 	return rows

@@ -35,6 +35,15 @@ npm run build        # also copies PWA sw/manifest into www/
 
 Then hard-refresh the browser (or `bench clear-cache`). On deploy, commit the built `public/frontend` files (or run `npm run build` in your CI) so the live site works without a Node server.
 
+**If your live site runs on another bench** (e.g. `frappe15` while you edit in `frappe16`):
+
+```bash
+cd apps/visitor_management/frontend
+npm run build:sync-frappe15
+```
+
+This builds here and copies `public/frontend`, `www/vms_sw.js`, and `www/vms.html` into the other bench’s `visitor_management` app. Then hard-refresh `/vms/` (the PWA service worker auto-reloads when a new build is detected).
+
 ## Optional local Vite (hot reload only)
 
 ```bash

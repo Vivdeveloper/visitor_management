@@ -54,6 +54,26 @@ if (import.meta.env.PROD && !IS_CAPACITOR_BUILD && "serviceWorker" in navigator)
   window.addEventListener("load", () => {
     void navigator.serviceWorker
       .register("/vms_sw.js", { scope: "/vms/" })
+      .then((registration) => {
+        registration.addEventListener("updatefound", () => {
+          const nextWorker = registration.installing;
+          if (!nextWorker) return;
+          nextWorker.addEventListener("statechange", () => {
+            if (nextWorker.state !== "installed") return;
+            if (!navigator.serviceWorker.controller) return;
+            nextWorker.postMessage({ type: "SKIP_WAITING" });
+          });
+        });
+
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+
+        void registration.update();
+      })
       .catch(() => {
         /* until first successful build + copy-pwa */
       });

@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-60fee754'], (function (workbox) { 'use strict';
+define(['./workbox-50bb6711'], (function (workbox) { 'use strict';
 
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -106,10 +106,10 @@ define(['./workbox-60fee754'], (function (workbox) { 'use strict';
     "revision": "bd2e4c361078dc91a0c8e0b946814bc0"
   }, {
     "url": "vms-asset-index.css",
-    "revision": "d25e501f7dbe32eb78d38b4c7fb690d4"
+    "revision": "a434553982ce6d0f8693f5e08c8352fb"
   }, {
     "url": "vms-app.js",
-    "revision": "059bec396435e757df71526341d3e696"
+    "revision": "6188eb419094beff8f310db779b5a60e"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"
@@ -169,11 +169,12 @@ define(['./workbox-60fee754'], (function (workbox) { 'use strict';
   }), 'GET');
   workbox.registerRoute(({
     url
-  }) => url.pathname.startsWith("/assets/visitor_management/frontend/"), new workbox.CacheFirst({
+  }) => url.pathname.startsWith("/assets/visitor_management/frontend/") && !url.pathname.endsWith(".png") && !url.pathname.endsWith(".svg") && !url.pathname.endsWith(".woff2"), new workbox.NetworkFirst({
     "cacheName": "vms-shell",
+    "networkTimeoutSeconds": 4,
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 64,
-      maxAgeSeconds: 2592000
+      maxEntries: 32,
+      maxAgeSeconds: 86400
     })]
   }), 'GET');
 

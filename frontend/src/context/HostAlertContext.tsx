@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useVmsRealtimeEvent } from "@/hooks/useVmsRealtime";
+import { HostAlertRingModal } from "@/components/alerts/HostAlertRingModal";
 import {
   NotificationPermissionModal,
   shouldShowNotificationPermissionModal,
@@ -36,6 +37,7 @@ import {
 type HostAlertContextValue = {
   activeAlert: ActiveHostAlert | null;
   clearAlert: (visitorEntry: string) => void;
+  goToPendingApprovals: () => void;
   openPermissionSetup: () => void;
 };
 
@@ -66,6 +68,12 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const goToPendingApprovals = useCallback(() => {
+    stopHostAlertRing();
+    setAlerts({});
+    navigate("/approvals");
+  }, [navigate]);
+
   const registerAlert = useCallback((payload: HostAlertPayload) => {
     const visitorEntry = payload.visitor_entry;
     if (!visitorEntry) return;
@@ -95,11 +103,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         return { ...prev, [visitorEntry]: next };
       });
     });
-
-    if (mode === "host") {
-      navigate("/approvals");
-    }
-  }, [mode, navigate]);
+  }, []);
 
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_host_alert",
@@ -194,6 +198,14 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const handleReview = useCallback(() => {
+    // Close ring popup, then open Pending page for Accept / Reject on cards
+    stopHostAlertRing();
+    stopAllHostAlertReminders();
+    setAlerts({});
+    navigate("/approvals");
+  }, [navigate]);
+
   const openPermissionSetup = useCallback(() => {
     sessionStorage.removeItem("vms_notify_modal_skip");
     setPermissionModalOpen(true);
@@ -206,9 +218,10 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     () => ({
       activeAlert,
       clearAlert,
+      goToPendingApprovals,
       openPermissionSetup,
     }),
-    [activeAlert, clearAlert, openPermissionSetup],
+    [activeAlert, clearAlert, goToPendingApprovals, openPermissionSetup],
   );
 
   return (
@@ -222,6 +235,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         }}
       />
       {children}
+      {activeAlert ? <HostAlertRingModal alert={activeAlert} onReview={handleReview} /> : null}
     </HostAlertContext.Provider>
   );
 }

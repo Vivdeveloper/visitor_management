@@ -143,7 +143,13 @@ export type MasterOption = {
 export type MastersPayload = {
   sites?: MasterOption[];
   buildings?: MasterOption[];
-  floors?: Array<{ name: string; floor_name?: string }>;
+  floors?: Array<{
+    name: string;
+    floor_name?: string;
+    floor_number?: number;
+    building?: string;
+    tower?: string;
+  }>;
   visit_purpose_types?: Array<{ name: string; visit_purpose_type_name?: string }>;
   vehicle_types?: Array<{ name: string; vehicle_type_name?: string }>;
   id_proof_types?: Array<{ name: string; id_proof_type_name?: string }>;
@@ -201,6 +207,8 @@ export type VisitorListRow = {
   vehicle_number?: string;
   number_of_visitors?: number | string;
   photo?: string;
+  pass_url?: string;
+  qr_expires_on?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -254,6 +262,8 @@ export const visitorApi = {
         "visitor_company",
         "number_of_visitors",
         "photo",
+        "pass_url",
+        "qr_expires_on",
       ],
       order_by: "modified desc",
       limit_page_length: limit,
@@ -311,7 +321,7 @@ export const passApi = {
     callMethod<{ success: boolean; pass_url?: string }>("visitor_pass.generate_pass", { visitor_entry, force: force ? 1 : 0 }),
   sendPassToMobile: (visitor_entry: string, mobile?: string) =>
     callMethod<{ success: boolean; message?: string; pass_url?: string }>("visitor_pass.send_pass_to_mobile", { visitor_entry, mobile }),
-  get: (name: string) => callMethod("visitor_pass.get_pass", { name }),
+  get: (name: string) => callMethod<PublicPassResult["pass"] & { name?: string; mobile?: string }>("visitor_pass.get_pass", { name }),
   validate: (token: string) => callMethod<PublicPassResult>("visitor_pass.validate_pass", { token }),
   getPublicPass: (token: string) =>
     callMethod<PublicPassResult>("visitor_pass.get_public_pass", { token }),

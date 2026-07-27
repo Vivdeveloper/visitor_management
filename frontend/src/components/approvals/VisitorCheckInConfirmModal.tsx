@@ -138,7 +138,7 @@ export function VisitorCheckInConfirmModal({
               <path d="M7 8h5M7 12h5M7 16h3" />
               <circle cx="16.5" cy="11.5" r="2.5" />
             </svg>
-            <span>{busyGen ? "Generating Gate Pass..." : "Generate Gate Pass"}</span>
+            <span>{busyGen ? "Opening Gate Pass…" : "View Gate Pass"}</span>
           </button>
 
           <button

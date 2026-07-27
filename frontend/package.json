@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.app.json && node scripts/vite-build.mjs && node scripts/copy-pwa-www.mjs",
+    "build:sync-frappe15": "npm run build && node scripts/sync-built-assets.mjs ../../../../frappe15/apps/visitor_management",
     "build:cap": "tsc --noEmit -p tsconfig.app.json && node scripts/vite-build-cap.mjs",
     "cap:sync": "npm run build:cap && npx cap sync",
     "cap:open:android": "npx cap open android",
