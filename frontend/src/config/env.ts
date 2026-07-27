@@ -1,5 +1,15 @@
-/** Frappe serves the SPA at /vms (see hooks.website_route_rules). */
-export const APP_BASE_PATH = import.meta.env.DEV ? "/" : "/vms";
+/**
+ * Frappe serves the SPA at /vms (see hooks.website_route_rules).
+ * Capacitor native builds set VITE_CAPACITOR=true and use "/".
+ * Do not import @capacitor/core here — that can break the browser PWA boot path.
+ */
+export const IS_CAPACITOR_BUILD = import.meta.env.VITE_CAPACITOR === "true";
+
+export const APP_BASE_PATH = IS_CAPACITOR_BUILD
+  ? "/"
+  : import.meta.env.DEV
+    ? "/"
+    : "/vms";
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "";
 

@@ -1,0 +1,122 @@
+import { App } from "@capacitor/app";
+import { SplashScreen } from "@capacitor/splash-screen";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { isNativePlatform, isAndroid, isIos } from "@/native/platform";
+import { lockPortrait } from "@/native/services/screenOrientation";
+import { onKeyboardChange, hideKeyboard } from "@/native/services/keyboard";
+import { initPushNotifications } from "@/native/services/notifications";
+import { startOfflineSyncListener } from "@/offline/sync";
+
+function resolveDeepLinkPath(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/^\/vms/, "") || "/";
+    const search = parsed.search;
+    const hash = parsed.hash;
+    return `${path}${search}${hash}`;
+  } catch {
+    return null;
+  }
+}
+
+function navigateToPath(path: string) {
+  if (window.location.pathname + window.location.search + window.location.hash !== path) {
+    window.history.pushState({}, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+}
+
+async function configureStatusBar(theme: "light" | "dark") {
+  if (!isNativePlatform()) return;
+  try {
+    await StatusBar.setOverlaysWebView({ overlay: false });
+    if (theme === "dark") {
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setBackgroundColor({ color: "#14213D" });
+    } else {
+      await StatusBar.setStyle({ style: Style.Light });
+      await StatusBar.setBackgroundColor({ color: "#0A3D91" });
+    }
+  } catch {
+    /* status bar unavailable */
+  }
+}
+
+export async function initCapacitorNative(theme: "light" | "dark"): Promise<() => void> {
+  if (!isNativePlatform()) {
+    return startOfflineSyncListener();
+  }
+
+  document.documentElement.classList.add("cap-native");
+
+  if (isAndroid()) {
+    document.documentElement.classList.add("cap-android");
+  }
+  if (isIos()) {
+    document.documentElement.classList.add("cap-ios");
+  }
+
+  await configureStatusBar(theme);
+  await lockPortrait();
+
+  void SplashScreen.hide();
+
+  const removeKeyboard = onKeyboardChange(() => {
+    /* keyboard height applied via CSS variable */
+  });
+
+  const removeBack = App.addListener("backButton", () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    void App.exitApp();
+  });
+
+  const removeUrl = App.addListener("appUrlOpen", (event) => {
+    const path = resolveDeepLinkPath(event.url);
+    if (path) navigateToPath(path);
+  });
+
+  const removeState = App.addListener("appStateChange", ({ isActive }) => {
+    if (isActive) {
+      void SplashScreen.hide();
+    }
+  });
+
+  void initPushNotifications(() => {
+    /* token registration — wire to backend when push endpoint is ready */
+  });
+
+  const removeOffline = startOfflineSyncListener();
+
+  return () => {
+    removeOffline();
+    void removeKeyboard();
+    void removeBack.then((h) => h.remove());
+    void removeUrl.then((h) => h.remove());
+    void removeState.then((h) => h.remove());
+  };
+}
+
+export function syncNativeStatusBar(theme: "light" | "dark"): void {
+  void configureStatusBar(theme);
+}
+
+/** Blur focused input when tapping non-interactive areas on native. */
+export function initNativeTapToDismissKeyboard(): void {
+  if (!isNativePlatform()) return;
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable) {
+        return;
+      }
+      void hideKeyboard();
+    },
+    { passive: true },
+  );
+}

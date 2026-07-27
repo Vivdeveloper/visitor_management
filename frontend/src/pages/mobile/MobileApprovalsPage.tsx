@@ -12,6 +12,38 @@ import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 
 type TabId = "pending" | "approved" | "inside" | "checked_out";
+type DateFilterMode = "all" | "today" | "week" | "custom";
+
+function matchesDateFilter(
+  rawDate: string | undefined | null,
+  mode: DateFilterMode,
+  customDate: string,
+): boolean {
+  if (mode === "all" && !customDate) return true;
+  if (!rawDate) return false;
+
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return false;
+
+  const isoDate = d.toISOString().split("T")[0];
+  const todayIso = new Date().toISOString().split("T")[0];
+
+  if (mode === "today") {
+    return isoDate === todayIso;
+  }
+
+  if (mode === "week") {
+    const diffMs = new Date().getTime() - d.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 7;
+  }
+
+  if (mode === "custom" && customDate) {
+    return isoDate === customDate;
+  }
+
+  return true;
+}
 
 const TABS: Array<{ id: TabId; label: string; match: (s?: string) => boolean }> = [
   { id: "pending", label: "Pending", match: (s) => s === "Pending Approval" },
@@ -24,6 +56,8 @@ export function MobileApprovalsPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("pending");
   const [query, setQuery] = useState("");
+  const [dateMode, setDateMode] = useState<DateFilterMode>("all");
+  const [selectedDate, setSelectedDate] = useState<string>("");
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -282,11 +316,15 @@ export function MobileApprovalsPage() {
     return rows
       .filter((item) => def.match(item.status))
       .filter((item) => {
+        const itemDate = item.check_in || item.checked_in_on || item.modified || item.creation;
+        return matchesDateFilter(itemDate, dateMode, selectedDate);
+      })
+      .filter((item) => {
         if (!q) return true;
         const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
         return haystack.includes(q);
       });
-  }, [rows, tab, query]);
+  }, [rows, tab, query, dateMode, selectedDate]);
 
   return (
     <div className="vm-home-page vm-approvals-page">
@@ -324,6 +362,78 @@ export function MobileApprovalsPage() {
               <span className="vm-reports-tab-count">{counts[t.id]}</span>
             </button>
           ))}
+        </div>
+
+        {/* Quick Date Filter Bar below tabs */}
+        <div className="vm-approvals-filter-bar">
+          <div className="vm-approvals-filter-pills">
+            <button
+              type="button"
+              className={`vm-filter-pill${dateMode === "all" ? " is-active" : ""}`}
+              onClick={() => {
+                setDateMode("all");
+                setSelectedDate("");
+              }}
+            >
+              All
+            </button>
+
+            <button
+              type="button"
+              className={`vm-filter-pill${dateMode === "today" ? " is-active" : ""}`}
+              onClick={() => {
+                setDateMode("today");
+                setSelectedDate("");
+              }}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              className={`vm-filter-pill${dateMode === "week" ? " is-active" : ""}`}
+              onClick={() => {
+                setDateMode("week");
+                setSelectedDate("");
+              }}
+            >
+              This Week
+            </button>
+
+            <label className={`vm-filter-pill vm-filter-date-picker${dateMode === "custom" ? " is-active" : ""}`}>
+              <span>📅 {selectedDate || "Pick Date"}</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDate(e.target.value);
+                    setDateMode("custom");
+                  }
+                }}
+                className="vm-filter-date-input"
+              />
+            </label>
+          </div>
+
+          {/* Clear Filter Button */}
+          {dateMode !== "all" || selectedDate || query ? (
+            <button
+              type="button"
+              className="vm-filter-clear-btn"
+              onClick={() => {
+                setDateMode("all");
+                setSelectedDate("");
+                setQuery("");
+              }}
+              title="Clear all filters"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+              <span>Clear</span>
+            </button>
+          ) : null}
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}

@@ -3,6 +3,7 @@ import { AppRouter } from "@/routes/AppRouter";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AppLanguageProvider } from "@/context/AppLanguageContext";
+import { CapacitorBootstrap } from "@/components/common/CapacitorBootstrap";
 import { APP_BASE_PATH } from "@/config/env";
 
 export function App() {
@@ -11,6 +12,7 @@ export function App() {
       <ThemeProvider>
         <AppLanguageProvider>
           <AuthProvider>
+            <CapacitorBootstrap />
             <AppRouter />
           </AuthProvider>
         </AppLanguageProvider>

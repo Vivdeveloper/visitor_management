@@ -81,11 +81,35 @@ define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (work
    * See https://goo.gl/S9QRab
    */
   workbox.precacheAndRoute([{
+    "url": "/assets/visitor_management/frontend/vms-chunk-web5.js",
+    "revision": "fc28d69402c2e3a923fa940c3cbd1210"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-web4.js",
+    "revision": "d32e5b8364f78be8288b70ddec54f734"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-web3.js",
+    "revision": "1e7ada62b51c767691eba390b6f2e4ab"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-web2.js",
+    "revision": "4be4787bb1d37c9fb6707646d12c06ff"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-web.js",
+    "revision": "1f16b2593c2423e3e1ba592d369cb143"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-index2.js",
+    "revision": "f16e1e09fb96b20db1cd43d818ea15d8"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-index.js",
+    "revision": "c3b510051ed082fee2f6ddb680158d69"
+  }, {
+    "url": "/assets/visitor_management/frontend/vms-chunk-capacitor-init.js",
+    "revision": "de2b2319886dac0ab754fc41d91f267e"
+  }, {
     "url": "/assets/visitor_management/frontend/vms-asset-index.css",
-    "revision": "1ae489e559fc8914550f1afcb050654a"
+    "revision": "8aa828a21009b93d3fd39dd8c1294208"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "19925ef527c753b195644c11b969579e"
+    "revision": "c1841c97e1639f0f15634c4af03a8369"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

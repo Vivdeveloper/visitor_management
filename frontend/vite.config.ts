@@ -7,81 +7,88 @@ import path from "node:path";
 
 /**
  * Production build lands in Frappe public assets (same pattern as viv_crm).
- * Served at /assets/visitor_management/frontend/… and loaded by www/vms.html.
- * PWA SW/manifest are copied to www/ for /vms/sw.js and /vms/manifest.webmanifest.
+ * Capacitor build (`mode: capacitor`) outputs to frontend/dist with base /.
  */
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => {
+	const isCapacitor = mode === "capacitor" || process.env.VITE_CAPACITOR === "true";
+	const frappeAssetBase = "/assets/visitor_management/frontend/";
+
+	return {
 	plugins: [
 		react(),
-		VitePWA({
-			registerType: "autoUpdate",
-			injectRegister: false,
-			minify: false,
-			includeAssets: ["icons/*.png"],
-			manifest: {
-				name: "Precious Alloys VMS",
-				short_name: "Precious Alloys",
-				description: "Visitor passes, host approvals, and gate operations",
-				theme_color: "#0A3D91",
-				background_color: "#F8FAFC",
-				display: "standalone",
-				orientation: "portrait",
-				scope: "/vms/",
-				start_url: "/vms/",
-				id: "/vms/",
-				categories: ["business", "productivity"],
-				icons: [
-					{
-						src: "/assets/visitor_management/frontend/icons/icon-192.png",
-						sizes: "192x192",
-						type: "image/png",
-						purpose: "any",
-					},
-					{
-						src: "/assets/visitor_management/frontend/icons/icon-512.png",
-						sizes: "512x512",
-						type: "image/png",
-						purpose: "any",
-					},
-					{
-						src: "/assets/visitor_management/frontend/icons/icon-512.png",
-						sizes: "512x512",
-						type: "image/png",
-						purpose: "maskable",
-					},
-				],
-			},
-			workbox: {
-				mode: "development",
-				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-				navigateFallback: null,
-				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-				runtimeCaching: [
-					{
-						urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
-						handler: "NetworkFirst",
-						options: {
-							cacheName: "vms-api",
-							networkTimeoutSeconds: 8,
-							expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 },
+		...(isCapacitor
+			? []
+			: [
+					VitePWA({
+						registerType: "autoUpdate",
+						injectRegister: false,
+						minify: false,
+						includeAssets: ["icons/*.png"],
+						manifest: {
+							name: "Precious Alloys VMS",
+							short_name: "Precious Alloys",
+							description: "Visitor passes, host approvals, and gate operations",
+							theme_color: "#0A3D91",
+							background_color: "#F8FAFC",
+							display: "standalone",
+							orientation: "portrait",
+							scope: "/vms/",
+							start_url: "/vms/",
+							id: "/vms/",
+							categories: ["business", "productivity"],
+							icons: [
+								{
+									src: "/assets/visitor_management/frontend/icons/icon-192.png",
+									sizes: "192x192",
+									type: "image/png",
+									purpose: "any",
+								},
+								{
+									src: "/assets/visitor_management/frontend/icons/icon-512.png",
+									sizes: "512x512",
+									type: "image/png",
+									purpose: "any",
+								},
+								{
+									src: "/assets/visitor_management/frontend/icons/icon-512.png",
+									sizes: "512x512",
+									type: "image/png",
+									purpose: "maskable",
+								},
+							],
 						},
-					},
-					{
-						urlPattern: ({ url }) =>
-							url.pathname.startsWith("/assets/visitor_management/frontend/"),
-						handler: "CacheFirst",
-						options: {
-							cacheName: "vms-shell",
-							expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 30 },
+						workbox: {
+							mode: "development",
+							maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+							navigateFallback: null,
+							globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+							runtimeCaching: [
+								{
+									urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
+									handler: "NetworkFirst",
+									options: {
+										cacheName: "vms-api",
+										networkTimeoutSeconds: 8,
+										expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 },
+									},
+								},
+								{
+									urlPattern: ({ url }) =>
+										url.pathname.startsWith("/assets/visitor_management/frontend/"),
+									handler: "CacheFirst",
+									options: {
+										cacheName: "vms-shell",
+										expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 30 },
+									},
+								},
+							],
 						},
-					},
-				],
-			},
-			filename: "sw.js",
-			manifestFilename: "manifest.webmanifest",
-		}),
+						filename: "sw.js",
+						manifestFilename: "manifest.webmanifest",
+					}),
+				]),
 	],
-	base: command === "build" ? "/assets/visitor_management/frontend/" : "/",
+	base: isCapacitor ? "/" : command === "build" ? frappeAssetBase : "/",
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -92,19 +99,26 @@ export default defineConfig(({ command }) => ({
 		proxy: getProxyOptions(),
 	},
 	build: {
-		outDir: "../visitor_management/public/frontend",
+		outDir: isCapacitor ? "dist" : "../visitor_management/public/frontend",
 		emptyOutDir: true,
-		// esbuild avoids Node 18 crypto crash from rollup terser/workbox path
 		minify: "esbuild",
+		sourcemap: false,
 		rollupOptions: {
 			output: {
-				entryFileNames: "vms-app.js",
-				chunkFileNames: "vms-chunk-[name].js",
-				assetFileNames: "vms-asset-[name].[ext]",
+				entryFileNames: isCapacitor ? "assets/[name]-[hash].js" : "vms-app.js",
+				chunkFileNames: isCapacitor ? "assets/[name]-[hash].js" : "vms-chunk-[name].js",
+				assetFileNames: isCapacitor ? "assets/[name]-[hash].[ext]" : "vms-asset-[name].[ext]",
+				manualChunks: isCapacitor
+					? {
+							vendor: ["react", "react-dom", "react-router-dom"],
+							axios: ["axios"],
+						}
+					: undefined,
 			},
 		},
 	},
-}));
+};
+});
 
 function getProxyOptions() {
 	const config = getCommonSiteConfig();
