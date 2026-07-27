@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approvalApi, passApi, visitorApi, type VisitorListRow } from "@/api/vms";
+import { approvalApi, meetingApi, passApi, securityApi, visitorApi, type VisitorListRow } from "@/api/vms";
 import { HeaderBar } from "@/components/common/HeaderBar";
 import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToast";
 import { PendingDecisionCard } from "@/components/approvals/PendingDecisionCard";
@@ -117,6 +117,72 @@ export function MobileApprovalsPage() {
       time,
     });
   }, []);
+
+  const handleCheckIn = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await securityApi.checkIn(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Visitor Checked In",
+          message: `${visitor.full_name || visitor.name} has been checked in successfully.`,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Check-in failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load],
+  );
+
+  const handleMeetingDone = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await meetingApi.complete(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Meeting Completed",
+          message: `Meeting with ${visitor.full_name || visitor.name} marked as complete.`,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Meeting complete failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load],
+  );
+
+  const handleCheckOut = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await securityApi.checkOut(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Visitor Checked Out",
+          message: `${visitor.full_name || visitor.name} checked out successfully.`,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Check-out failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load],
+  );
 
   const handleGeneratePass = useCallback(
     async (visitor: VisitorListRow) => {
@@ -287,6 +353,15 @@ export function MobileApprovalsPage() {
               onNotifyHost={() => handleNotifyHost(item)}
               onGenerateGatePass={
                 item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
+              }
+              onCheckIn={
+                item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
+              }
+              onMeetingDone={
+                item.status && INSIDE_STATUSES.has(item.status) ? (v) => void handleMeetingDone(v) : undefined
+              }
+              onCheckOut={
+                item.status && INSIDE_STATUSES.has(item.status) ? (v) => void handleCheckOut(v) : undefined
               }
             />
           ))}

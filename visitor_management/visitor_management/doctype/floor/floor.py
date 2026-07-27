@@ -7,10 +7,18 @@ from frappe.model.document import Document
 
 
 class Floor(Document):
-	def validate(self):
-		if not self.tower:
-			return
+	def autoname(self):
+		if self.floor_name:
+			self.name = self.floor_name.strip()
+		elif self.floor_number:
+			self.name = f"Floor {self.floor_number}"
+			self.floor_name = self.name
+		else:
+			self.name = frappe.generate_hash(length=8)
+			self.floor_name = self.name
 
-		tower_building = frappe.db.get_value("Tower", self.tower, "building")
-		if tower_building and tower_building != self.building:
-			frappe.throw(_("Selected Tower does not belong to the selected Building."))
+	def validate(self):
+		if not self.floor_name and self.floor_number:
+			self.floor_name = f"Floor {self.floor_number}"
+		if not self.floor_name:
+			frappe.throw(_("Floor Name is required."))

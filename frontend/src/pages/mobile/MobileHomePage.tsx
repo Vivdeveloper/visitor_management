@@ -29,6 +29,7 @@ function toRecent(rows: VisitorListRow[]): RecentVisitorItem[] {
     purpose: r.visit_purpose_type || r.person_to_meet_name || "—",
     time: formatTime(r.check_in || r.checked_in_on || r.modified || r.creation) || "—",
     status: statusLabel(r.status),
+    photo: r.photo,
   }));
 }
 

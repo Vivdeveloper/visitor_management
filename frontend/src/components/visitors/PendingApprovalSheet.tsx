@@ -6,6 +6,7 @@ import {
   type VisitorListRow,
 } from "@/api/vms";
 import { initials } from "@/lib/format";
+import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 
 type SheetMode = "actions" | "accept" | "reject" | "transfer";
 
@@ -141,7 +142,11 @@ export function PendingApprovalSheet({ visitor, open, onClose, onDone, onViewDet
         <div className="vm-sheet-handle" aria-hidden />
 
         <div className="vm-sheet-visitor">
-          <div className="vm-activity-avatar avatar-orange">{initials(visitor.full_name || visitor.name)}</div>
+          <VisitorAvatar
+            name={visitor.full_name || visitor.name}
+            photo={visitor.photo}
+            className="vm-activity-avatar avatar-orange"
+          />
           <div className="vm-sheet-visitor-copy">
             <strong>{visitor.full_name || visitor.name}</strong>
             <span>{visitor.person_to_meet_name || visitor.mobile || "Pending approval"}</span>

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { initials } from "@/lib/format";
+import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 
 export type RecentVisitorItem = {
   name: string;
@@ -7,6 +7,7 @@ export type RecentVisitorItem = {
   purpose?: string;
   time: string;
   status: string;
+  photo?: string | null;
 };
 
 type RecentVisitorsListProps = {
@@ -63,9 +64,11 @@ export function RecentVisitorsList({ visitors = [], loading = false }: RecentVis
                 onClick={() => navigate(`/visitor/${encodeURIComponent(v.name)}`)}
               >
                 <div className="vm-recent-row-left">
-                  <div className="vm-recent-avatar-circle">
-                    {initials(v.full_name)}
-                  </div>
+                  <VisitorAvatar
+                    name={v.full_name}
+                    photo={v.photo}
+                    className="vm-recent-avatar-circle"
+                  />
                   <div className="vm-recent-row-copy">
                     <strong className="vm-recent-name">{v.full_name}</strong>
                     <span className="vm-recent-purpose">{v.purpose || "—"}</span>

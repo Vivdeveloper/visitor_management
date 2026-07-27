@@ -121,7 +121,70 @@ export function VisitorDetailsForm({
         { name: "Passport", id_proof_type_name: "Passport" },
         { name: "Voter ID", id_proof_type_name: "Voter ID" },
       ];
-  const floors = masters.floors || [];
+
+  function extractFloorNo(raw?: string): string | null {
+    const s = String(raw ?? "").trim();
+    if (!s) return null;
+    // Accept: "5", "5th Floor", "5th", "5 Floor", "Floor 5" (best-effort)
+    const m1 = s.match(/^(\d+)\b/i);
+    if (m1?.[1]) return m1[1];
+    const m2 = s.match(/\b(\d+)\b/);
+    if (m2?.[1]) return m2[1];
+    return null;
+  }
+
+  function ordinal(n: number) {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+    if (mod10 === 1) return `${n}st`;
+    if (mod10 === 2) return `${n}nd`;
+    if (mod10 === 3) return `${n}rd`;
+    return `${n}th`;
+  }
+
+  const floorsFromMasters = masters.floors || [];
+  const floors = (() => {
+    type FloorOpt = { value: string; display: string; floorNo: number };
+    const map = new Map<string, FloorOpt>();
+
+    // 1. Process master floors from backend DB
+    for (const f of floorsFromMasters) {
+      const raw = (f.floor_name || f.name || "").trim();
+      if (!raw) continue;
+      const numStr = extractFloorNo(raw);
+      const floorNo = numStr ? Number(numStr) : Number.MAX_SAFE_INTEGER;
+      const display = f.floor_name || (numStr ? `${ordinal(Number(numStr))} Floor` : f.name);
+      const key = display.toLowerCase().trim();
+
+      if (!map.has(key)) {
+        map.set(key, {
+          value: f.name || display,
+          display,
+          floorNo,
+        });
+      }
+    }
+
+    // 2. Ensure 1..5 floors are available if missing
+    for (let i = 1; i <= 5; i += 1) {
+      const display = `${ordinal(i)} Floor`;
+      const key = display.toLowerCase().trim();
+      if (!map.has(key)) {
+        map.set(key, {
+          value: display,
+          display,
+          floorNo: i,
+        });
+      }
+    }
+
+    // 3. Sort by numeric floor number ascending
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.floorNo !== b.floorNo) return a.floorNo - b.floorNo;
+      return a.display.localeCompare(b.display);
+    });
+  })();
   const vehicles = masters.vehicle_types?.length
     ? masters.vehicle_types
     : [
@@ -243,7 +306,9 @@ export function VisitorDetailsForm({
         <select className="vm-input-field" value={values.floor} onChange={(e) => onChangeField("floor", e.target.value)}>
           <option value="">{vt(lang, "select")}</option>
           {floors.map((f) => (
-            <option key={f.name} value={f.name}>{f.floor_name || f.name}</option>
+            <option key={f.value} value={f.value}>
+              {f.display}
+            </option>
           ))}
         </select>
       </div>

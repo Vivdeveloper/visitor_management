@@ -6,6 +6,16 @@ export function initials(name: string) {
     .join("");
 }
 
+/** Resolve Frappe file path / absolute URL for visitor photos. */
+export function resolveFileUrl(path?: string | null): string | null {
+  if (!path) return null;
+  const raw = String(path).trim();
+  if (!raw) return null;
+  if (raw.startsWith("http") || raw.startsWith("blob:") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/")) return raw;
+  return `/${raw}`;
+}
+
 export function formatTime(value?: string | null) {
   if (!value) return "";
   try {

@@ -127,12 +127,19 @@ export function MobilePreRegisterPage() {
           </div>
           <div className="ad-field">
             <label>Floor</label>
-            <input
+            <select
               className="ad-input"
               value={form.floor}
               onChange={(e) => setField("floor", e.target.value)}
-              placeholder="5th Floor"
-            />
+              aria-label="Floor"
+            >
+              <option value="">Select</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={String(n)}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         {error ? <p className="login-error">{error}</p> : null}

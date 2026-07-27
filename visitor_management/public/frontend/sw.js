@@ -82,10 +82,10 @@ define(['./workbox-60fee754'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "vms-asset-index.css",
-    "revision": "b95e3c6d1a1ac372687421274bb768a9"
+    "revision": "1ae489e559fc8914550f1afcb050654a"
   }, {
     "url": "vms-app.js",
-    "revision": "7da2674556e1799db2e624450767b760"
+    "revision": "19925ef527c753b195644c11b969579e"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

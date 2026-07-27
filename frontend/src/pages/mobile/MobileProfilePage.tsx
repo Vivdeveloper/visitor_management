@@ -22,6 +22,7 @@ export function MobileProfilePage() {
   const { lang } = useAppLanguage();
   const [department, setDepartment] = useState("—");
   const [employeeId, setEmployeeId] = useState(user?.user || "—");
+  const [showProfileCard, setShowProfileCard] = useState(true);
 
   const name = user?.full_name || user?.user || "Administrator";
   const email = user?.email || user?.user || "—";
@@ -61,18 +62,22 @@ export function MobileProfilePage() {
       <HeaderBar title="Precious Alloys" showNotification showProfile />
 
       <main className="vm-main-body vm-page-content-start vm-profile-page">
-        <ProfileHeroCard
-          name={name}
-          email={email}
-          role={role}
-          imageUrl={image}
-          employeeId={employeeId}
-          department={department}
-        />
+        {showProfileCard ? (
+          <ProfileHeroCard
+            name={name}
+            email={email}
+            role={role}
+            imageUrl={image}
+            employeeId={employeeId}
+            department={department}
+          />
+        ) : null}
 
         <SettingsGroups
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          showProfileCard={showProfileCard}
+          onToggleProfileCard={() => setShowProfileCard((prev) => !prev)}
         />
 
         {isAuthenticated || user?.verified ? (

@@ -195,6 +195,7 @@ export type VisitorListRow = {
   id_proof_type?: string;
   vehicle_type?: string;
   vehicle_number?: string;
+  number_of_visitors?: number | string;
   photo?: string;
 };
 
@@ -244,6 +245,8 @@ export const visitorApi = {
         "checked_in_on",
         "creation",
         "visitor_company",
+        "number_of_visitors",
+        "photo",
       ],
       order_by: "modified desc",
       limit_page_length: limit,

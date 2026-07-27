@@ -8,6 +8,8 @@ import { ut } from "@/i18n/uiChrome";
 type SettingsGroupsProps = {
   theme?: ThemeMode;
   onToggleTheme?: () => void;
+  showProfileCard?: boolean;
+  onToggleProfileCard?: () => void;
 };
 
 type GroupId = "account" | "appearance" | "tools";
@@ -79,7 +81,12 @@ function SettingsRow({
   );
 }
 
-export function SettingsGroups({ theme = "light", onToggleTheme }: SettingsGroupsProps) {
+export function SettingsGroups({
+  theme = "light",
+  onToggleTheme,
+  showProfileCard = true,
+  onToggleProfileCard,
+}: SettingsGroupsProps) {
   const { lang } = useAppLanguage();
   const [openGroups, setOpenGroups] = useState<Record<GroupId, boolean>>({
     account: true,
@@ -94,7 +101,11 @@ export function SettingsGroups({ theme = "light", onToggleTheme }: SettingsGroup
   return (
     <div className="vm-settings-stack">
       <SettingsGroup id="account" title={ut(lang, "account")} open={openGroups.account} onToggle={toggle}>
-        <SettingsRow label={ut(lang, "profile")} />
+        <SettingsRow
+          label={ut(lang, "profile")}
+          value={showProfileCard ? "Hide" : "Show"}
+          onClick={onToggleProfileCard}
+        />
       </SettingsGroup>
 
       <SettingsGroup id="appearance" title={ut(lang, "appearance")} open={openGroups.appearance} onToggle={toggle}>

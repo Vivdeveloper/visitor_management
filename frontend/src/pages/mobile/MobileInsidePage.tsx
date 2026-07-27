@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { visitorApi, type VisitorListRow } from "@/api/vms";
-import { formatTime, initials } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import { SlidingStatusFilter, type StatusFilterOption } from "@/components/ui/SlidingStatusFilter";
 import { IconApprovals } from "@/components/ui/MobileIcons";
+import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { HeaderBar } from "@/components/common/HeaderBar";
 
@@ -189,9 +190,11 @@ export function MobileInsidePage() {
                   navigate(`/visitor/${encodeURIComponent(item.name)}`);
                 }}
               >
-                <div className={`vm-activity-avatar avatar-${avatarTone(item.status, idx)}`}>
-                  {initials(item.full_name || item.name)}
-                </div>
+                <VisitorAvatar
+                  name={item.full_name || item.name}
+                  photo={item.photo}
+                  className={`vm-activity-avatar avatar-${avatarTone(item.status, idx)}`}
+                />
                 <div className="vm-activity-info">
                   <span className="vm-activity-name">{item.full_name || item.name}</span>
                   <span className="vm-activity-status">{host}</span>
