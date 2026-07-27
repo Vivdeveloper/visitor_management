@@ -1,6 +1,7 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { PushNotifications, Token, PushNotificationSchema } from "@capacitor/push-notifications";
 import { isNativePlatform } from "@/native/platform";
+import { ensureBackgroundPushReady, ensureServiceWorkerReady } from "@/services/webPush";
 
 export type PushTokenHandler = (token: string) => void;
 export type PushMessageHandler = (notification: PushNotificationSchema) => void;
@@ -96,11 +97,17 @@ export async function initPushNotifications(
   }
 }
 
-/** Warm up PWA notification permission + service worker on host devices. */
+/** Warm up PWA service worker + Web Push subscription for background alerts. */
 export async function initWebHostNotifications(): Promise<void> {
   if (isNativePlatform() || !("Notification" in window)) return;
-  if (Notification.permission !== "default") return;
-  /* Permission is requested via NotificationEnableBanner — avoid blocking login. */
+
+  await ensureServiceWorkerReady();
+
+  /* Already granted: re-save push subscription so background alerts keep working. */
+  if (Notification.permission === "granted") {
+    await ensureBackgroundPushReady();
+  }
+  /* Permission "default" is requested via NotificationPermissionModal (user gesture). */
 }
 
 export async function scheduleLocalNotification(options: {

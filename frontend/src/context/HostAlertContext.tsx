@@ -13,6 +13,7 @@ import { useVmsRealtimeEvent } from "@/hooks/useVmsRealtime";
 import { HostAlertRingModal } from "@/components/alerts/HostAlertRingModal";
 import {
   NotificationPermissionModal,
+  needsBackgroundPushSetup,
   shouldShowNotificationPermissionModal,
 } from "@/components/alerts/NotificationPermissionModal";
 import { resolveMode } from "@/lib/roles";
@@ -150,18 +151,30 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     void initWebHostNotifications();
     connectVmsSocket();
 
-    const needsPermission =
-      (mode === "host" || mode === "security") &&
-      notifyPerm !== "granted" &&
-      notifyPerm !== "unsupported" &&
-      shouldShowNotificationPermissionModal();
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (!(mode === "host" || mode === "security")) {
+          if (!cancelled) setPermissionModalOpen(false);
+          return;
+        }
 
-    if (needsPermission) {
-      const timer = window.setTimeout(() => setPermissionModalOpen(true), 600);
-      return () => window.clearTimeout(timer);
-    }
+        const needsPush = await needsBackgroundPushSetup();
+        const needsPermission =
+          notifyPerm !== "granted" &&
+          notifyPerm !== "unsupported" &&
+          shouldShowNotificationPermissionModal();
 
-    setPermissionModalOpen(false);
+        if (!cancelled) {
+          setPermissionModalOpen(needsPush || needsPermission);
+        }
+      })();
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [user?.user, mode, notifyPerm]);
 
   useEffect(() => {

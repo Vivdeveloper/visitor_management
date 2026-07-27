@@ -48,10 +48,11 @@ createRoot(document.getElementById("root")!).render(
 
 /**
  * Production PWA: register root SW at /vms_sw.js with scope /vms/
+ * Register ASAP so Web Push can subscribe for background alerts.
  * Skipped for Capacitor native builds (bundled assets).
  */
 if (import.meta.env.PROD && !IS_CAPACITOR_BUILD && "serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
+  const registerSw = () => {
     void navigator.serviceWorker
       .register("/vms_sw.js", { scope: "/vms/" })
       .then((registration) => {
@@ -77,5 +78,11 @@ if (import.meta.env.PROD && !IS_CAPACITOR_BUILD && "serviceWorker" in navigator)
       .catch(() => {
         /* until first successful build + copy-pwa */
       });
-  });
+  };
+
+  if (document.readyState === "complete") {
+    registerSw();
+  } else {
+    window.addEventListener("load", registerSw);
+  }
 }

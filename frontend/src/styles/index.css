@@ -11959,6 +11959,18 @@ button.vm-photo-preview.is-clickable:active {
   color: #475569;
 }
 
+.vm-notify-perm-error {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
 .vm-notify-perm-list {
   margin: 0 0 1.1rem;
   padding: 0;
@@ -13203,15 +13215,51 @@ body.barcode-scanner-active {
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
 }
 
-/* Pending / approvals page typography */
+/* Pending / approvals page — compact spacing + typography */
+.vm-approvals-page.vm-home-page {
+  gap: 0.45rem;
+}
+
+.vm-approvals-page .vm-approvals-stack.vm-main-body {
+  gap: 0.45rem;
+}
+
+.vm-approvals-page .vm-page-content-start {
+  padding-top: 0.35rem;
+}
+
+.vm-approvals-page .vm-meetings-search-input {
+  height: 40px;
+  min-height: 40px;
+  font-size: 0.86rem;
+  font-weight: 400;
+  border-radius: 12px !important;
+  padding-left: 2.35rem !important;
+}
+
+.vm-approvals-page .vm-meetings-search .vm-search-icon {
+  left: 0.75rem;
+}
+
+.vm-approvals-page .vm-reports-tabs {
+  padding: 0.2rem;
+  border-radius: 12px;
+  gap: 0.2rem;
+}
+
 .vm-approvals-page .vm-reports-tab {
+  flex-direction: row;
+  gap: 0.28rem;
+  padding: 0.38rem 0.2rem;
+  border-radius: 9px;
   font-size: 0.74rem;
   font-weight: 700;
   color: #1e293b;
+  line-height: 1;
 }
 
 .vm-approvals-page .vm-reports-tab-count {
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 800;
 }
 
@@ -13224,9 +13272,28 @@ body.barcode-scanner-active {
   color: #ffffff;
 }
 
-.vm-approvals-page .vm-meetings-search-input {
-  font-size: 0.86rem;
-  font-weight: 400;
+.vm-approvals-page .vm-approvals-filter-bar {
+  margin: 0;
+  padding: 0;
+}
+
+.vm-approvals-page .vm-filter-pill,
+.vm-approvals-page .vm-filter-clear-btn {
+  height: 30px;
+  padding: 0 0.7rem;
+  font-size: 0.72rem;
+}
+
+.vm-approvals-page .vm-decide-list {
+  gap: 0.4rem !important;
+}
+
+.vm-approvals-page .vm-pending-card {
+  padding: 0.55rem 0.65rem;
+}
+
+.vm-approvals-page .vm-approvals-empty {
+  padding: 1.25rem 1rem;
 }
 
 .vm-approvals-page .vm-approvals-empty strong {
