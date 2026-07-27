@@ -12773,17 +12773,22 @@ body.barcode-scanner-active {
 /* Pending / approvals page typography */
 .vm-approvals-page .vm-reports-tab {
   font-size: 0.74rem;
-  font-weight: 400;
+  font-weight: 700;
   color: #1e293b;
 }
 
 .vm-approvals-page .vm-reports-tab-count {
   font-size: 0.76rem;
-  font-weight: 500;
+  font-weight: 800;
 }
 
 .vm-approvals-page .vm-reports-tab.is-active {
-  font-weight: 500;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.vm-approvals-page .vm-reports-tab.is-active .vm-reports-tab-count {
+  color: #ffffff;
 }
 
 .vm-approvals-page .vm-meetings-search-input {
