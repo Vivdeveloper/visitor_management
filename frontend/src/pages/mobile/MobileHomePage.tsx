@@ -96,7 +96,7 @@ export function MobileHomePage() {
   return (
     <div className="vm-home-page">
 
-      <div style={{ padding: "0.55rem 0.1rem 0.2rem" }}>
+      <div className="vm-home-top-block">
         <button
           type="button"
           className="vm-pending-cta"
@@ -111,9 +111,8 @@ export function MobileHomePage() {
           </span>
           <span className="vm-pending-cta-count">{loading ? "—" : pendingApproval}</span>
         </button>
-      </div>
 
-      <section className="vm-gate-ops-header" aria-label="Live gate desk">
+        <section className="vm-gate-ops-header" aria-label="Live gate desk">
         <div className="vm-gate-ops-top">
           <div className="vm-gate-ops-live">
             <span className="vm-live-dot" aria-hidden />
@@ -145,6 +144,7 @@ export function MobileHomePage() {
           </div>
         </div>
       </section>
+      </div>
 
       {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
 
