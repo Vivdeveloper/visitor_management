@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { frappeGetList, visitorApi } from "@/api/vms";
+import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
+import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { extractError, formatDate, formatTime } from "@/lib/format";
 import { usePageChrome } from "@/context/PageChromeContext";
-import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 type VisitorDoc = {
   name?: string;
   full_name?: string;
@@ -63,6 +64,7 @@ export function MobileVisitorDetailPage() {
   const [hostCompleted, setHostCompleted] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   usePageChrome({
     title: "Visitor Details",
@@ -114,6 +116,7 @@ export function MobileVisitorDetailPage() {
 
   const status = visitor?.status || "";
   const canCheckout = status === "Checked In" || status === "Meeting Done";
+  const displayName = visitor?.full_name || visitor?.name || "";
 
   return (
     <div className="vm-home-page">
@@ -124,18 +127,23 @@ export function MobileVisitorDetailPage() {
       {!loading && visitor ? (
         <main className="vm-main-body vm-detail-stack">
           <div className="vm-overview-card vm-detail-hero">
-            <p className="vm-detail-kicker">{visitor.name}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
-              <VisitorAvatar
-                name={visitor.full_name || visitor.name || ""}
-                photo={visitor.photo}
-                size={44}
-              />
-              <h1 className="vm-page-title" style={{ margin: 0 }}>
-                {visitor.full_name || visitor.name}
-              </h1>
+            <div className="vm-detail-hero-grid">
+              <div className="vm-detail-hero-photo-col">
+                <p className="vm-detail-kicker">{visitor.name}</p>
+                <ClickablePhotoPreview
+                  src={visitor.photo}
+                  name={displayName}
+                  emptyLabel="No photo"
+                  alt={`${displayName} photo`}
+                  className="vm-photo-preview vm-detail-photo-frame"
+                  onPreview={setPreviewSrc}
+                />
+                <span className="vm-status-pill">{status || "—"}</span>
+              </div>
+              <div className="vm-detail-hero-copy">
+                <h1 className="vm-page-title">{displayName}</h1>
+              </div>
             </div>
-            <span className="vm-status-pill">{status || "—"}</span>
           </div>
 
           <div className="vm-overview-card vm-detail-card">
@@ -186,6 +194,12 @@ export function MobileVisitorDetailPage() {
           </div>
         </main>
       ) : null}
+
+      <PhotoPreviewModal
+        src={previewSrc}
+        alt={`${displayName} photo`}
+        onClose={() => setPreviewSrc(null)}
+      />
     </div>
   );
 }

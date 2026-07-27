@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
+import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { formatTime, resolveFileUrl } from "@/lib/format";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 
@@ -133,14 +134,16 @@ export function PendingDecisionCard({
         </button>
 
         <div className="vm-pending-redesign-title-block">
-          <strong className="vm-pending-redesign-name">{visitorName}</strong>
+          <span className="vm-pending-redesign-name">{visitorName}</span>
           <span className={`vm-pending-redesign-badge ${tone}`}>{displayStatus}</span>
           <div className="vm-pending-redesign-host-row">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
               <circle cx="12" cy="8" r="4" />
               <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
             </svg>
-            <span className="vm-pending-redesign-host-text">Host: <strong className="vm-pending-redesign-host-name">{hostName}</strong></span>
+            <span className="vm-pending-redesign-host-text">
+              Host: <span className="vm-pending-redesign-host-name">{hostName}</span>
+            </span>
           </div>
         </div>
 
@@ -451,45 +454,11 @@ export function PendingDecisionCard({
       ) : null}
       </div>
 
-      {photoPreviewSrc ? (
-        <div className="vm-confirm-modal-root" role="dialog" aria-modal="true" aria-label="Photo preview">
-          <button
-            type="button"
-            className="vm-confirm-modal-backdrop"
-            onClick={() => setPhotoPreviewSrc(null)}
-            aria-label="Close photo preview"
-          />
-          <div className="vm-confirm-modal-card" style={{ padding: "0.85rem", width: "min(100%, 440px)" }}>
-            <button
-              type="button"
-              className="vm-confirm-modal-close"
-              onClick={() => setPhotoPreviewSrc(null)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-            <div
-              style={{
-                borderRadius: 18,
-                overflow: "hidden",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-              }}
-            >
-              <img
-                src={photoPreviewSrc}
-                alt={`${visitorName} photo`}
-                style={{
-                  width: "100%",
-                  maxHeight: "72vh",
-                  objectFit: "contain",
-                  display: "block",
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PhotoPreviewModal
+        src={photoPreviewSrc}
+        alt={`${visitorName} photo`}
+        onClose={() => setPhotoPreviewSrc(null)}
+      />
     </>
   );
 }

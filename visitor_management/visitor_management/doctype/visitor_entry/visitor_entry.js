@@ -85,69 +85,68 @@ function add_gate_actions(frm) {
 }
 
 function prompt_check_in(frm) {
-	frappe.prompt(
-		[
-			{
-				fieldname: "floor",
-				fieldtype: "Link",
-				options: "Floor",
-				label: __("Floor No."),
-				reqd: 1,
-				default: frm.doc.floor || "",
+	frappe.confirm(__("Check in this visitor?"), () => {
+		frappe.call({
+			method: `${VE}.check_in`,
+			args: {
+				visitor_entry: frm.doc.name,
 			},
-		],
-		(values) => {
-			frappe.call({
-				method: `${VE}.check_in`,
-				args: {
-					visitor_entry: frm.doc.name,
-					floor: values.floor,
-				},
-				freeze: true,
-				callback(r) {
-					if (!r.exc) {
-						const msg = r.message || {};
-						frappe.show_alert({
-							message: msg.message || __("Checked in"),
-							indicator: "green",
+			freeze: true,
+			callback(r) {
+				if (!r.exc) {
+					const msg = r.message || {};
+					frappe.show_alert({
+						message: msg.message || __("Checked in"),
+						indicator: "green",
+					});
+					if (msg.pass_url) {
+						frappe.msgprint({
+							title: __("Gate Pass Ready"),
+							message: __(
+								"Pass generated on check-in:<br><a href='{0}' target='_blank'>{0}</a>",
+								[msg.pass_url]
+							),
+							indicator: "blue",
 						});
-						if (msg.pass_url) {
-							frappe.msgprint({
-								title: __("Gate Pass Ready"),
-								message: __(
-									"Pass generated on check-in:<br><a href='{0}' target='_blank'>{0}</a>",
-									[msg.pass_url]
-								),
-								indicator: "blue",
-							});
-						}
-						frm.reload_doc();
 					}
-				},
-			});
-		},
-		__("Check In Visitor"),
-		__("Check In")
-	);
+					frm.reload_doc();
+				}
+			},
+		});
+	});
 }
 
 function prompt_remarks(frm, action) {
 	const title = action === "approve" ? __("Approve Visitor") : __("Reject Visitor");
+	const fields = [
+		{
+			fieldname: "remarks",
+			fieldtype: "Small Text",
+			label: __("Remarks"),
+			reqd: action === "reject" ? 1 : 0,
+		},
+	];
+
+	if (action === "approve") {
+		fields.unshift({
+			fieldname: "floor",
+			fieldtype: "Link",
+			options: "Floor",
+			label: __("Floor No."),
+			reqd: 1,
+			default: frm.doc.floor || "",
+		});
+	}
+
 	frappe.prompt(
-		[
-			{
-				fieldname: "remarks",
-				fieldtype: "Small Text",
-				label: __("Remarks"),
-				reqd: action === "reject" ? 1 : 0,
-			},
-		],
+		fields,
 		(values) => {
 			frappe.call({
 				method: `${VE}.${action}`,
 				args: {
 					visitor_entry: frm.doc.name,
 					remarks: values.remarks,
+					floor: values.floor,
 				},
 				freeze: true,
 				callback(r) {

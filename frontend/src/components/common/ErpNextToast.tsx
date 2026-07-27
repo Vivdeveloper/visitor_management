@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export type ErpToastData = {
   id: string;
@@ -24,7 +25,7 @@ export function ErpNextToast({ toast, onClose }: Props) {
 
   if (!toast) return null;
 
-  return (
+  return createPortal(
     <div className="erp-toast-overlay" role="status" aria-live="polite">
       <div className="erp-toast-card">
         <div className="erp-toast-header">
@@ -62,6 +63,7 @@ export function ErpNextToast({ toast, onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

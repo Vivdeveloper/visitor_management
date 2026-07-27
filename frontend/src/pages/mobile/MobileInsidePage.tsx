@@ -5,7 +5,6 @@ import { formatTime } from "@/lib/format";
 import { SlidingStatusFilter, type StatusFilterOption } from "@/components/ui/SlidingStatusFilter";
 import { IconApprovals } from "@/components/ui/MobileIcons";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
-import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { usePageChrome } from "@/context/PageChromeContext";
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 
@@ -59,7 +58,6 @@ export function MobileInsidePage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionVisitor, setActionVisitor] = useState<VisitorListRow | null>(null);
 
   const loadVisitors = useCallback(async () => {
     setLoading(true);
@@ -182,20 +180,13 @@ export function MobileInsidePage() {
             const badge = badgeFor(item.status);
             const host = item.person_to_meet_name || "—";
             const time = formatTime(item.check_in || item.checked_in_on || item.modified || item.creation) || "—";
-            const isPending = item.status === "Pending Approval";
             return (
               <button
                 key={item.name}
                 type="button"
                 className="vm-activity-row vm-visitor-row vm-visitor-row--compact is-interactive"
                 style={{ animationDelay: `${Math.min(idx, 12) * 20}ms` }}
-                onClick={() => {
-                  if (isPending) {
-                    setActionVisitor(item);
-                    return;
-                  }
-                  navigate(`/visitor/${encodeURIComponent(item.name)}`);
-                }}
+                onClick={() => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
               >
                 <VisitorAvatar
                   name={item.full_name || item.name}
@@ -215,20 +206,6 @@ export function MobileInsidePage() {
           })
         )}
       </div>
-
-      {actionVisitor ? (
-        <PendingApprovalSheet
-          visitor={actionVisitor}
-          open
-          onClose={() => setActionVisitor(null)}
-          onDone={() => void loadVisitors()}
-          onViewDetails={() => {
-            const name = actionVisitor.name;
-            setActionVisitor(null);
-            navigate(`/visitor/${encodeURIComponent(name)}`);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

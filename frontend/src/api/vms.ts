@@ -100,6 +100,7 @@ export type DashboardQueueItem = {
   name: string;
   full_name?: string;
   mobile?: string;
+  photo?: string;
   person_to_meet_name?: string;
   host_name?: string;
   status?: string;
@@ -258,14 +259,17 @@ export const visitorApi = {
 
 export const approvalApi = {
   listForHost: (status?: string) => callMethod("approval.list_for_host", { status }),
-  approve: (visitor_entry: string, remarks?: string) =>
-    callMethod("approval.approve", { visitor_entry, remarks }),
+  approve: (visitor_entry: string, remarks?: string, floor?: string) =>
+    callMethod("approval.approve", { visitor_entry, remarks, floor }),
   reject: (visitor_entry: string, remarks?: string) =>
     callMethod("approval.reject", { visitor_entry, remarks }),
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
   notifyHost: (visitor_entry: string, message?: string) =>
-    callMethod<{ success?: boolean; host_name?: string }>("approval.notify_host", { visitor_entry, message }),
+    callMethod<{ success?: boolean; host_name?: string; host_user?: string }>("approval.notify_host", {
+      visitor_entry,
+      message,
+    }),
 };
 
 export type PublicPassInfo = {

@@ -23,6 +23,11 @@ import {
 } from "@/i18n/visitorJourney";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { usePageChrome } from "@/context/PageChromeContext";
+import {
+  applyReturningProfileFields,
+  getReturningVisitorProfileFields,
+  VISIT_FIELDS_TO_CLEAR,
+} from "@/lib/returningVisitorFields";
 
 type JourneyStep =
   | "mobile"
@@ -98,17 +103,17 @@ export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { lang, setLang } = useAppLanguage();
+  const [step, setStep] = useState<JourneyStep>("mobile");
 
   usePageChrome({
     title: "Add Entry",
     subtitle: "Visitor Entry & Desk Verification",
-    showBack: true,
+    showBack: step !== "otp",
     backTo: "/",
     showNotification: true,
     showProfile: true,
   });
 
-  const [step, setStep] = useState<JourneyStep>("mobile");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devOtp, setDevOtp] = useState<string | null>(null);
@@ -125,6 +130,7 @@ export function MobileCheckInPage() {
   const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
   const [passUrl, setPassUrl] = useState<string | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const profileFieldsRef = useRef<string[]>(["first_name", "middle_name", "last_name", "email", "gender"]);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -139,7 +145,6 @@ export function MobileCheckInPage() {
     visit_purpose_type: "",
     number_of_visitors: "1",
     id_proof_type: "",
-    floor: "",
     vehicle_type: "",
     vehicle_number: "",
   });
@@ -229,6 +234,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   }
 
   const otpValue = otpDigits.join("");
+
+  useEffect(() => {
+    void getReturningVisitorProfileFields().then((fields) => {
+      profileFieldsRef.current = fields;
+    });
+  }, []);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -340,22 +351,18 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   }
 
   function applyReturningVisitor(row: VisitorListRow & Record<string, unknown>) {
-    setForm((prev) => ({
-      ...prev,
-      visitor_company: row.visitor_company || prev.visitor_company,
-      visitor_location: (row.visitor_location as string | undefined) || prev.visitor_location,
-      person_to_meet: (row.person_to_meet as string | undefined) || row.person_to_meet_name || prev.person_to_meet,
-      visit_purpose_type: row.visit_purpose_type || prev.visit_purpose_type,
-      id_proof_type: (row.id_proof_type as string | undefined) || prev.id_proof_type,
-      floor: row.floor || prev.floor,
-      vehicle_type: (row.vehicle_type as string | undefined) || prev.vehicle_type,
-      vehicle_number: (row.vehicle_number as string | undefined) || prev.vehicle_number,
-      mobile: row.mobile || prev.mobile,
-    }));
+    setForm((prev) => {
+      const cleared = { ...prev };
+      for (const field of VISIT_FIELDS_TO_CLEAR) {
+        cleared[field] = field === "number_of_visitors" ? "1" : "";
+      }
+      return applyReturningProfileFields(cleared, row, profileFieldsRef.current);
+    });
 
-    if (row.photo) {
-      setPhotoPreview(row.photo.startsWith("http") || row.photo.startsWith("/") ? row.photo : `/${row.photo}`);
-    }
+    setPhotoPreview(null);
+    setPhotoFile(null);
+    setIdProofPreview(null);
+    setIdProofFile(null);
   }
 
   async function onContinueMobile(e: FormEvent) {
@@ -488,7 +495,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         visitor_company: form.visitor_company || undefined,
         visitor_location: form.visitor_location || undefined,
         person_to_meet: form.person_to_meet.trim(),
-        floor: form.floor || undefined,
         visit_purpose_type: form.visit_purpose_type || undefined,
         id_proof_type: form.id_proof_type || undefined,
         vehicle_type: form.vehicle_type || undefined,
@@ -511,7 +517,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           visitor_company: form.visitor_company,
           person_to_meet: form.person_to_meet.trim(),
           person_to_meet_name: form.person_to_meet.trim(),
-          floor: form.floor,
           visit_purpose_type: form.visit_purpose_type,
           photo,
         },
@@ -675,22 +680,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
       {step === "otp" ? (
         <form className="vj-screen vm-verify-screen vm-otp-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
-          <header className="vm-verify-header">
-            <button
-              type="button"
-              className="vm-back-btn"
-              onClick={() => {
-                setStep("mobile");
-                setOtpDigits(Array(OTP_LEN).fill(""));
-                setError(null);
-                setOtpSuccess(false);
-              }}
-              aria-label="Back to mobile"
-            >
-              ‹
-            </button>
-          </header>
-
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
           </div>
@@ -791,9 +780,10 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             </div>
           ) : null}
 
-          <main className="vm-main-body" style={{ background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
+          <main className="vm-main-body vm-form-surface">
             <VisitorDetailsForm
               lang={lang}
+              returningVisitor={returningVisitor}
               values={{
                 first_name: form.first_name,
                 middle_name: form.middle_name,
@@ -806,7 +796,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                 visit_purpose_type: form.visit_purpose_type,
                 number_of_visitors: form.number_of_visitors,
                 id_proof_type: form.id_proof_type,
-                floor: form.floor,
                 vehicle_type: form.vehicle_type,
                 vehicle_number: form.vehicle_number,
               }}
@@ -876,7 +865,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <div style={{ flex: 1, height: "4px", background: "#E2E8F0", borderRadius: "2px" }} />
           </div>
 
-          <main className="vm-main-body" style={{ background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
+          <main className="vm-main-body vm-form-surface">
             <CheckInSuccessCard
               hostName={hostName}
               department="Production Dept."
@@ -920,7 +909,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
               visitorName={displayName}
               company={company}
               hostName={hostName}
-              department={visitor?.floor || form.floor || "—"}
+              department={visitor?.floor || "—"}
               validUntil={visitor?.qr_expires_on ? formatTime(visitor.qr_expires_on) : vt(lang, "end_of_day")}
               checkInTime={checkInLabel}
               checkInLocation={vt(lang, "main_gate")}
@@ -973,7 +962,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <div style={{ flex: 1, height: "4px", background: "#2563EB", borderRadius: "2px" }} />
           </div>
 
-          <main className="vm-main-body" style={{ background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
+          <main className="vm-main-body vm-form-surface">
             <MeetingInProgressCard
               hostName={hostName}
               department="Production Dept."
@@ -1013,7 +1002,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <div style={{ flex: 1, height: "4px", background: "#2563EB", borderRadius: "2px" }} />
           </div>
 
-          <main className="vm-main-body" style={{ background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
+          <main className="vm-main-body vm-form-surface">
             <CheckoutConfirmationCard
               hostName={hostName}
               department="Production Dept."

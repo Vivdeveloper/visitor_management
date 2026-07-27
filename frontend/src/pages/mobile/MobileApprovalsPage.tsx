@@ -5,7 +5,7 @@ import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToas
 import { PendingDecisionCard } from "@/components/approvals/PendingDecisionCard";
 import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
-import { CheckInFloorModal } from "@/components/approvals/CheckInFloorModal";
+import { ApprovalFloorModal } from "@/components/approvals/ApprovalFloorModal";
 import { GatePassActionsModal } from "@/components/approvals/GatePassActionsModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageChrome } from "@/context/PageChromeContext";
@@ -93,7 +93,7 @@ export function MobileApprovalsPage() {
   const [sheetMode, setSheetMode] = useState<"actions" | "reject" | "transfer">("transfer");
   const [toast, setToast] = useState<ErpToastData | null>(null);
   const [confirmVisitor, setConfirmVisitor] = useState<VisitorListRow | null>(null);
-  const [checkInVisitor, setCheckInVisitor] = useState<VisitorListRow | null>(null);
+  const [approveVisitor, setApproveVisitor] = useState<VisitorListRow | null>(null);
   const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
   const [passBusy, setPassBusy] = useState(false);
   const statusMapRef = useState(() => new Map<string, string>())[0];
@@ -141,17 +141,23 @@ export function MobileApprovalsPage() {
     void load();
   });
 
-  const handleApprove = useCallback(
-    async (item: VisitorListRow) => {
-      setBusy(item.name);
+  const handleApprove = useCallback((item: VisitorListRow) => {
+    setApproveVisitor(item);
+  }, []);
+
+  const handleApproveWithFloor = useCallback(
+    async (visitor: VisitorListRow, floor: string) => {
+      setBusy(visitor.name);
       try {
-        await approvalApi.approve(item.name);
+        await approvalApi.approve(visitor.name, undefined, floor);
       } catch (err: unknown) {
         console.warn("Approve API notice:", err);
       } finally {
+        setApproveVisitor(null);
         setConfirmVisitor({
-          ...item,
+          ...visitor,
           status: "Approved",
+          floor,
         });
         setBusy(null);
         void load();
@@ -166,34 +172,37 @@ export function MobileApprovalsPage() {
   }, []);
 
   const handleNotifyHost = useCallback(async (item: VisitorListRow) => {
-    const host = item.person_to_meet_name || "Host";
+    const host = item.person_to_meet_name || item.person_to_meet || "Host";
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     try {
-      await approvalApi.notifyHost(item.name);
-    } catch {
-      /* ignore backend realtime errors if offline */
+      const res = await approvalApi.notifyHost(item.name);
+      setToast({
+        id: Date.now().toString(),
+        title: `Notification Pushed to ${res.host_name || host}`,
+        message: `Push notification sent to ${res.host_name || host} for visitor ${item.full_name || item.name} (${time}).`,
+        hostName: res.host_name || host,
+        time,
+      });
+    } catch (err: unknown) {
+      setToast({
+        id: Date.now().toString(),
+        title: "Host notification failed",
+        message: err instanceof Error ? err.message : "Could not notify the host. Check Person to Meet is assigned.",
+        time,
+      });
     }
-    setToast({
-      id: Date.now().toString(),
-      title: `Notification Pushed to ${host}`,
-      message: `Push notification sent to ${host} for visitor ${item.full_name || item.name} (${time}).`,
-      hostName: host,
-      time,
-    });
   }, []);
 
   const handleCheckIn = useCallback(
-    async (visitor: VisitorListRow, floor: string) => {
+    async (visitor: VisitorListRow) => {
       setBusy(visitor.name);
       setError(null);
       try {
-        await visitorApi.update(visitor.name, { floor });
-        await securityApi.checkIn(visitor.name, undefined, floor);
-        setCheckInVisitor(null);
+        await securityApi.checkIn(visitor.name);
         setToast({
           id: Date.now().toString(),
           title: "Visitor Checked In",
-          message: `${visitor.full_name || visitor.name} checked in on ${floor}.`,
+          message: `${visitor.full_name || visitor.name} checked in successfully.`,
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         });
         void load();
@@ -500,7 +509,7 @@ export function MobileApprovalsPage() {
               item={item}
               busy={busy === item.name}
               onOpen={viewOnlyAll ? undefined : () => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
-              onApprove={viewOnlyAll ? undefined : () => void handleApprove(item)}
+              onApprove={viewOnlyAll ? undefined : (v) => handleApprove(v)}
               onReject={viewOnlyAll ? undefined : () => handleReject(item)}
               onNotifyHost={viewOnlyAll ? undefined : () => handleNotifyHost(item)}
               onTransfer={
@@ -517,7 +526,7 @@ export function MobileApprovalsPage() {
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
               }
               onCheckIn={
-                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setCheckInVisitor(v) : undefined
+                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
               }
               onMeetingDone={
                 viewOnlyAll
@@ -558,12 +567,12 @@ export function MobileApprovalsPage() {
         />
       ) : null}
 
-      <CheckInFloorModal
-        visitor={checkInVisitor}
-        open={!!checkInVisitor}
-        busy={!!checkInVisitor && busy === checkInVisitor.name}
-        onClose={() => setCheckInVisitor(null)}
-        onConfirm={handleCheckIn}
+      <ApprovalFloorModal
+        visitor={approveVisitor}
+        open={!!approveVisitor}
+        busy={!!approveVisitor && busy === approveVisitor.name}
+        onClose={() => setApproveVisitor(null)}
+        onConfirm={handleApproveWithFloor}
       />
 
       <VisitorCheckInConfirmModal

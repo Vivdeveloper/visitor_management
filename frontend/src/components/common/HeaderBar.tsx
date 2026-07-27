@@ -1,19 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  dashboardApi,
-  type DashboardQueueItem,
-  type VisitorListRow,
-} from "@/api/vms";
+import { dashboardApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
-import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
-import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
-import { formatTime, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
 
 interface HeaderBarProps {
@@ -25,25 +19,12 @@ interface HeaderBarProps {
   showProfile?: boolean;
 }
 
-type PopupKind = "none" | "profile" | "notifications";
+type PopupKind = "none" | "profile";
 
 function resolveUserImage(path?: string | null): string | null {
   if (!path) return null;
   if (path.startsWith("http") || path.startsWith("data:") || path.startsWith("blob:")) return path;
   return path.startsWith("/") ? path : `/${path}`;
-}
-
-function toVisitorRow(item: DashboardQueueItem): VisitorListRow {
-  return {
-    name: item.name,
-    full_name: item.full_name,
-    mobile: item.mobile,
-    status: item.status || "Pending Approval",
-    person_to_meet_name: item.person_to_meet_name || item.host_name,
-    floor: item.floor,
-    check_in: item.check_in,
-    checked_in_on: item.checked_in_on,
-  };
 }
 
 export function HeaderBar({
@@ -58,36 +39,27 @@ export function HeaderBar({
   const { user } = useAuth();
   const { lang } = useAppLanguage();
   const [popup, setPopup] = useState<PopupKind>("none");
-  const [pending, setPending] = useState<DashboardQueueItem[]>([]);
-  const [pendingLoading, setPendingLoading] = useState(false);
-  const [actionVisitor, setActionVisitor] = useState<VisitorListRow | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const rootRef = useRef<HTMLElement>(null);
 
   const photo = resolveUserImage(user?.user_image);
   const displayName = user?.full_name || user?.user || "User";
 
-  const loadPending = useCallback(async () => {
-    setPendingLoading(true);
+  const loadPendingCount = useCallback(async () => {
     try {
       const list = await dashboardApi.getPendingApprovals();
-      setPending(list || []);
+      setPendingCount(list?.length || 0);
     } catch {
-      setPending([]);
-    } finally {
-      setPendingLoading(false);
+      setPendingCount(0);
     }
   }, []);
 
   useEffect(() => {
-    void loadPending();
-  }, [loadPending]);
-
-  useEffect(() => {
-    if (popup === "notifications") void loadPending();
-  }, [popup, loadPending]);
+    void loadPendingCount();
+  }, [loadPendingCount]);
 
   useVmsRealtime(() => {
-    void loadPending();
+    void loadPendingCount();
   }, true);
 
   useEffect(() => {
@@ -102,8 +74,6 @@ export function HeaderBar({
       return () => document.removeEventListener("mousedown", onDocClick);
     }
   }, [popup]);
-
-  const pendingCount = pending.length;
 
   return (
     <header className="vm-topbar" ref={rootRef}>
@@ -140,74 +110,15 @@ export function HeaderBar({
 
         <div className="vm-topbar-actions">
           {showNotification ? (
-            <div className="vm-topbar-popwrap">
-              <button
-                type="button"
-                className={`vm-bell-btn${popup === "notifications" ? " is-open" : ""}`}
-                onClick={() => setPopup((p) => (p === "notifications" ? "none" : "notifications"))}
-                aria-label="Notifications"
-                aria-expanded={popup === "notifications"}
-              >
-                <IconBell size={18} />
-                {pendingCount > 0 ? <span className="vm-bell-dot" aria-hidden /> : null}
-              </button>
-
-              {popup === "notifications" ? (
-                <div className="vm-topbar-popup vm-notif-popup" role="dialog" aria-label="Notifications">
-                  <div className="vm-notif-popup-head">
-                    <strong>Pending Approvals</strong>
-                    <span className="vm-notif-popup-count">{pendingLoading ? "…" : pendingCount}</span>
-                  </div>
-
-                  <div className="vm-notif-popup-body">
-                    {pendingLoading ? (
-                      <p className="vm-notif-popup-empty">Loading live queue…</p>
-                    ) : pending.length === 0 ? (
-                      <p className="vm-notif-popup-empty">No pending approvals</p>
-                    ) : (
-                      <ul className="vm-notif-list" role="list">
-                        {pending.map((item) => (
-                          <li key={item.name}>
-                            <button
-                              type="button"
-                              className="vm-notif-row"
-                              onClick={() => {
-                                setActionVisitor(toVisitorRow(item));
-                                setPopup("none");
-                              }}
-                            >
-                              <VisitorAvatar
-                                name={item.full_name || item.name}
-                                size={40}
-                                className="vm-notif-avatar avatar-orange"
-                              />
-                              <div className="vm-notif-copy">
-                                <strong>{item.full_name || item.name}</strong>
-                                <span>{item.person_to_meet_name || item.host_name || "Awaiting assignment"}</span>
-                              </div>
-                              <span className="vm-notif-time">
-                                {formatTime(item.check_in || item.checked_in_on || item.modified || item.creation) || "—"}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="vm-notif-popup-footer"
-                    onClick={() => {
-                      setPopup("none");
-                      navigate("/approvals");
-                    }}
-                  >
-                    Open visitors queue ›
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <button
+              type="button"
+              className="vm-bell-btn"
+              onClick={() => navigate("/notifications")}
+              aria-label="Notifications"
+            >
+              <IconBell size={18} />
+              {pendingCount > 0 ? <span className="vm-bell-dot" aria-hidden /> : null}
+            </button>
           ) : null}
 
           <LanguageSwitcher variant="icon" />
@@ -282,20 +193,6 @@ export function HeaderBar({
           ) : null}
         </div>
       </div>
-
-      {actionVisitor ? (
-        <PendingApprovalSheet
-          visitor={actionVisitor}
-          open
-          onClose={() => setActionVisitor(null)}
-          onDone={() => void loadPending()}
-          onViewDetails={() => {
-            const name = actionVisitor.name;
-            setActionVisitor(null);
-            navigate(`/visitor/${encodeURIComponent(name)}`);
-          }}
-        />
-      ) : null}
     </header>
   );
 }

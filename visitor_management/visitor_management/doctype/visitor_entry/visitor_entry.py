@@ -140,12 +140,17 @@ def verify_otp(mobile, otp):
 
 
 @frappe.whitelist()
-def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+def approve(visitor_entry: str | None = None, remarks: str | None = None, floor: str | None = None) -> dict:
 	"""Pending Approval → Approved (host approves before gate check-in)."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
 	if doc.status != "Pending Approval":
 		frappe.throw(_("Only Pending visitors can be approved. Current status: {0}").format(doc.status))
+
+	if floor:
+		doc.floor = floor
+	if not doc.floor:
+		frappe.throw(_("Please select a floor before approval."))
 
 	doc.status = "Approved"
 	doc.approved_on = now_datetime()
@@ -155,6 +160,7 @@ def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dic
 	return {
 		"name": doc.name,
 		"status": doc.status,
+		"floor": doc.floor,
 		"message": _("Visitor approved."),
 	}
 
@@ -169,8 +175,6 @@ def check_in(visitor_entry: str | None = None, floor: str | None = None) -> dict
 
 	if floor:
 		doc.floor = floor
-	if not doc.floor:
-		frappe.throw(_("Please select a floor before check-in."))
 
 	now = now_datetime()
 	doc.status = "Checked In"

@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { visitorApi } from "@/api/vms";
+import { settingsApi, visitorApi } from "@/api/vms";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { extractError, splitFullName } from "@/lib/format";
 import { usePageChrome } from "@/context/PageChromeContext";
 
@@ -17,16 +18,40 @@ export function MobilePreRegisterPage() {
   });
 
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [hostOptions, setHostOptions] = useState<Array<{ value: string; label: string; sublabel?: string }>>([]);
   const [form, setForm] = useState({
     full_name: "",
     mobile: "",
     visit_note: "",
     person_to_meet: "",
     visitor_company: "",
-    floor: "",
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    void settingsApi.getHosts()
+      .then((hosts) => {
+        if (cancelled) return;
+        setHostOptions(
+          (hosts || []).map((h) => ({
+            value: h.value,
+            label: h.label,
+            sublabel: h.email || h.value,
+          })),
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const purposeNote = useMemo(() => form.visit_note.trim(), [form.visit_note]);
 
   function setField(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -52,7 +77,7 @@ export function MobilePreRegisterPage() {
     setError(null);
     setMessage(null);
     try {
-      const purpose = [form.visit_note.trim() ? `Pre-register: ${form.visit_note.trim()}` : "Pre-registered visit"]
+      const purpose = [purposeNote ? `Pre-register: ${purposeNote}` : "Pre-registered visit"]
         .filter(Boolean)
         .join(" · ");
       const created = (await visitorApi.create({
@@ -61,7 +86,6 @@ export function MobilePreRegisterPage() {
         last_name: last_name || undefined,
         person_to_meet: form.person_to_meet.trim(),
         visitor_company: form.visitor_company || undefined,
-        floor: form.floor || undefined,
         visit_purpose_type: purpose,
         number_of_visitors: 1,
         status: "Pending Approval",
@@ -118,40 +142,26 @@ export function MobilePreRegisterPage() {
         </div>
         <div className="ad-field">
           <label>Meet to</label>
-          <input
-            className="ad-input"
-            required
+          <SearchSelect
             value={form.person_to_meet}
-            onChange={(e) => setField("person_to_meet", e.target.value)}
-            placeholder="host@company.com"
+            options={hostOptions}
+            onChange={(val) => setField("person_to_meet", val)}
+            placeholder="Select"
+            searchPlaceholder="Search person to meet"
+            loading={loading}
+            required
+            allowEmpty
+            aria-label="Person to meet"
           />
         </div>
-        <div className="ad-grid2">
-          <div className="ad-field">
-            <label>Company</label>
-            <input
-              className="ad-input"
-              value={form.visitor_company}
-              onChange={(e) => setField("visitor_company", e.target.value)}
-              placeholder="Company"
-            />
-          </div>
-          <div className="ad-field">
-            <label>Floor</label>
-            <select
-              className="ad-input"
-              value={form.floor}
-              onChange={(e) => setField("floor", e.target.value)}
-              aria-label="Floor"
-            >
-              <option value="">Select</option>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="ad-field">
+          <label>Company</label>
+          <input
+            className="ad-input"
+            value={form.visitor_company}
+            onChange={(e) => setField("visitor_company", e.target.value)}
+            placeholder="Company"
+          />
         </div>
         {error ? <p className="login-error">{error}</p> : null}
         {message ? <p className="login-msg">{message}</p> : null}

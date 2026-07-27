@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { settingsApi, frappeGetList, type HostOption, type MastersPayload } from "@/api/vms";
+import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
+import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
 
 export type VisitorFormValues = {
@@ -14,13 +17,13 @@ export type VisitorFormValues = {
   visit_purpose_type: string;
   number_of_visitors: string;
   id_proof_type: string;
-  floor: string;
   vehicle_type: string;
   vehicle_number: string;
 };
 
 interface VisitorDetailsFormProps {
   lang?: VisitorLang;
+  returningVisitor?: boolean;
   values: VisitorFormValues;
   photoPreview?: string | null;
   busy?: boolean;
@@ -34,6 +37,7 @@ interface VisitorDetailsFormProps {
 
 export function VisitorDetailsForm({
   lang = "en",
+  returningVisitor = false,
   values,
   photoPreview,
   idProofPreview,
@@ -51,6 +55,8 @@ export function VisitorDetailsForm({
   const [masters, setMasters] = useState<MastersPayload>({});
   const [genders, setGenders] = useState<Array<{ name: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewAlt, setPreviewAlt] = useState("Photo preview");
 
   useEffect(() => {
     let cancelled = false;
@@ -71,18 +77,6 @@ export function VisitorDetailsForm({
         setHosts(Array.isArray(hostList) ? hostList : []);
         setMasters(masterData || {});
         setGenders(genderList || []);
-
-        if (hostList?.length && !values.person_to_meet) {
-          onChangeField("person_to_meet", hostList[0].value);
-        }
-        const purposes = masterData?.visit_purpose_types || [];
-        if (purposes.length && !values.visit_purpose_type) {
-          onChangeField("visit_purpose_type", purposes[0].name);
-        }
-        const ids = masterData?.id_proof_types || [];
-        if (ids.length && !values.id_proof_type) {
-          onChangeField("id_proof_type", ids[0].name);
-        }
       } catch {
         /* keep empty masters */
       } finally {
@@ -105,89 +99,112 @@ export function VisitorDetailsForm({
 
   const purposes = masters.visit_purpose_types || [];
   const idTypes = masters.id_proof_types || [];
-
-  function extractFloorNo(raw?: string): string | null {
-    const s = String(raw ?? "").trim();
-    if (!s) return null;
-    // Accept: "5", "5th Floor", "5th", "5 Floor", "Floor 5" (best-effort)
-    const m1 = s.match(/^(\d+)\b/i);
-    if (m1?.[1]) return m1[1];
-    const m2 = s.match(/\b(\d+)\b/);
-    if (m2?.[1]) return m2[1];
-    return null;
-  }
-
-  function ordinal(n: number) {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-    if (mod10 === 1) return `${n}st`;
-    if (mod10 === 2) return `${n}nd`;
-    if (mod10 === 3) return `${n}rd`;
-    return `${n}th`;
-  }
-
-  const floorsFromMasters = masters.floors || [];
-  const floors = (() => {
-    type FloorOpt = { value: string; display: string; floorNo: number };
-    const map = new Map<string, FloorOpt>();
-
-    // 1. Process master floors from backend DB
-    for (const f of floorsFromMasters) {
-      const raw = (f.floor_name || f.name || "").trim();
-      if (!raw) continue;
-      const numStr = extractFloorNo(raw);
-      const floorNo = numStr ? Number(numStr) : Number.MAX_SAFE_INTEGER;
-      const display = f.floor_name || (numStr ? `${ordinal(Number(numStr))} Floor` : f.name);
-      const key = display.toLowerCase().trim();
-
-      if (!map.has(key)) {
-        map.set(key, {
-          value: f.name || display,
-          display,
-          floorNo,
-        });
-      }
-    }
-
-    // 2. Ensure 1..5 floors are available if missing
-    for (let i = 1; i <= 5; i += 1) {
-      const display = `${ordinal(i)} Floor`;
-      const key = display.toLowerCase().trim();
-      if (!map.has(key)) {
-        map.set(key, {
-          value: display,
-          display,
-          floorNo: i,
-        });
-      }
-    }
-
-    // 3. Sort by numeric floor number ascending
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.floorNo !== b.floorNo) return a.floorNo - b.floorNo;
-      return a.display.localeCompare(b.display);
-    });
-  })();
   const vehicles = masters.vehicle_types || [];
 
-  return (
-    <form onSubmit={onSubmit} className="vm-visitor-form" lang={lang}>
-      <h1 className="vm-page-title" style={{ fontSize: "1.35rem", textAlign: "center" }}>
-        {vt(lang, "details_title")}
-      </h1>
-      <p style={{ textAlign: "center", color: "var(--vms-muted)", fontSize: "0.85rem", margin: "0.3rem 0 1.1rem" }}>
-        {vt(lang, "details_sub")}
-      </p>
+  const genderOptions = useMemo(
+    () => genders.map((g) => ({ value: g.name, label: g.name })),
+    [genders],
+  );
+
+  const hostOptions = useMemo(
+    () =>
+      hosts.map((h) => ({
+        value: h.value,
+        label: h.label,
+        sublabel: h.email || h.value,
+      })),
+    [hosts],
+  );
+
+  const purposeOptions = useMemo(
+    () =>
+      purposes.map((p) => ({
+        value: p.name,
+        label: p.visit_purpose_type_name || p.name,
+      })),
+    [purposes],
+  );
+
+  const idProofOptions = useMemo(
+    () =>
+      idTypes.map((t) => ({
+        value: t.name,
+        label: t.id_proof_type_name || t.name,
+      })),
+    [idTypes],
+  );
+
+  const vehicleOptions = useMemo(
+    () =>
+      vehicles.map((v) => ({
+        value: v.name,
+        label: v.vehicle_type_name || v.name,
+      })),
+    [vehicles],
+  );
+
+  const visitorDisplayName = [values.first_name, values.middle_name, values.last_name].filter(Boolean).join(" ") || "Visitor";
+
+  function openPreview(src: string, alt: string) {
+    setPreviewSrc(src);
+    setPreviewAlt(alt);
+  }
+
+  const identityFields = (
+    <div className="vm-form-section vm-form-section--identity">
+      {returningVisitor ? (
+        <p className="vm-form-section-label">Your details</p>
+      ) : null}
+      <div className="vm-form-grid">
+        <div className="vm-form-group">
+          <label className="vm-form-label">{vt(lang, "first_name")}</label>
+          <input className="vm-input-field" required value={values.first_name} onChange={(e) => onChangeField("first_name", e.target.value)} />
+        </div>
+        <div className="vm-form-group">
+          <label className="vm-form-label">{vt(lang, "middle_name")}</label>
+          <input className="vm-input-field" value={values.middle_name} onChange={(e) => onChangeField("middle_name", e.target.value)} />
+        </div>
+        <div className="vm-form-group">
+          <label className="vm-form-label">{vt(lang, "last_name")}</label>
+          <input className="vm-input-field" value={values.last_name} onChange={(e) => onChangeField("last_name", e.target.value)} />
+        </div>
+        <div className="vm-form-group">
+          <label className="vm-form-label">{vt(lang, "gender")}</label>
+          <SearchSelect
+            value={values.gender}
+            options={genderOptions}
+            onChange={(val) => onChangeField("gender", val)}
+            placeholder={vt(lang, "select")}
+            searchPlaceholder="Search gender"
+            loading={loading}
+            loadingText={vt(lang, "loading_hosts")}
+            allowEmpty
+            aria-label={vt(lang, "gender")}
+          />
+        </div>
+      </div>
+
+      <div className="vm-form-group">
+        <label className="vm-form-label">{vt(lang, "email")}</label>
+        <input className="vm-input-field" type="email" value={values.email} onChange={(e) => onChangeField("email", e.target.value)} />
+      </div>
+    </div>
+  );
+
+  const visitFields = (
+    <>
+      {returningVisitor ? (
+        <p className="vm-form-section-label vm-form-section-label--visit">Visit details</p>
+      ) : null}
 
       <div className="vm-photo-capture">
-        <div className="vm-photo-preview">
-          {photoPreview ? (
-            <img src={photoPreview} alt="Visitor photo" />
-          ) : (
-            <span>{vt(lang, "no_photo")}</span>
-          )}
-        </div>
+        <ClickablePhotoPreview
+          src={photoPreview}
+          name={visitorDisplayName}
+          emptyLabel={vt(lang, "no_photo")}
+          alt="Visitor photo"
+          onPreview={(src) => openPreview(src, "Visitor photo")}
+        />
         <div className="vm-photo-actions">
           <p className="vm-form-label" style={{ margin: 0 }}>{vt(lang, "photo")}</p>
           <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--vms-muted)" }}>
@@ -207,34 +224,7 @@ export function VisitorDetailsForm({
         </div>
       </div>
 
-      <div className="vm-form-grid">
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "first_name")}</label>
-          <input className="vm-input-field" required value={values.first_name} onChange={(e) => onChangeField("first_name", e.target.value)} />
-        </div>
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "middle_name")}</label>
-          <input className="vm-input-field" value={values.middle_name} onChange={(e) => onChangeField("middle_name", e.target.value)} />
-        </div>
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "last_name")}</label>
-          <input className="vm-input-field" value={values.last_name} onChange={(e) => onChangeField("last_name", e.target.value)} />
-        </div>
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "gender")}</label>
-          <select className="vm-input-field" value={values.gender} onChange={(e) => onChangeField("gender", e.target.value)}>
-            <option value="">{vt(lang, "select")}</option>
-            {genders.map((g) => (
-              <option key={g.name} value={g.name}>{g.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="vm-form-group">
-        <label className="vm-form-label">{vt(lang, "email")}</label>
-        <input className="vm-input-field" type="email" value={values.email} onChange={(e) => onChangeField("email", e.target.value)} />
-      </div>
+      {!returningVisitor ? identityFields : null}
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "company")}</label>
@@ -248,24 +238,33 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "person_to_meet")}</label>
-        <select className="vm-input-field" required value={values.person_to_meet} onChange={(e) => onChangeField("person_to_meet", e.target.value)}>
-          {loading ? <option value="">{vt(lang, "loading_hosts")}</option> : null}
-          {!loading && hosts.length === 0 ? <option value="Administrator">Administrator</option> : null}
-          {hosts.map((h) => (
-            <option key={h.value} value={h.value}>{h.label} ({h.value})</option>
-          ))}
-        </select>
+        <SearchSelect
+          value={values.person_to_meet}
+          options={hostOptions}
+          onChange={(val) => onChangeField("person_to_meet", val)}
+          placeholder={vt(lang, "select")}
+          searchPlaceholder="Search person to meet"
+          loading={loading}
+          loadingText={vt(lang, "loading_hosts")}
+          required
+          allowEmpty
+          aria-label={vt(lang, "person_to_meet")}
+        />
       </div>
 
       <div className="vm-form-grid">
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "visit_purpose")}</label>
-          <select className="vm-input-field" value={values.visit_purpose_type} onChange={(e) => onChangeField("visit_purpose_type", e.target.value)}>
-            <option value="">{vt(lang, "select")}</option>
-            {purposes.map((p) => (
-              <option key={p.name} value={p.name}>{p.visit_purpose_type_name || p.name}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={values.visit_purpose_type}
+            options={purposeOptions}
+            onChange={(val) => onChangeField("visit_purpose_type", val)}
+            placeholder={vt(lang, "select")}
+            searchPlaceholder="Search visit purpose"
+            loading={loading}
+            allowEmpty
+            aria-label={vt(lang, "visit_purpose")}
+          />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "num_visitors")}</label>
@@ -280,31 +279,26 @@ export function VisitorDetailsForm({
       </div>
 
       <div className="vm-form-group">
-        <label className="vm-form-label">{vt(lang, "floor")}</label>
-        <select className="vm-input-field" value={values.floor} onChange={(e) => onChangeField("floor", e.target.value)}>
-          <option value="">{vt(lang, "select")}</option>
-          {floors.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.display}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "id_proof_type")}</label>
-        <select className="vm-input-field" value={values.id_proof_type} onChange={(e) => onChangeField("id_proof_type", e.target.value)}>
-          <option value="">{vt(lang, "select")}</option>
-          {idTypes.map((t) => (
-            <option key={t.name} value={t.name}>{t.id_proof_type_name || t.name}</option>
-          ))}
-        </select>
+        <SearchSelect
+          value={values.id_proof_type}
+          options={idProofOptions}
+          onChange={(val) => onChangeField("id_proof_type", val)}
+          placeholder={vt(lang, "select")}
+          searchPlaceholder="Search ID proof type"
+          loading={loading}
+          allowEmpty
+          aria-label={vt(lang, "id_proof_type")}
+        />
       </div>
 
       <div className="vm-photo-capture compact">
-        <div className="vm-photo-preview">
-          {idProofPreview ? <img src={idProofPreview} alt="ID proof" /> : <span>{vt(lang, "id_photo")}</span>}
-        </div>
+        <ClickablePhotoPreview
+          src={idProofPreview}
+          emptyLabel={vt(lang, "id_photo")}
+          alt="ID proof photo"
+          onPreview={(src) => openPreview(src, "ID proof photo")}
+        />
         <div className="vm-photo-actions">
           <p className="vm-form-label" style={{ margin: 0 }}>{vt(lang, "id_proof_photo")}</p>
           <button type="button" className="vm-btn-outline" style={{ height: 40 }} onClick={() => idProofInputRef.current?.click()}>
@@ -324,24 +318,44 @@ export function VisitorDetailsForm({
       <div className="vm-form-grid">
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "vehicle_type")}</label>
-          <select className="vm-input-field" value={values.vehicle_type} onChange={(e) => onChangeField("vehicle_type", e.target.value)}>
-            <option value="">{vt(lang, "none")}</option>
-            {vehicles.map((v) => (
-              <option key={v.name} value={v.name}>{v.vehicle_type_name || v.name}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={values.vehicle_type}
+            options={vehicleOptions}
+            onChange={(val) => onChangeField("vehicle_type", val)}
+            placeholder={vt(lang, "select")}
+            searchPlaceholder="Search vehicle type"
+            emptyLabel={vt(lang, "none")}
+            allowEmpty
+            aria-label={vt(lang, "vehicle_type")}
+          />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "vehicle_number")}</label>
           <input className="vm-input-field" value={values.vehicle_number} onChange={(e) => onChangeField("vehicle_number", e.target.value)} />
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <form onSubmit={onSubmit} className="vm-visitor-form" lang={lang}>
+      <h1 className="vm-page-title" style={{ fontSize: "1.35rem", textAlign: "center" }}>
+        {vt(lang, "details_title")}
+      </h1>
+      <p style={{ textAlign: "center", color: "var(--vms-muted)", fontSize: "0.85rem", margin: "0.3rem 0 1.1rem" }}>
+        {returningVisitor ? "We found your previous visit. Confirm your details and fill in today's visit information." : vt(lang, "details_sub")}
+      </p>
+
+      {returningVisitor ? identityFields : null}
+      {visitFields}
 
       {error ? <p className="login-error" style={{ textAlign: "center", marginTop: "0.5rem" }}>{error}</p> : null}
 
       <button type="submit" className="vm-btn-primary" disabled={busy} style={{ marginTop: "1.1rem" }}>
         {busy ? vt(lang, "submitting") : vt(lang, "continue")}
       </button>
+
+      <PhotoPreviewModal src={previewSrc} alt={previewAlt} onClose={() => setPreviewSrc(null)} />
     </form>
   );
 }

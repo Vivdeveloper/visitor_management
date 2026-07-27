@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   approvalApi,
   settingsApi,
   type HostOption,
   type VisitorListRow,
 } from "@/api/vms";
-import { initials } from "@/lib/format";
+import { SearchSelect } from "@/components/ui/SearchSelect";
+import { buildFloorOptions } from "@/lib/floorOptions";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 
 type SheetMode = "actions" | "accept" | "reject" | "transfer";
@@ -22,11 +23,11 @@ type Props = {
 export function PendingApprovalSheet({ visitor, open, initialMode = "actions", onClose, onDone, onViewDetails }: Props) {
   const [mode, setMode] = useState<SheetMode>("actions");
   const [remarks, setRemarks] = useState("");
-  const [hostQuery, setHostQuery] = useState("");
   const [hosts, setHosts] = useState<HostOption[]>([]);
-  const [transferTo, setTransferTo] = useState<HostOption | null>(null);
-  const [hostDropdownOpen, setHostDropdownOpen] = useState(false);
-  const hostDropdownRef = useRef<HTMLDivElement>(null);
+  const [transferToUser, setTransferToUser] = useState("");
+  const [floor, setFloor] = useState("");
+  const [floorOptions, setFloorOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingFloors, setLoadingFloors] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,9 +35,8 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
     if (!open) return;
     setMode(initialMode);
     setRemarks("");
-    setHostQuery("");
-    setTransferTo(null);
-    setHostDropdownOpen(false);
+    setTransferToUser("");
+    setFloor(visitor.floor || "");
     setError(null);
     setBusy(false);
   }, [open, visitor.name, initialMode]);
@@ -60,36 +60,54 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
   }, [open, mode]);
 
   useEffect(() => {
-    if (!hostDropdownOpen) return;
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
-      if (!hostDropdownRef.current?.contains(event.target as Node)) {
-        setHostDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
+    if (!open || mode !== "accept") return;
+    let cancelled = false;
+    setLoadingFloors(true);
+    void settingsApi
+      .getMasters()
+      .then((masters) => {
+        if (cancelled) return;
+        setFloorOptions(
+          buildFloorOptions(masters || {}).map((f) => ({
+            value: f.value,
+            label: f.display,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setFloorOptions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFloors(false);
+      });
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
+      cancelled = true;
     };
-  }, [hostDropdownOpen]);
+  }, [open, mode]);
+
+  const transferHostOptions = useMemo(
+    () =>
+      hosts
+        .filter((h) => h.value !== visitor.person_to_meet)
+        .map((h) => ({
+          value: h.value,
+          label: h.label,
+          sublabel: h.email || h.value,
+        })),
+    [hosts, visitor.person_to_meet],
+  );
 
   if (!open) return null;
 
-  const filteredHosts = hosts
-    .filter((h) => h.value !== visitor.person_to_meet)
-    .filter((h) => {
-      const q = hostQuery.trim().toLowerCase();
-      if (!q) return true;
-      return `${h.label} ${h.value} ${h.email || ""}`.toLowerCase().includes(q);
-    });
-
   async function runAccept() {
+    if (!floor.trim()) {
+      setError("Please select a floor.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      // Pending Approval → host Approve
-      await approvalApi.approve(visitor.name, remarks.trim() || undefined);
+      await approvalApi.approve(visitor.name, remarks.trim() || undefined, floor.trim());
       onDone();
       onClose();
     } catch (err: unknown) {
@@ -118,7 +136,7 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
   }
 
   async function runTransfer() {
-    if (!transferTo) {
+    if (!transferToUser) {
       setError("Select a person to transfer to.");
       return;
     }
@@ -129,7 +147,7 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
     setBusy(true);
     setError(null);
     try {
-      await approvalApi.transfer(visitor.name, transferTo.value, remarks.trim());
+      await approvalApi.transfer(visitor.name, transferToUser, remarks.trim());
       onDone();
       onClose();
     } catch (err: unknown) {
@@ -253,6 +271,26 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
 
         {mode === "accept" ? (
           <div className="vm-sheet-form">
+            <label className="vm-sheet-label" htmlFor="pa-accept-floor">
+              Floor No.
+            </label>
+            <SearchSelect
+              id="pa-accept-floor"
+              value={floor}
+              options={floorOptions}
+              onChange={(val) => {
+                setFloor(val);
+                setError(null);
+              }}
+              placeholder="Select"
+              searchPlaceholder="Search floor"
+              loading={loadingFloors}
+              loadingText="Loading floors…"
+              required
+              allowEmpty
+              disabled={busy}
+              aria-label="Floor"
+            />
             <label className="vm-sheet-label" htmlFor="pa-accept-remarks">
               Remarks (optional)
             </label>
@@ -300,74 +338,20 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
             <label className="vm-sheet-label" htmlFor="pa-transfer-host">
               Transfer to
             </label>
-            <div className="vm-transfer-host-dropdown" ref={hostDropdownRef}>
-              <button
-                id="pa-transfer-host"
-                type="button"
-                className={`vm-transfer-host-trigger${hostDropdownOpen ? " is-open" : ""}${transferTo ? " has-value" : ""}`}
-                aria-haspopup="listbox"
-                aria-expanded={hostDropdownOpen}
-                onClick={() => setHostDropdownOpen((open) => !open)}
-              >
-                {transferTo ? (
-                  <>
-                    <span className="vm-activity-avatar avatar-blue">{initials(transferTo.label)}</span>
-                    <span className="vm-transfer-host-trigger-copy">
-                      <strong>{transferTo.label}</strong>
-                      <span>{transferTo.email || transferTo.value}</span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="vm-transfer-host-placeholder">Select person to meet</span>
-                )}
-                <svg className="vm-transfer-host-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
-
-              {hostDropdownOpen ? (
-                <div className="vm-transfer-host-menu" role="listbox" aria-label="Transfer to">
-                  <input
-                    className="vm-input-field vm-transfer-host-search"
-                    value={hostQuery}
-                    onChange={(e) => setHostQuery(e.target.value)}
-                    placeholder="Search person to meet"
-                    aria-label="Search person to meet"
-                    autoFocus
-                  />
-                  <div className="vm-sheet-host-list">
-                    {filteredHosts.length === 0 ? (
-                      <p className="vm-empty-hint">No people found</p>
-                    ) : (
-                      filteredHosts.slice(0, 8).map((host) => {
-                        const selected = transferTo?.value === host.value;
-                        return (
-                          <button
-                            key={host.value}
-                            type="button"
-                            role="option"
-                            aria-selected={selected}
-                            className={`vm-sheet-host-row${selected ? " is-selected" : ""}`}
-                            onClick={() => {
-                              setTransferTo(host);
-                              setHostQuery("");
-                              setHostDropdownOpen(false);
-                              setError(null);
-                            }}
-                          >
-                            <span className="vm-activity-avatar avatar-blue">{initials(host.label)}</span>
-                            <span className="vm-sheet-host-copy">
-                              <strong>{host.label}</strong>
-                              <span>{host.email || host.value}</span>
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <SearchSelect
+              id="pa-transfer-host"
+              value={transferToUser}
+              options={transferHostOptions}
+              onChange={(val) => {
+                setTransferToUser(val);
+                setError(null);
+              }}
+              placeholder="Select"
+              searchPlaceholder="Search person to meet"
+              required
+              allowEmpty
+              aria-label="Transfer to"
+            />
             <label className="vm-sheet-label" htmlFor="pa-transfer-remarks">
               Reason / Remarks (required)
             </label>

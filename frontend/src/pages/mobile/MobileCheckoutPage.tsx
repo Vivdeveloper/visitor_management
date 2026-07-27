@@ -116,7 +116,7 @@ export function MobileCheckoutPage() {
   return (
     <div className="vm-home-page">
 
-      <main className="vm-main-body" style={{ marginTop: "1rem", background: "#FFFFFF", borderRadius: "24px", padding: "1.5rem 1.25rem", border: "1px solid #E2E8F0" }}>
+      <main className="vm-main-body vm-form-surface vm-form-surface--spaced">
         <CheckoutConfirmationCard
           hostName="Rahul Mehta"
           department="Production Dept."

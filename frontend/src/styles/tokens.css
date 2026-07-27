@@ -28,7 +28,7 @@
   --vms-surface: #ffffff;
   --vms-surface-2: #f2f5f8;
   --vms-text: #1e293b;
-  --vms-muted: #64748b;
+  --vms-muted: #1e293b;
   --vms-placeholder: #94a3b8;
   --vms-border: #d9e2ec;
   --vms-divider: #e8edf2;
@@ -39,9 +39,10 @@
   --vms-pass-accent: #94a3b8;
 
   /* Spacing system */
-  --vms-space-section: 24px;
-  --vms-space-card: 12px;
-  --vms-space-pad: 16px;
+  --vms-space-section: 20px;
+  --vms-space-card: 10px;
+  --vms-space-pad: 12px;
+  --vms-page-gutter: 0.75rem;
 
   --vms-radius: 16px;
   --vms-radius-sm: 12px;

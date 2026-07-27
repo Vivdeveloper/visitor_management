@@ -57,17 +57,7 @@ export function MobileLoginPage() {
         <div style={{ width: "24px" }} />
       </header>
 
-      <main
-        className="vm-main-body"
-        style={{
-          background: "var(--vms-surface)",
-          borderRadius: "24px",
-          padding: "1.5rem 1.25rem",
-          border: "1px solid var(--vms-border)",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.04)",
-          marginTop: "0.75rem",
-        }}
-      >
+      <main className="vm-main-body vm-form-surface vm-form-surface--spaced">
         <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
           <BrandLogo variant="full" className="welcome-wordmark" />
           <h1 className="vm-page-title" style={{ fontSize: "1.35rem", marginTop: "0.85rem" }}>

@@ -5,14 +5,33 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
+from visitor_management.realtime.publisher import publish_vms_event
 from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
 
 
+def _resolve_host_user(raw: str | None) -> str | None:
+	"""Map person_to_meet to a valid User id (name / email / full_name tolerant)."""
+	if not raw:
+		return None
+
+	person = str(raw).strip()
+	if not person:
+		return None
+	if frappe.db.exists("User", person):
+		return person
+
+	return (
+		frappe.db.get_value("User", {"full_name": person, "enabled": 1}, "name")
+		or frappe.db.get_value("User", {"email": person, "enabled": 1}, "name")
+		or frappe.db.get_value("User", {"first_name": person, "enabled": 1}, "name")
+	)
+
+
 @frappe.whitelist()
-def approve(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+def approve(visitor_entry: str | None = None, remarks: str | None = None, floor: str | None = None) -> dict:
 	if not visitor_entry:
 		frappe.throw(_("Visitor Entry is required"))
-	return {"success": True, **ve.approve(visitor_entry, remarks=remarks)}
+	return {"success": True, **ve.approve(visitor_entry, remarks=remarks, floor=floor)}
 
 
 @frappe.whitelist()
@@ -42,31 +61,33 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 		frappe.throw(_("Visitor Entry is required"))
 
 	doc = frappe.get_doc("Visitor Entry", visitor_entry)
-	host_user = doc.person_to_meet
-	host_name = doc.person_to_meet_name or host_user or "Host"
+	host_user = _resolve_host_user(doc.person_to_meet)
+	if not host_user:
+		frappe.throw(_("No valid host user is assigned for this visitor. Set Person to Meet first."))
+
+	host_name = doc.person_to_meet_name or host_user
 	visitor_name = doc.full_name or doc.name
 	alert_message = message or _("Visitor {0} is waiting at the gate").format(visitor_name)
 
-	if host_user:
-		try:
-			# Creates an in-app notification entry for the target user.
-			frappe.get_doc(
-				{
-					"doctype": "Notification Log",
-					"for_user": host_user,
-					"type": "Alert",
-					"document_type": "Visitor Entry",
-					"document_name": doc.name,
-					"subject": _("Visitor Alert: {0}").format(visitor_name),
-					"email_content": alert_message,
-				}
-			).insert(ignore_permissions=True)
-		except Exception:
-			frappe.log_error(title="VMS notify_host Notification Log failed")
+	notification_logged = False
+	try:
+		frappe.get_doc(
+			{
+				"doctype": "Notification Log",
+				"for_user": host_user,
+				"from_user": frappe.session.user,
+				"type": "Alert",
+				"document_type": "Visitor Entry",
+				"document_name": doc.name,
+				"subject": _("Visitor Alert: {0}").format(visitor_name),
+				"email_content": alert_message,
+			}
+		).insert(ignore_permissions=True)
+		notification_logged = True
+	except Exception:
+		frappe.log_error(title="VMS notify_host Notification Log failed")
 
 	try:
-		from visitor_management.visitor_management.realtime.publisher import publish_vms_event
-
 		publish_vms_event(
 			"host_notified",
 			{
@@ -78,15 +99,18 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 			},
 			user=host_user,
 		)
-	except Exception:
+	except Exception as exc:
 		frappe.log_error(title="VMS notify_host realtime publish failed")
+		if not notification_logged:
+			frappe.throw(_("Could not deliver host alert. Please try again."))
 
 	return {
 		"success": True,
-		"message": f"Notification sent to {host_name}",
+		"message": _("Notification sent to {0}").format(host_name),
 		"host_name": host_name,
 		"host_user": host_user,
 		"visitor_entry": visitor_entry,
+		"notification_logged": notification_logged,
 	}
 
 
@@ -119,4 +143,3 @@ def list_for_host(status: str | None = None) -> list:
 		order_by="modified desc",
 		limit_page_length=100,
 	)
-

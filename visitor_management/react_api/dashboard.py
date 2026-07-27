@@ -22,6 +22,7 @@ QUEUE_FIELDS = [
 	"name",
 	"full_name",
 	"mobile",
+	"photo",
 	"person_to_meet_name",
 	"status",
 	"floor",

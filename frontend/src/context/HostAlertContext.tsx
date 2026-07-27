@@ -103,6 +103,18 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     Boolean(user?.user),
   );
 
+  useVmsRealtimeEvent<HostAlertPayload>(
+    "vms_visitor_update",
+    (payload) => {
+      if (payload?.event !== "host_notified") return;
+      const currentUser = user?.user;
+      if (!currentUser) return;
+      if (payload?.host_user && payload.host_user !== currentUser) return;
+      registerAlert(payload);
+    },
+    Boolean(user?.user),
+  );
+
   useVmsRealtimeEvent<{ visitor_entry?: string; event?: string }>(
     "vms_visitor_update",
     (payload) => {
