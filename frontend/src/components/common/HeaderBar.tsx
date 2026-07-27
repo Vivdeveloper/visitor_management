@@ -141,56 +141,64 @@ export function HeaderBar({
               </button>
 
               {popup === "profile" ? (
-                <div className="vm-topbar-popup vm-profile-popup" role="dialog" aria-label="Profile">
-                  <div className="vm-profile-popup-user">
-                    <div className="vm-avatar-btn is-static">
-                      {photo ? (
-                        <img src={photo} alt="" className="vm-avatar-img" />
-                      ) : (
-                        <span className="vm-avatar-fallback">{initials(displayName)}</span>
-                      )}
+                <>
+                  <button
+                    type="button"
+                    className="vm-topbar-popup-scrim"
+                    aria-label="Close profile menu"
+                    onClick={() => setPopup("none")}
+                  />
+                  <div className="vm-topbar-popup vm-profile-popup" role="dialog" aria-label="Profile">
+                    <div className="vm-profile-popup-user">
+                      <div className="vm-avatar-btn is-static">
+                        {photo ? (
+                          <img src={photo} alt="" className="vm-avatar-img" />
+                        ) : (
+                          <span className="vm-avatar-fallback">{initials(displayName)}</span>
+                        )}
+                      </div>
+                      <div className="vm-profile-popup-user-copy">
+                        <strong>{displayName}</strong>
+                        <span>{user?.email || user?.user || "Signed in"}</span>
+                      </div>
                     </div>
-                    <div>
-                      <strong>{displayName}</strong>
-                      <span>{user?.email || user?.user || "Signed in"}</span>
-                    </div>
+
+                    <NotificationSetupPrompt variant="popup" onAction={() => setPopup("none")} />
+
+                    <button
+                      type="button"
+                      className="vm-profile-popup-action"
+                      onClick={() => {
+                        setPopup("none");
+                        navigate("/meetings");
+                      }}
+                      aria-label={ut(lang, "calendar_view")}
+                    >
+                      <span className="vm-profile-popup-action-icon" aria-hidden>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="5" width="18" height="16" rx="2" />
+                          <path d="M16 3v4M8 3v4M3 11h18" />
+                        </svg>
+                      </span>
+                      <span className="vm-profile-popup-action-copy">
+                        <strong>{ut(lang, "calendar_view")}</strong>
+                        <span>{ut(lang, "todays_schedule")}</span>
+                      </span>
+                      <span className="vm-profile-popup-action-trail" aria-hidden>›</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="vm-profile-popup-settings"
+                      onClick={() => {
+                        setPopup("none");
+                        navigate("/profile");
+                      }}
+                    >
+                      {ut(lang, "settings")}
+                    </button>
                   </div>
-
-                  <NotificationSetupPrompt variant="popup" onAction={() => setPopup("none")} />
-
-                  <button
-                    type="button"
-                    className="vm-profile-popup-action"
-                    onClick={() => {
-                      setPopup("none");
-                      navigate("/meetings");
-                    }}
-                    aria-label={ut(lang, "calendar_view")}
-                  >
-                    <span className="vm-profile-popup-action-icon" aria-hidden>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="5" width="18" height="16" rx="2" />
-                        <path d="M16 3v4M8 3v4M3 11h18" />
-                      </svg>
-                    </span>
-                    <span className="vm-profile-popup-action-copy">
-                      <strong>{ut(lang, "calendar_view")}</strong>
-                      <span>{ut(lang, "todays_schedule")}</span>
-                    </span>
-                    <span className="vm-profile-popup-action-trail" aria-hidden>›</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="vm-profile-popup-settings"
-                    onClick={() => {
-                      setPopup("none");
-                      navigate("/profile");
-                    }}
-                  >
-                    {ut(lang, "settings")}
-                  </button>
-                </div>
+                </>
               ) : null}
             </div>
           ) : null}

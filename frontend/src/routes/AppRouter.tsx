@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, createRoutesFromElements, Navigate, Outlet, Route, RouterProvider } from "react-router-dom";
 import { MobileLayout } from "@/layouts/MobileLayout";
 import { PublicPassPage } from "@/pages/pass/PassPage";
 import { MobileHomePage } from "@/pages/mobile/MobileHomePage";
@@ -17,6 +17,7 @@ import { MobileMeetingsPage } from "@/pages/mobile/MobileMeetingsPage";
 import { MobileNotificationsPage } from "@/pages/mobile/MobileNotificationsPage";
 import { MobileVisitorDetailPage } from "@/pages/mobile/MobileVisitorDetailPage";
 import { useAuth } from "@/context/AuthContext";
+import { APP_BASE_PATH } from "@/config/env";
 
 function RequirePwaAuth() {
   const { isAuthenticated, loading, user } = useAuth();
@@ -29,9 +30,9 @@ function RequirePwaAuth() {
   return <Outlet />;
 }
 
-export function AppRouter() {
-  return (
-    <Routes>
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
       <Route path="/login" element={<MobileLoginPage />} />
       <Route path="/m/login" element={<Navigate to="/login" replace />} />
       <Route path="/welcome" element={<Navigate to="/check-in" replace />} />
@@ -61,6 +62,11 @@ export function AppRouter() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+    </>,
+  ),
+  { basename: APP_BASE_PATH },
+);
+
+export function AppRouter() {
+  return <RouterProvider router={router} />;
 }

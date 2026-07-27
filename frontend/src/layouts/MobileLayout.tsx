@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { FloatingNavbar } from "@/components/navigation/FloatingNavbar";
 import { OfflineIndicator } from "@/components/common/OfflineIndicator";
 import { HeaderBar } from "@/components/common/HeaderBar";
@@ -23,6 +23,7 @@ function AppTopBar() {
 }
 
 export function MobileLayout() {
+  const location = useLocation();
   const mainRef = useRef<HTMLDivElement | null>(null);
   const startYRef = useRef<number | null>(null);
   const lastDeltaRef = useRef(0);
@@ -30,6 +31,7 @@ export function MobileLayout() {
   const [pullProgress, setPullProgress] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const refreshingRef = useRef(false);
+  const hideDock = location.pathname === "/check-in";
 
   const doRefresh = useCallback(() => {
     if (refreshingRef.current) return;
@@ -118,7 +120,7 @@ export function MobileLayout() {
   return (
     <PageChromeProvider>
       <HostAlertProvider>
-      <div className="m-shell m-shell--chrome">
+      <div className={`m-shell m-shell--chrome${hideDock ? " m-shell--no-dock" : ""}`}>
         <OfflineIndicator />
         <div className="m-app-topbar">
           <AppTopBar />

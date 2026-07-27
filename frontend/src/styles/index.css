@@ -3256,19 +3256,25 @@ a {
   width: min(100%, 480px);
   z-index: 120;
   flex-shrink: 0;
+  overflow: visible;
 }
 
 .m-shell--chrome .m-content {
   padding-left: var(--vms-page-gutter) !important;
   padding-right: var(--vms-page-gutter) !important;
   padding-top: calc(4.35rem + env(safe-area-inset-top, 0px)) !important;
-  padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px)) !important;
+  /* Extra clearance for elevated dock icons so Accept/Reject aren't covered */
+  padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)) !important;
   background: #F8FAFC;
   position: relative;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
   flex: 1;
+}
+
+.m-shell--no-dock .m-content {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 .m-app-topbar .vm-topbar {
@@ -3278,6 +3284,7 @@ a {
   width: 100%;
   padding-left: var(--vms-page-gutter);
   padding-right: var(--vms-page-gutter);
+  overflow: visible;
 }
 
 .vm-pull-refresh-indicator {
@@ -3634,6 +3641,19 @@ a {
 
 .vm-topbar-popwrap {
   position: relative;
+  z-index: 2;
+}
+
+.vm-topbar-popup-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.32);
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .vm-bell-btn {
@@ -3724,17 +3744,35 @@ a {
 
 .vm-topbar-popup {
   position: absolute;
-  top: calc(100% + 0.55rem);
+  top: calc(100% + 0.65rem);
   right: 0;
-  width: min(86vw, 320px);
+  width: min(292px, calc(100vw - 1.75rem));
+  max-height: min(68dvh, 420px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
   padding: 0.85rem;
-  z-index: 50;
+  z-index: 150;
   animation: vm-pop-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: top right;
+}
+
+.vm-profile-popup::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 14px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  border-top: 1px solid #e2e8f0;
+  transform: rotate(45deg);
+  z-index: 1;
 }
 
 @keyframes vm-pop-in {
@@ -4473,12 +4511,21 @@ a {
   align-items: center;
   gap: 0.65rem;
   margin-bottom: 0.85rem;
+  min-width: 0;
+}
+
+.vm-profile-popup-user-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .vm-profile-popup-user strong {
   display: block;
   font-size: 0.9rem;
   color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vm-profile-popup-user span {
@@ -4488,7 +4535,6 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 12rem;
 }
 
 .vm-profile-popup-row {
@@ -4671,6 +4717,7 @@ a {
   left: auto;
   right: 0;
   width: 230px;
+  z-index: 150;
 }
 
 .vm-lang-switch.is-settings {
@@ -8070,12 +8117,12 @@ button.vm-photo-preview.is-clickable:active {
   transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), background 300ms ease, color 300ms ease, box-shadow 350ms ease;
 }
 
-/* Elevated Floating Active Tab (Matching Reference Image 2 Option 1 & 4) */
+/* Active tab highlight — keep lift small so it doesn't cover card actions */
 .vm-dock-tab.is-active .vm-dock-icon:not(.is-add) {
-  transform: translateY(-8px) scale(1.12);
+  transform: translateY(-2px) scale(1.06);
   background: linear-gradient(135deg, #0a3d91 0%, #1e40af 100%);
   color: #ffffff;
-  box-shadow: 0 8px 20px rgba(10, 61, 145, 0.38);
+  box-shadow: 0 6px 14px rgba(10, 61, 145, 0.32);
 }
 
 /* Center + Add Entry FAB Button */
@@ -8086,20 +8133,20 @@ button.vm-photo-preview.is-clickable:active {
   background: linear-gradient(135deg, #0a3d91 0%, #1e40af 100%);
   color: #ffffff;
   box-shadow: 0 8px 22px rgba(10, 61, 145, 0.42);
-  transform: translateY(-6px);
+  transform: translateY(-4px);
   transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 350ms ease;
 }
 
 .vm-dock-tab.is-add:hover .vm-dock-icon.is-add,
 .vm-dock-tab.is-add:active .vm-dock-icon.is-add {
-  transform: translateY(-10px) scale(1.08);
-  box-shadow: 0 12px 28px rgba(10, 61, 145, 0.55);
+  transform: translateY(-6px) scale(1.06);
+  box-shadow: 0 10px 22px rgba(10, 61, 145, 0.5);
 }
 
 .vm-dock-tab.is-active.is-add .vm-dock-icon.is-add {
-  transform: translateY(-10px) scale(1.12);
+  transform: translateY(-6px) scale(1.08);
   background: linear-gradient(135deg, #0284c7 0%, #0a3d91 100%);
-  box-shadow: 0 12px 28px rgba(2, 132, 199, 0.5);
+  box-shadow: 0 10px 22px rgba(2, 132, 199, 0.45);
 }
 
 .vm-dock-plus {
@@ -12348,8 +12395,12 @@ button.vm-photo-preview.is-clickable:active {
   transition: color 150ms ease;
 }
 
-.vm-confirm-modal-done:hover {
-  color: #0f172a;
+.vm-discard-entry-card {
+  max-width: 360px;
+}
+
+.vm-discard-entry-card .vm-confirm-modal-actions {
+  margin-top: 0.35rem;
 }
 
 

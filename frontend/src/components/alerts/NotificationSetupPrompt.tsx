@@ -24,8 +24,8 @@ export function NotificationSetupPrompt({ variant, onAction }: Props) {
   }
 
   function onSetup() {
-    openPermissionSetup();
     onAction?.();
+    openPermissionSetup();
   }
 
   if (variant === "popup") {

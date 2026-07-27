@@ -36,7 +36,12 @@ export function FloatingNavbar() {
   const lastYRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* Hide dock on Add Entry so the + button does not cover Continue. */
+  const hideDock = location.pathname === "/check-in";
+
   useEffect(() => {
+    if (hideDock) return;
+
     const scroller =
       (document.getElementById("vms-scroll-root") as HTMLElement | null) ||
       (document.querySelector(".m-content") as HTMLElement | null) ||
@@ -80,7 +85,9 @@ export function FloatingNavbar() {
       window.removeEventListener("scroll", onScroll);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [location.pathname]);
+  }, [location.pathname, hideDock]);
+
+  if (hideDock) return null;
 
   return (
     <nav

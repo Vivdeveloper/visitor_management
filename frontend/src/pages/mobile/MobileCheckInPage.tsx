@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import {
   authApi,
@@ -16,6 +16,7 @@ import { JourneyLangSwitcher } from "@/components/checkin/JourneyLangSwitcher";
 import { CheckInSuccessCard } from "@/components/checkin/CheckInSuccessCard";
 import { MeetingInProgressCard } from "@/components/checkin/MeetingInProgressCard";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
+import { DiscardEntryModal } from "@/components/checkin/DiscardEntryModal";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import {
   type VisitorLang,
@@ -102,6 +103,7 @@ function formatTime(value?: string): string {
 export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const allowLeaveRef = useRef(false);
   const { lang, setLang } = useAppLanguage();
   const [step, setStep] = useState<JourneyStep>("mobile");
 
@@ -148,6 +150,40 @@ export function MobileCheckInPage() {
     vehicle_type: "",
     vehicle_number: "",
   });
+
+  function leaveTo(path: string) {
+    allowLeaveRef.current = true;
+    navigate(path, { replace: true });
+  }
+
+  const hasEntryProgress =
+    step !== "mobile" ||
+    normalizeMobile(form.mobile).length > 0 ||
+    Boolean(form.first_name.trim()) ||
+    Boolean(form.last_name.trim()) ||
+    Boolean(form.person_to_meet) ||
+    Boolean(form.visitor_company.trim()) ||
+    Boolean(form.visitor_location.trim()) ||
+    Boolean(photoFile) ||
+    Boolean(idProofFile) ||
+    Boolean(visitorName);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !allowLeaveRef.current &&
+      hasEntryProgress &&
+      currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (!hasEntryProgress) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasEntryProgress]);
 
 function normalizePhotoToVertical(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -265,6 +301,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         } else if (step === "meeting" && doc.status === "Meeting Done") {
           setStep("checkout");
         } else if (step === "meeting" && doc.status === "Checked Out") {
+          allowLeaveRef.current = true;
           navigate("/history", { replace: true });
         }
       } catch {
@@ -527,7 +564,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       } catch {
         /* ignore storage errors */
       }
-      navigate("/approvals", { replace: true });
+      leaveTo("/approvals");
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -622,7 +659,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     try {
       await securityApi.checkOut(visitorName, "Checked out via mobile");
-      navigate("/history", { replace: true });
+      leaveTo("/history");
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -923,7 +960,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                   window.print();
                 }
               }}
-              onExit={() => navigate("/", { replace: true })}
+              onExit={() => leaveTo("/")}
             />
             <button
               type="button"
@@ -1017,6 +1054,17 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </main>
         </div>
       ) : null}
+
+      <DiscardEntryModal
+        open={blocker.state === "blocked"}
+        onStay={() => {
+          if (blocker.state === "blocked") blocker.reset();
+        }}
+        onLeave={() => {
+          allowLeaveRef.current = true;
+          if (blocker.state === "blocked") blocker.proceed();
+        }}
+      />
     </section>
   );
 }
