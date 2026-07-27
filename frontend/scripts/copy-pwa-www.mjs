@@ -48,10 +48,50 @@ function rewriteSwForRoot(swSource) {
 const swSrc = path.join(built, "sw.js");
 const manifestSrc = path.join(built, "manifest.webmanifest");
 
-if (!fs.existsSync(swSrc)) {
+	if (!fs.existsSync(swSrc)) {
 	console.warn("[copy-pwa] missing sw.js — run vite build first");
 } else {
-	const rewritten = rewriteSwForRoot(fs.readFileSync(swSrc, "utf8"));
+	let rewritten = rewriteSwForRoot(fs.readFileSync(swSrc, "utf8"));
+	rewritten += `
+
+// GatePass Web Push (VAPID) — appended by copy-pwa
+self.addEventListener("push", (event) => {
+	let data = { title: "GatePass", body: "Visitor approval needed.", url: "/vms/approvals" };
+	try {
+		if (event.data) Object.assign(data, JSON.parse(event.data.text()));
+	} catch {
+		/* defaults */
+	}
+	event.waitUntil(
+		self.registration.showNotification(data.title, {
+			body: data.body,
+			icon: data.icon || "/assets/visitor_management/frontend/icons/icon-192.png",
+			badge: data.badge || "/assets/visitor_management/frontend/icons/icon-192.png",
+			tag: data.tag || "vms-host-alert",
+			renotify: true,
+			requireInteraction: true,
+			data: { url: data.url },
+			vibrate: [280, 120, 280, 120, 420],
+		}),
+	);
+});
+
+self.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+	const target = event.notification.data?.url || "/vms/approvals";
+	event.waitUntil(
+		clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+			for (const client of windowClients) {
+				if (client.url.includes("/vms") && "focus" in client) {
+					client.navigate(target);
+					return client.focus();
+				}
+			}
+			if (clients.openWindow) return clients.openWindow(target);
+		}),
+	);
+});
+`;
 	fs.writeFileSync(path.join(www, "vms_sw.js"), rewritten);
 	console.log("[copy-pwa] wrote www/vms_sw.js (scope-ready for /vms/)");
 }

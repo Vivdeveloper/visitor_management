@@ -110,20 +110,13 @@ export function PendingDecisionCard({
       >
         <button
           type="button"
+          className={`vm-pending-redesign-avatar-btn${item.photo ? " is-clickable" : ""}`}
           aria-label={`Preview photo for ${visitorName}`}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
             const src = resolveFileUrl(item.photo);
             if (src) setPhotoPreviewSrc(src);
-          }}
-          style={{
-            background: "transparent",
-            border: 0,
-            padding: 0,
-            margin: 0,
-            cursor: item.photo ? "pointer" : "default",
-            borderRadius: 12,
           }}
         >
           <VisitorAvatar
@@ -230,12 +223,7 @@ export function PendingDecisionCard({
           ) : null}
 
           <span className="vm-pending-redesign-id">{item.name}</span>
-          <div className="vm-pending-redesign-time-row">
-            <span className="vm-pending-redesign-time">{dateTimeLabel}</span>
-            <svg className="vm-pending-redesign-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
+          <span className="vm-pending-redesign-time">{dateTimeLabel}</span>
         </div>
       </div>
 

@@ -2,8 +2,10 @@ import { Haptics } from "@capacitor/haptics";
 import { isNativePlatform } from "@/native/platform";
 import {
   cancelHostAlertNotifications,
+  requestNotificationPermission,
   scheduleUrgentHostAlert,
 } from "@/native/services/notifications";
+import { subscribeWebPush } from "@/services/webPush";
 
 export type HostAlertPayload = {
   event?: string;
@@ -33,6 +35,9 @@ type ReminderState = {
 
 const reminders = new Map<string, ReminderState>();
 let audioContext: AudioContext | null = null;
+let ringTimer: ReturnType<typeof setInterval> | null = null;
+
+const RING_INTERVAL_MS = 3_500;
 
 function baseNotificationId(visitorEntry: string): number {
   let hash = 0;
@@ -119,6 +124,37 @@ export async function fireHostAlertFeedback(): Promise<void> {
   await triggerHostAlertHaptic();
 }
 
+/** User-tap flow: request notification permission and unlock alert sound. */
+export async function enableHostAlertPermissions(): Promise<{
+  notifications: boolean;
+  soundReady: boolean;
+  webPush: boolean;
+}> {
+  const notifications = await requestNotificationPermission();
+  let webPush = false;
+  if (notifications && !isNativePlatform()) {
+    webPush = await subscribeWebPush();
+  }
+  primeHostAlertAudio();
+  playHostAlertSound();
+  return { notifications, soundReady: true, webPush };
+}
+
+/** Repeat ring + haptic until host opens the alert (MyGate-style). */
+export function startHostAlertRing(): void {
+  stopHostAlertRing();
+  void fireHostAlertFeedback();
+  ringTimer = setInterval(() => {
+    void fireHostAlertFeedback();
+  }, RING_INTERVAL_MS);
+}
+
+export function stopHostAlertRing(): void {
+  if (!ringTimer) return;
+  clearInterval(ringTimer);
+  ringTimer = null;
+}
+
 function nextNotificationId(visitorEntry: string, reminderCount: number): number {
   return baseNotificationId(visitorEntry) + reminderCount;
 }
@@ -182,6 +218,7 @@ export function stopHostAlertReminders(visitorEntry: string): void {
 }
 
 export function stopAllHostAlertReminders(): void {
+  stopHostAlertRing();
   for (const key of [...reminders.keys()]) {
     stopHostAlertReminders(key);
   }

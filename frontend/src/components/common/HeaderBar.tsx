@@ -6,6 +6,7 @@ import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPrompt";
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
@@ -154,6 +155,8 @@ export function HeaderBar({
                       <span>{user?.email || user?.user || "Signed in"}</span>
                     </div>
                   </div>
+
+                  <NotificationSetupPrompt variant="popup" onAction={() => setPopup("none")} />
 
                   <button
                     type="button"

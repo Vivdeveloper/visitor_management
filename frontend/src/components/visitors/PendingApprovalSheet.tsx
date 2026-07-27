@@ -263,9 +263,6 @@ export function PendingApprovalSheet({ visitor, open, initialMode = "actions", o
                 View Details
               </button>
             </div>
-            <button type="button" className="vm-sheet-cancel" onClick={onClose}>
-              Cancel
-            </button>
           </div>
         ) : null}
 

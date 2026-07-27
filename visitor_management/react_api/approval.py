@@ -102,6 +102,21 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 	except Exception:
 		frappe.log_error(title="VMS notify_host realtime publish failed")
 
+	try:
+		from visitor_management.react_api.push_notification import send_push_to_user
+
+		push_sent = send_push_to_user(
+			host_user,
+			title=_("Visitor waiting at gate"),
+			body=alert_message,
+			url=f"/vms/approvals",
+			tag=f"vms-{visitor_entry}",
+		)
+		if push_sent:
+			realtime_sent = True
+	except Exception:
+		frappe.log_error(title="VMS notify_host web push failed")
+
 	if not notification_logged and not realtime_sent:
 		frappe.throw(_("Could not deliver host alert. Check socket.io / redis and try again."))
 
