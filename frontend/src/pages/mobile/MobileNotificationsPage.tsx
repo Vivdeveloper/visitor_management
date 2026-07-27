@@ -3,34 +3,17 @@ import { useNavigate } from "react-router-dom";
 import {
   dashboardApi,
   type DashboardQueueItem,
-  type VisitorListRow,
 } from "@/api/vms";
-import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { formatTime } from "@/lib/format";
-
-function toVisitorRow(item: DashboardQueueItem): VisitorListRow {
-  return {
-    name: item.name,
-    full_name: item.full_name,
-    mobile: item.mobile,
-    photo: item.photo,
-    status: item.status || "Pending Approval",
-    person_to_meet_name: item.person_to_meet_name || item.host_name,
-    floor: item.floor,
-    check_in: item.check_in,
-    checked_in_on: item.checked_in_on,
-  };
-}
 
 export function MobileNotificationsPage() {
   const navigate = useNavigate();
   const [pending, setPending] = useState<DashboardQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set());
-  const [actionVisitor, setActionVisitor] = useState<VisitorListRow | null>(null);
 
   usePageChrome({
     title: "Notifications",
@@ -72,7 +55,7 @@ export function MobileNotificationsPage() {
 
   const openItem = (item: DashboardQueueItem) => {
     setReadIds((prev) => new Set(prev).add(item.name));
-    setActionVisitor(toVisitorRow(item));
+    navigate("/approvals");
   };
 
   return (
@@ -144,23 +127,6 @@ export function MobileNotificationsPage() {
           </div>
         )}
       </main>
-
-      {actionVisitor ? (
-        <PendingApprovalSheet
-          visitor={actionVisitor}
-          open
-          onClose={() => setActionVisitor(null)}
-          onDone={() => {
-            setActionVisitor(null);
-            void loadPending();
-          }}
-          onViewDetails={() => {
-            const name = actionVisitor.name;
-            setActionVisitor(null);
-            navigate(`/visitor/${encodeURIComponent(name)}`);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

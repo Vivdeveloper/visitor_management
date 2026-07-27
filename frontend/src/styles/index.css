@@ -13325,6 +13325,22 @@ body.barcode-scanner-active {
   color: #15803d;
 }
 
+.vm-confirm-modal-icon-badge.is-danger {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.vm-confirm-act-btn.is-danger {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.vm-confirm-act-btn.is-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
 .vm-confirm-act-btn.is-secondary {
   background: #ffffff;
   color: #0f172a;

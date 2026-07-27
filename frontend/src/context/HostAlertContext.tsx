@@ -8,15 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import type { VisitorListRow } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { useVmsRealtimeEvent } from "@/hooks/useVmsRealtime";
-import { HostAlertRingModal } from "@/components/alerts/HostAlertRingModal";
 import {
   NotificationPermissionModal,
   shouldShowNotificationPermissionModal,
 } from "@/components/alerts/NotificationPermissionModal";
-import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
 import { resolveMode } from "@/lib/roles";
 import {
   type ActiveHostAlert,
@@ -44,20 +41,11 @@ type HostAlertContextValue = {
 
 const HostAlertContext = createContext<HostAlertContextValue | null>(null);
 
-function toVisitorRow(alert: ActiveHostAlert): VisitorListRow {
-  return {
-    name: alert.visitorEntry,
-    full_name: alert.visitorName,
-    status: "Pending Approval",
-  };
-}
-
 export function HostAlertProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const mode = resolveMode(user);
   const [alerts, setAlerts] = useState<Record<string, ActiveHostAlert>>({});
-  const [sheetVisitor, setSheetVisitor] = useState<VisitorListRow | null>(null);
   const [notifyPerm, setNotifyPerm] = useState(notificationPermissionState());
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
 
@@ -107,7 +95,11 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         return { ...prev, [visitorEntry]: next };
       });
     });
-  }, []);
+
+    if (mode === "host") {
+      navigate("/approvals");
+    }
+  }, [mode, navigate]);
 
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_host_alert",
@@ -202,12 +194,6 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const handleReview = useCallback(() => {
-    if (!activeAlert) return;
-    stopHostAlertRing();
-    setSheetVisitor(toVisitorRow(activeAlert));
-  }, [activeAlert]);
-
   const openPermissionSetup = useCallback(() => {
     sessionStorage.removeItem("vms_notify_modal_skip");
     setPermissionModalOpen(true);
@@ -236,27 +222,6 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         }}
       />
       {children}
-      {activeAlert && !sheetVisitor ? (
-        <HostAlertRingModal alert={activeAlert} onReview={handleReview} />
-      ) : null}
-      {sheetVisitor ? (
-        <PendingApprovalSheet
-          visitor={sheetVisitor}
-          open
-          onClose={() => {
-            setSheetVisitor(null);
-          }}
-          onDone={() => {
-            clearAlert(sheetVisitor.name);
-            setSheetVisitor(null);
-          }}
-          onViewDetails={() => {
-            const name = sheetVisitor.name;
-            setSheetVisitor(null);
-            navigate(`/visitor/${encodeURIComponent(name)}`);
-          }}
-        />
-      ) : null}
     </HostAlertContext.Provider>
   );
 }

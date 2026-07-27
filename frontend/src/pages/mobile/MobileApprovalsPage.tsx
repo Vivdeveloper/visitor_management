@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approvalApi, frappeGetList, meetingApi, passApi, securityApi, visitorApi, type VisitorListRow } from "@/api/vms";
+import { approvalApi, frappeGetList, passApi, visitorApi, type VisitorListRow } from "@/api/vms";
 import { ErpNextToast, type ErpToastData } from "@/components/common/ErpNextToast";
 import { PendingDecisionCard } from "@/components/approvals/PendingDecisionCard";
-import { PendingApprovalSheet } from "@/components/visitors/PendingApprovalSheet";
-import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
 import { ApprovalFloorModal } from "@/components/approvals/ApprovalFloorModal";
-import { GatePassActionsModal } from "@/components/approvals/GatePassActionsModal";
+import { ApprovalRejectModal } from "@/components/approvals/ApprovalRejectModal";
+import { ApprovalTransferModal } from "@/components/approvals/ApprovalTransferModal";
+import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageChrome } from "@/context/PageChromeContext";
 
-const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
-const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
-
-type TabId = "all" | "pending" | "approved" | "inside";
+const PENDING_STATUSES = new Set(["Pending Approval", "Pending"]);
 type DateFilterMode = "today" | "yesterday" | "week";
+
+function isPendingStatus(status?: string | null): boolean {
+  return !!status && PENDING_STATUSES.has(status);
+}
 
 function toIsoDate(date: Date): string {
   const y = date.getFullYear();
@@ -63,13 +64,6 @@ function matchesDateFilter(rawDate: string | undefined | null, mode: DateFilterM
   return true;
 }
 
-const TABS: Array<{ id: TabId; label: string; match: (s?: string) => boolean }> = [
-  { id: "all", label: "All", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
-  { id: "pending", label: "Pending", match: (s) => s === "Pending Approval" || s === "Pending" },
-  { id: "approved", label: "Approved", match: (s) => s === "Approved" },
-  { id: "inside", label: "Inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
-];
-
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
 
@@ -82,27 +76,24 @@ export function MobileApprovalsPage() {
     showProfile: true,
   });
 
-  const [tab, setTab] = useState<TabId>("pending");
   const [query, setQuery] = useState("");
   const [dateMode, setDateMode] = useState<DateFilterMode>("week");
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [active, setActive] = useState<VisitorListRow | null>(null);
-  const [sheetMode, setSheetMode] = useState<"actions" | "reject" | "transfer">("transfer");
+  const [rejectVisitor, setRejectVisitor] = useState<VisitorListRow | null>(null);
+  const [transferVisitor, setTransferVisitor] = useState<VisitorListRow | null>(null);
   const [toast, setToast] = useState<ErpToastData | null>(null);
   const [confirmVisitor, setConfirmVisitor] = useState<VisitorListRow | null>(null);
   const [approveVisitor, setApproveVisitor] = useState<VisitorListRow | null>(null);
-  const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
-  const [passBusy, setPassBusy] = useState(false);
   const statusMapRef = useState(() => new Map<string, string>())[0];
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(200);
+      const list = (await visitorApi.listDetailed(200)).filter((row) => isPendingStatus(row.status));
       const newList = list || [];
 
       // Check if any visitor changed from Pending -> Approved (e.g. approved on Desk)
@@ -167,8 +158,7 @@ export function MobileApprovalsPage() {
   );
 
   const handleReject = useCallback((item: VisitorListRow) => {
-    setSheetMode("reject");
-    setActive(item);
+    setRejectVisitor(item);
   }, []);
 
   const handleNotifyHost = useCallback(async (item: VisitorListRow) => {
@@ -197,28 +187,6 @@ export function MobileApprovalsPage() {
       });
     }
   }, []);
-
-  const handleCheckIn = useCallback(
-    async (visitor: VisitorListRow) => {
-      setBusy(visitor.name);
-      setError(null);
-      try {
-        await securityApi.checkIn(visitor.name);
-        setToast({
-          id: Date.now().toString(),
-          title: "Visitor Checked In",
-          message: `${visitor.full_name || visitor.name} checked in successfully.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-        void load();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Check-in failed");
-      } finally {
-        setBusy(null);
-      }
-    },
-    [load],
-  );
 
   const handleCallHost = useCallback(async (item: VisitorListRow) => {
     const hostId = item.person_to_meet;
@@ -260,50 +228,6 @@ export function MobileApprovalsPage() {
     }
   }, []);
 
-  const handleMeetingDone = useCallback(
-    async (visitor: VisitorListRow) => {
-      setBusy(visitor.name);
-      setError(null);
-      try {
-        await meetingApi.complete(visitor.name);
-        setToast({
-          id: Date.now().toString(),
-          title: "Meeting Completed",
-          message: `Meeting with ${visitor.full_name || visitor.name} marked as complete.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-        void load();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Meeting complete failed");
-      } finally {
-        setBusy(null);
-      }
-    },
-    [load],
-  );
-
-  const handleCheckOut = useCallback(
-    async (visitor: VisitorListRow) => {
-      setBusy(visitor.name);
-      setError(null);
-      try {
-        await securityApi.checkOut(visitor.name);
-        setToast({
-          id: Date.now().toString(),
-          title: "Visitor Checked Out",
-          message: `${visitor.full_name || visitor.name} checked out successfully.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-        void load();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Check-out failed");
-      } finally {
-        setBusy(null);
-      }
-    },
-    [load],
-  );
-
   const handleGeneratePass = useCallback(
     async (visitor: VisitorListRow) => {
       try {
@@ -336,73 +260,10 @@ export function MobileApprovalsPage() {
     }
   }, []);
 
-  const handlePassDownload = useCallback(
-    async (visitor: VisitorListRow) => {
-      setPassBusy(true);
-      try {
-        const res = await passApi.generate(visitor.name);
-        if (res.pass_url) {
-          window.open(res.pass_url, "_blank");
-        } else {
-          navigate(`/pass/${encodeURIComponent(visitor.name)}`);
-        }
-        setPassVisitor(null);
-        setToast({
-          id: Date.now().toString(),
-          title: "Gate Pass Ready",
-          message: `Gate pass downloaded for ${visitor.full_name || visitor.name}.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Could not download gate pass");
-      } finally {
-        setPassBusy(false);
-      }
-    },
-    [navigate],
-  );
-
-  const handlePassSend = useCallback(async (visitor: VisitorListRow) => {
-    setPassBusy(true);
-    try {
-      await passApi.generate(visitor.name);
-      const res = await passApi.sendPassToMobile(visitor.name, visitor.mobile);
-      setPassVisitor(null);
-      setToast({
-        id: Date.now().toString(),
-        title: "Gate Pass Sent",
-        message: res.message || `Gate pass link sent to ${visitor.mobile || "visitor"}`,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not send gate pass");
-    } finally {
-      setPassBusy(false);
-    }
-  }, []);
-
-  const counts = useMemo(() => {
-    const next: Record<TabId, number> = {
-      all: 0,
-      pending: 0,
-      approved: 0,
-      inside: 0,
-    };
-    for (const row of rows) {
-      const itemDate = row.check_in || row.checked_in_on || row.modified || row.creation;
-      if (!matchesDateFilter(itemDate, dateMode)) continue;
-      for (const t of TABS) {
-        if (t.match(row.status)) next[t.id] += 1;
-      }
-    }
-    return next;
-  }, [rows, dateMode]);
-
   const filteredItems = useMemo(() => {
-    const def = TABS.find((t) => t.id === tab) || TABS[0];
     const q = query.trim().toLowerCase();
     return rows
-      .filter((item) => def.match(item.status))
+      .filter((item) => isPendingStatus(item.status))
       .filter((item) => {
         const itemDate = item.check_in || item.checked_in_on || item.modified || item.creation;
         return matchesDateFilter(itemDate, dateMode);
@@ -412,9 +273,7 @@ export function MobileApprovalsPage() {
         const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
         return haystack.includes(q);
       });
-  }, [rows, tab, query, dateMode]);
-
-  const viewOnlyAll = tab === "all";
+  }, [rows, query, dateMode]);
 
   return (
     <div className="vm-home-page vm-approvals-page">
@@ -435,22 +294,6 @@ export function MobileApprovalsPage() {
             placeholder="Search visitor, host or company..."
             aria-label="Search approvals"
           />
-        </div>
-
-        <div className="vm-reports-tabs" role="tablist" aria-label="Visitor status">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`vm-reports-tab${tab === t.id ? " is-active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-              <span className="vm-reports-tab-count">{counts[t.id]}</span>
-            </button>
-          ))}
         </div>
 
         <div className="vm-approvals-filter-bar">
@@ -503,7 +346,7 @@ export function MobileApprovalsPage() {
 
         {!loading && filteredItems.length === 0 ? (
           <div className="vm-overview-card vm-approvals-empty">
-            <strong>No {TABS.find((t) => t.id === tab)?.label || tab} items</strong>
+            <strong>No pending approvals</strong>
           </div>
         ) : null}
 
@@ -513,64 +356,37 @@ export function MobileApprovalsPage() {
               key={item.name}
               item={item}
               busy={busy === item.name}
-              onOpen={viewOnlyAll ? undefined : () => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
-              onApprove={viewOnlyAll ? undefined : (v) => handleApprove(v)}
-              onReject={viewOnlyAll ? undefined : () => handleReject(item)}
-              onNotifyHost={viewOnlyAll ? undefined : () => handleNotifyHost(item)}
-              onTransfer={
-                viewOnlyAll
-                  ? undefined
-                  : (v) => {
-                      setSheetMode("transfer");
-                      setActive(v);
-                    }
-              }
-              onViewDetails={viewOnlyAll ? undefined : (v) => navigate(`/visitor/${encodeURIComponent(v.name)}`)}
-              onCallHost={viewOnlyAll ? undefined : (v) => void handleCallHost(v)}
-              onGenerateGatePass={
-                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
-              }
-              onCheckIn={
-                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
-              }
-              onMeetingDone={
-                viewOnlyAll
-                  ? undefined
-                  : item.status === "Checked In"
-                    ? (v) => void handleMeetingDone(v)
-                    : undefined
-              }
-              onCheckOut={
-                viewOnlyAll
-                  ? undefined
-                  : item.status === "Checked In" || item.status === "Meeting Done"
-                    ? (v) => void handleCheckOut(v)
-                    : undefined
-              }
+              onOpen={() => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
+              onApprove={(v) => handleApprove(v)}
+              onReject={() => handleReject(item)}
+              onNotifyHost={() => handleNotifyHost(item)}
+              onTransfer={(v) => setTransferVisitor(v)}
+              onViewDetails={(v) => navigate(`/visitor/${encodeURIComponent(v.name)}`)}
+              onCallHost={(v) => void handleCallHost(v)}
             />
           ))}
         </div>
       </main>
 
-      {active ? (
-        <PendingApprovalSheet
-          visitor={active}
-          open
-          initialMode={sheetMode}
-          onClose={() => setActive(null)}
-          onDone={() => {
-            const v = active;
-            setActive(null);
-            setConfirmVisitor(v);
-            void load();
-          }}
-          onViewDetails={() => {
-            const name = active.name;
-            setActive(null);
-            navigate(`/visitor/${encodeURIComponent(name)}`);
-          }}
-        />
-      ) : null}
+      <ApprovalRejectModal
+        visitor={rejectVisitor}
+        open={!!rejectVisitor}
+        busy={!!rejectVisitor && busy === rejectVisitor.name}
+        onClose={() => setRejectVisitor(null)}
+        onDone={() => {
+          void load();
+        }}
+      />
+
+      <ApprovalTransferModal
+        visitor={transferVisitor}
+        open={!!transferVisitor}
+        busy={!!transferVisitor && busy === transferVisitor.name}
+        onClose={() => setTransferVisitor(null)}
+        onDone={() => {
+          void load();
+        }}
+      />
 
       <ApprovalFloorModal
         visitor={approveVisitor}
@@ -586,15 +402,6 @@ export function MobileApprovalsPage() {
         onClose={() => setConfirmVisitor(null)}
         onGeneratePass={handleGeneratePass}
         onSendPassToMobile={handleSendPassToMobile}
-      />
-
-      <GatePassActionsModal
-        visitor={passVisitor}
-        open={!!passVisitor}
-        busy={passBusy}
-        onClose={() => setPassVisitor(null)}
-        onDownload={handlePassDownload}
-        onSend={handlePassSend}
       />
     </div>
   );
