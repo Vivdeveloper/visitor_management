@@ -1,4 +1,12 @@
+node_modules/
 dist/
+.env
+.env.capacitor
+.env.local
+.env.*.local
+!.env.example
+!.env.capacitor.example
+
 android/.gradle/
 android/app/build/
 android/build/
@@ -7,4 +15,3 @@ ios/App/Pods/
 ios/App/build/
 ios/DerivedData/
 *.keystore
-.env.capacitor

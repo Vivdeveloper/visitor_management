@@ -1,0 +1,30 @@
+# Python / bench
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node (never commit dependencies)
+frontend/node_modules/
+
+# Local env (never commit secrets)
+frontend/.env
+frontend/.env.capacitor
+.env
+.env.*
+
+# Keep env templates
+!frontend/.env.example
+!frontend/.env.capacitor.example
+
+# Capacitor / frontend build artifacts
+frontend/dist/
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.idea/
+frontend/ios/App/Pods/
+frontend/ios/App/build/
+frontend/ios/DerivedData/
+*.keystore
