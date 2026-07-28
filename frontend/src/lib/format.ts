@@ -126,6 +126,10 @@ export function extractError(err: unknown, fallback = "Something went wrong") {
     if (ax.message && ax.message !== "Request failed with status code 417") return ax.message;
   }
   if (err instanceof Error) {
+    const msg = err.message || "";
+    if (/plugin is not implemented/i.test(msg)) {
+      return "Could not reach the server. Check your internet connection and try again.";
+    }
     if (err.message === "Request failed with status code 417") {
       return "Validation failed. Check host, purpose, and ID proof values from ERPNext.";
     }

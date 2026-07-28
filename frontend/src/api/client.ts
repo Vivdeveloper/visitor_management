@@ -37,7 +37,12 @@ apiClient.interceptors.response.use(
     const method = String(config?.method ?? "").toLowerCase();
 
     if (config && MUTATING_METHODS.has(method) && !config.headers?.["X-VMS-Offline-Retry"]) {
-      const online = await isOnline();
+      let online = true;
+      try {
+        online = await isOnline();
+      } catch {
+        online = typeof navigator !== "undefined" ? navigator.onLine : true;
+      }
       if (!online || error.code === "ERR_NETWORK") {
         enqueueRequest(config);
       }

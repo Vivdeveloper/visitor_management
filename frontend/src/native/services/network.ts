@@ -18,15 +18,38 @@ if (typeof window !== "undefined") {
   window.addEventListener("offline", () => notifyWebListeners(false));
 }
 
-export async function getNetworkStatus(): Promise<ConnectionStatus> {
-  if (isNativePlatform()) {
-    const { Network } = await import("@capacitor/network");
-    return Network.getStatus();
-  }
+function webNetworkStatus(): ConnectionStatus {
+  const connected = typeof navigator !== "undefined" ? navigator.onLine : true;
   return {
-    connected: typeof navigator !== "undefined" ? navigator.onLine : true,
-    connectionType: typeof navigator !== "undefined" && navigator.onLine ? "wifi" : "none",
+    connected,
+    connectionType: connected ? "unknown" : "none",
   };
+}
+
+function isCapacitorNetworkAvailable(): boolean {
+  const cap = (
+    window as Window & { Capacitor?: { isPluginAvailable?: (name: string) => boolean } }
+  ).Capacitor;
+  if (!cap?.isPluginAvailable) return true;
+  return cap.isPluginAvailable("Network");
+}
+
+/** Prefer Capacitor Network on native; fall back to navigator.onLine if plugin missing. */
+async function tryNativeNetworkStatus(): Promise<ConnectionStatus | null> {
+  if (!isNativePlatform()) return null;
+  if (!isCapacitorNetworkAvailable()) return null;
+
+  try {
+    const { Network } = await import("@capacitor/network");
+    return await Network.getStatus();
+  } catch {
+    return null;
+  }
+}
+
+export async function getNetworkStatus(): Promise<ConnectionStatus> {
+  const native = await tryNativeNetworkStatus();
+  return native ?? webNetworkStatus();
 }
 
 export async function isOnline(): Promise<boolean> {
@@ -35,16 +58,32 @@ export async function isOnline(): Promise<boolean> {
 }
 
 export function onNetworkChange(listener: NetworkListener): () => void {
-  if (isNativePlatform()) {
+  if (isNativePlatform() && isCapacitorNetworkAvailable()) {
     let remove: (() => void) | undefined;
-    void import("@capacitor/network").then(({ Network }) => {
-      void Network.addListener("networkStatusChange", (status) => {
-        listener(status.connected);
-      }).then((handle) => {
-        remove = () => handle.remove();
+    let cancelled = false;
+
+    void import("@capacitor/network")
+      .then(({ Network }) =>
+        Network.addListener("networkStatusChange", (status) => {
+          listener(status.connected);
+        }),
+      )
+      .then((handle) => {
+        if (cancelled) {
+          void handle.remove();
+          return;
+        }
+        remove = () => void handle.remove();
+      })
+      .catch(() => {
+        webListeners.add(listener);
       });
-    });
-    return () => remove?.();
+
+    return () => {
+      cancelled = true;
+      remove?.();
+      webListeners.delete(listener);
+    };
   }
 
   webListeners.add(listener);
