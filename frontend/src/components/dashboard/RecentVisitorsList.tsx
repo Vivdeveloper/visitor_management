@@ -16,10 +16,10 @@ type RecentVisitorsListProps = {
 };
 
 const DEMO_VISITORS: RecentVisitorItem[] = [
-  { name: "V001", full_name: "Om", purpose: "Audit", time: "19:09", status: "Checked-in" },
-  { name: "V002", full_name: "vivek", purpose: "Audit", time: "18:57", status: "Checked-in" },
-  { name: "V003", full_name: "vivek sonaw...", purpose: "Audit", time: "18:53", status: "Checked-in" },
-  { name: "V004", full_name: "Nikhil Sarin", purpose: "Maintenance", time: "14:40", status: "Checked-out" },
+  { name: "V001", full_name: "Om", purpose: "Audit", time: "07:09 PM", status: "Checked-in" },
+  { name: "V002", full_name: "vivek", purpose: "Audit", time: "06:57 PM", status: "Checked-in" },
+  { name: "V003", full_name: "vivek sonaw...", purpose: "Audit", time: "06:53 PM", status: "Checked-in" },
+  { name: "V004", full_name: "Nikhil Sarin", purpose: "Maintenance", time: "02:40 PM", status: "Checked-out" },
 ];
 
 function statusTone(status: string) {

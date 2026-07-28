@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { visitorApi, type VisitorListRow } from "@/api/vms";
 import { extractError, formatTime, initials } from "@/lib/format";
+import { getCurrentStageTimestamp } from "@/lib/visitStages";
+import { VisitorStageTimeline } from "@/components/visitors/VisitorStageTimeline";
 import { usePageChrome } from "@/context/PageChromeContext";
 
 function toInputDate(d: Date) {
@@ -48,7 +50,7 @@ function dayNum(dateStr: string) {
 }
 
 function rowStamp(r: VisitorListRow) {
-  return r.checked_in_on || r.creation || r.modified || "";
+  return getCurrentStageTimestamp(r) || "";
 }
 
 function rowDay(r: VisitorListRow) {
@@ -324,7 +326,7 @@ export function MobileMeetingsPage() {
         {/* Timeline Schedule Cards List */}
         <div className="vm-sched-timeline-list">
           {dayMeetings.map((item) => {
-            const time = formatTime(rowStamp(item)) || "10:30";
+            const time = formatTime(rowStamp(item)) || "10:30 AM";
             const visitorName = item.full_name || item.name;
             const hostName = item.person_to_meet_name || "Administrator";
             const purpose = item.visit_purpose_type || "Visit";
@@ -379,6 +381,8 @@ export function MobileMeetingsPage() {
                       <span className="val">{purpose}</span>
                     </div>
                   </div>
+
+                  <VisitorStageTimeline visitor={item} compact className="vm-sched-stage-timeline" />
 
                   {/* Bottom Row: Overlapped Avatars + Status Pill */}
                   <div className="vm-sched-card-foot">

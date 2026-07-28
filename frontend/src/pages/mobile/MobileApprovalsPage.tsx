@@ -18,6 +18,9 @@ import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckI
 import { ViewGatePassModal } from "@/components/approvals/ViewGatePassModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { formatNowTime } from "@/lib/format";
+import { useAuth } from "@/context/AuthContext";
+import { canPerformCheckout } from "@/lib/roles";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
@@ -81,6 +84,8 @@ const TABS: Array<{ id: TabId; label: string; match: (s?: string) => boolean }> 
 
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
 
   usePageChrome({
     title: "Pending",
@@ -178,7 +183,7 @@ export function MobileApprovalsPage() {
 
   const handleNotifyHost = useCallback(async (item: VisitorListRow) => {
     const host = item.person_to_meet_name || item.person_to_meet || "Host";
-    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const time = formatNowTime();
     try {
       const res = await approvalApi.notifyHost(item.name);
       const deliveredLive = res.realtime_sent !== false;
@@ -213,7 +218,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Visitor Checked In",
           message: `${visitor.full_name || visitor.name} checked in successfully.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: formatNowTime(),
         });
         void load();
       } catch (err: unknown) {
@@ -232,7 +237,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Host phone unavailable",
         message: "No host assigned for this visitor.",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: formatNowTime(),
       });
       return;
     }
@@ -250,7 +255,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Host phone unavailable",
           message: `${item.person_to_meet_name || "Host"} has no phone number on file.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: formatNowTime(),
         });
         return;
       }
@@ -260,7 +265,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Could not call host",
         message: "Unable to fetch host contact details.",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: formatNowTime(),
       });
     }
   }, []);
@@ -275,7 +280,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Meeting Completed",
           message: `Meeting with ${visitor.full_name || visitor.name} marked as complete.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: formatNowTime(),
         });
         void load();
       } catch (err: unknown) {
@@ -297,7 +302,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Visitor Checked Out",
           message: `${visitor.full_name || visitor.name} checked out successfully.`,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          time: formatNowTime(),
         });
         void load();
       } catch (err: unknown) {
@@ -321,7 +326,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Gate Pass Sent",
         message: res.message || `Gate pass link sent to ${visitor.mobile || "visitor"}`,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        time: formatNowTime(),
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not send pass to mobile");
@@ -475,16 +480,16 @@ export function MobileApprovalsPage() {
               onMeetingDone={
                 viewOnlyAll
                   ? undefined
-                  : item.status === "Checked In"
+                  : !showCheckout && item.status === "Checked In"
                     ? (v) => void handleMeetingDone(v)
                     : undefined
               }
               onCheckOut={
-                viewOnlyAll
-                  ? undefined
-                  : item.status === "Checked In" || item.status === "Meeting Done"
+                showCheckout && !viewOnlyAll
+                  ? item.status === "Meeting Done"
                     ? (v) => void handleCheckOut(v)
                     : undefined
+                  : undefined
               }
             />
           ))}

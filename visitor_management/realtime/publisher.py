@@ -34,6 +34,13 @@ def publish_vms_event(
 				user=user,
 				after_commit=True,
 			)
+		if event == "security_checkout_required":
+			frappe.publish_realtime(
+				event="vms_security_alert",
+				message=message,
+				user=user,
+				after_commit=True,
+			)
 	except Exception:
 		frappe.log_error(title="VMS realtime publish failed")
 

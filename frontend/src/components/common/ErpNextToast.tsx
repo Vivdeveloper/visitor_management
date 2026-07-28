@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { formatNowTime } from "@/lib/format";
 
 export type ErpToastData = {
   id: string;
@@ -38,7 +39,7 @@ export function ErpNextToast({ toast, onClose }: Props) {
             <strong className="erp-toast-title">ERPNext Notification</strong>
           </div>
           <div className="erp-toast-meta">
-            <span className="erp-toast-time">{toast.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="erp-toast-time">{toast.time || formatNowTime()}</span>
             <button
               type="button"
               className="erp-toast-close"

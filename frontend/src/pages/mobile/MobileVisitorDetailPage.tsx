@@ -3,8 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { frappeGetList, visitorApi } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
-import { extractError, formatDate, formatTime } from "@/lib/format";
+import { extractError } from "@/lib/format";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { useAuth } from "@/context/AuthContext";
+import { canPerformCheckout } from "@/lib/roles";
+import { VisitorStageTimeline } from "@/components/visitors/VisitorStageTimeline";
 type VisitorDoc = {
   name?: string;
   full_name?: string;
@@ -21,6 +24,8 @@ type VisitorDoc = {
   checked_in_on?: string;
   check_out?: string;
   checked_out_on?: string;
+  approved_on?: string;
+  rejected_on?: string;
   checked_in_by?: string;
   checked_out_by?: string;
   meeting_done_on?: string;
@@ -58,6 +63,8 @@ async function resolveUserFullName(userId?: string | null): Promise<string | und
 export function MobileVisitorDetailPage() {
   const { name: routeName = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
   const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
   const [gateOperator, setGateOperator] = useState<string | undefined>();
   const [exitVerifiedBy, setExitVerifiedBy] = useState<string | undefined>();
@@ -115,7 +122,7 @@ export function MobileVisitorDetailPage() {
   }, [routeName]);
 
   const status = visitor?.status || "";
-  const canCheckout = status === "Checked In" || status === "Meeting Done";
+  const canCheckout = showCheckout && (status === "Checked In" || status === "Meeting Done");
   const displayName = visitor?.full_name || visitor?.name || "";
 
   return (
@@ -153,29 +160,18 @@ export function MobileVisitorDetailPage() {
             <Field label="Person to meet" value={visitor.person_to_meet_name} />
             <Field label="Purpose" value={visitor.visit_purpose_type} />
             <Field label="Floor" value={visitor.floor} />
-            <Field
-              label="Check-in"
-              value={
-                visitor.check_in || visitor.checked_in_on
-                  ? `${formatDate(visitor.check_in || visitor.checked_in_on)} · ${formatTime(visitor.check_in || visitor.checked_in_on)}`
-                  : undefined
-              }
-            />
-            <Field
-              label="Check-out"
-              value={
-                visitor.check_out || visitor.checked_out_on
-                  ? `${formatDate(visitor.check_out || visitor.checked_out_on)} · ${formatTime(visitor.check_out || visitor.checked_out_on)}`
-                  : undefined
-              }
-            />
+          </div>
+
+          <div className="vm-overview-card vm-detail-card">
+            <h2 className="vm-section-title">Visit Timeline</h2>
+            <VisitorStageTimeline visitor={visitor} />
           </div>
 
           <div className="vm-overview-card vm-detail-card">
             <h2 className="vm-section-title">Operations</h2>
             <Field label="Gate Operator" value={gateOperator} />
             <Field label="Exit Verified By" value={exitVerifiedBy} />
-            <Field label="Host Completed" value={hostCompleted} />
+            <Field label="Meeting Completed By" value={hostCompleted} />
           </div>
 
           <div className="vm-detail-actions">

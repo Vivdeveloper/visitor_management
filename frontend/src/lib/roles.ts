@@ -29,6 +29,11 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
   return "guest";
 }
 
+/** Only gate/security desk staff may check visitors out. */
+export function canPerformCheckout(user: AuthProfile | null): boolean {
+  return resolveMode(user) === "security";
+}
+
 export type MobileTab = {
   to: string;
   label: string;

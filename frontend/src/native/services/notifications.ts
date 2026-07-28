@@ -76,24 +76,36 @@ export async function initPushNotifications(
 
   await ensureUrgentNotificationChannel();
 
-  const perm = await PushNotifications.requestPermissions();
-  if (perm.receive !== "granted") return;
+  // Never call PushNotifications.register() without google-services.json —
+  // Capacitor treats the native Firebase exception as FATAL and kills the app.
+  // Enable only with VITE_NATIVE_PUSH=true after Firebase is configured.
+  const pushEnabled = String(import.meta.env.VITE_NATIVE_PUSH ?? "") === "true";
+  if (!pushEnabled) {
+    return;
+  }
 
-  await PushNotifications.register();
+  try {
+    const perm = await PushNotifications.requestPermissions();
+    if (perm.receive !== "granted") return;
 
-  PushNotifications.addListener("registration", (token: Token) => {
-    onToken(token.value);
-  });
-
-  PushNotifications.addListener("registrationError", () => {
-    /* device push unavailable */
-  });
-
-  if (onMessage) {
-    PushNotifications.addListener("pushNotificationReceived", onMessage);
-    PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-      if (action.notification) onMessage(action.notification);
+    await PushNotifications.addListener("registration", (token: Token) => {
+      onToken(token.value);
     });
+
+    await PushNotifications.addListener("registrationError", () => {
+      /* device push unavailable */
+    });
+
+    if (onMessage) {
+      await PushNotifications.addListener("pushNotificationReceived", onMessage);
+      await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        if (action.notification) onMessage(action.notification);
+      });
+    }
+
+    await PushNotifications.register();
+  } catch {
+    /* Push / Firebase not configured — local notifications still work */
   }
 }
 
@@ -195,11 +207,18 @@ export async function cancelHostAlertNotifications(ids: number[]): Promise<void>
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (isNativePlatform()) {
-    const [pushPerm, localPerm] = await Promise.all([
-      PushNotifications.requestPermissions(),
-      LocalNotifications.requestPermissions(),
-    ]);
-    return pushPerm.receive === "granted" || localPerm.display === "granted";
+    // Local notifications only unless FCM is explicitly enabled — requesting /
+    // registering push without google-services.json crashes the Android app.
+    const localPerm = await LocalNotifications.requestPermissions();
+    if (String(import.meta.env.VITE_NATIVE_PUSH ?? "") !== "true") {
+      return localPerm.display === "granted";
+    }
+    try {
+      const pushPerm = await PushNotifications.requestPermissions();
+      return pushPerm.receive === "granted" || localPerm.display === "granted";
+    } catch {
+      return localPerm.display === "granted";
+    }
   }
   if (!("Notification" in window)) return false;
   if (Notification.permission === "granted") return true;

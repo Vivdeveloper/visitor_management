@@ -199,6 +199,11 @@ export type VisitorListRow = {
   visit_purpose_type?: string;
   check_in?: string;
   checked_in_on?: string;
+  checked_out_on?: string;
+  meeting_done_on?: string;
+  approved_on?: string;
+  rejected_on?: string;
+  transfer_to_user?: string;
   creation?: string;
   visitor_company?: string;
   visitor_location?: string;
@@ -258,6 +263,11 @@ export const visitorApi = {
         "modified",
         "visit_purpose_type",
         "checked_in_on",
+        "checked_out_on",
+        "meeting_done_on",
+        "approved_on",
+        "rejected_on",
+        "transfer_to_user",
         "creation",
         "visitor_company",
         "number_of_visitors",

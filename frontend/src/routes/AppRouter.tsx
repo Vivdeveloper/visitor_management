@@ -1,4 +1,13 @@
-import { createBrowserRouter, createRoutesFromElements, Navigate, Outlet, Route, RouterProvider } from "react-router-dom";
+import { useMemo } from "react";
+import {
+  createBrowserRouter,
+  createHashRouter,
+  createRoutesFromElements,
+  Navigate,
+  Outlet,
+  Route,
+  RouterProvider,
+} from "react-router-dom";
 import { MobileLayout } from "@/layouts/MobileLayout";
 import { PublicPassPage } from "@/pages/pass/PassPage";
 import { MobileHomePage } from "@/pages/mobile/MobileHomePage";
@@ -30,43 +39,56 @@ function RequirePwaAuth() {
   return <Outlet />;
 }
 
-const router = createBrowserRouter(
-  createRoutesFromElements(
-    <>
-      <Route path="/login" element={<MobileLoginPage />} />
-      <Route path="/m/login" element={<Navigate to="/login" replace />} />
-      <Route path="/welcome" element={<Navigate to="/check-in" replace />} />
-      <Route path="/pass/:token" element={<PublicPassPage />} />
+function isCapacitorNativeRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
+}
 
-      <Route element={<RequirePwaAuth />}>
-        <Route element={<MobileLayout />}>
-          <Route path="/" element={<MobileHomePage />} />
-          <Route path="/check-in" element={<MobileCheckInPage />} />
-          <Route path="/scan" element={<MobileScanPage />} />
-          <Route path="/inside" element={<MobileInsidePage />} />
-          <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
-          <Route path="/history" element={<MobileHistoryPage />} />
-          <Route path="/approvals" element={<MobileApprovalsPage />} />
-          <Route path="/pre-register" element={<MobilePreRegisterPage />} />
-          <Route path="/analytics" element={<MobileAnalyticsPage />} />
-          <Route path="/meetings" element={<MobileMeetingsPage />} />
-          <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
-          <Route path="/checkout" element={<MobileCheckoutPage />} />
-          <Route path="/my-pass" element={<MobilePassPage />} />
-          <Route path="/pass" element={<MobilePassPage />} />
-          <Route path="/profile" element={<MobileProfilePage />} />
-          <Route path="/notifications" element={<MobileNotificationsPage />} />
-          <Route path="/m" element={<Navigate to="/" replace />} />
-          <Route path="/m/*" element={<Navigate to="/" replace />} />
-        </Route>
+const routeElements = createRoutesFromElements(
+  <>
+    <Route path="/login" element={<MobileLoginPage />} />
+    <Route path="/m/login" element={<Navigate to="/login" replace />} />
+    <Route path="/welcome" element={<Navigate to="/check-in" replace />} />
+    <Route path="/pass/:token" element={<PublicPassPage />} />
+
+    <Route element={<RequirePwaAuth />}>
+      <Route element={<MobileLayout />}>
+        <Route path="/" element={<MobileHomePage />} />
+        <Route path="/check-in" element={<MobileCheckInPage />} />
+        <Route path="/scan" element={<MobileScanPage />} />
+        <Route path="/inside" element={<MobileInsidePage />} />
+        <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
+        <Route path="/history" element={<MobileHistoryPage />} />
+        <Route path="/approvals" element={<MobileApprovalsPage />} />
+        <Route path="/pre-register" element={<MobilePreRegisterPage />} />
+        <Route path="/analytics" element={<MobileAnalyticsPage />} />
+        <Route path="/meetings" element={<MobileMeetingsPage />} />
+        <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
+        <Route path="/checkout" element={<MobileCheckoutPage />} />
+        <Route path="/my-pass" element={<MobilePassPage />} />
+        <Route path="/pass" element={<MobilePassPage />} />
+        <Route path="/profile" element={<MobileProfilePage />} />
+        <Route path="/notifications" element={<MobileNotificationsPage />} />
+        <Route path="/m" element={<Navigate to="/" replace />} />
+        <Route path="/m/*" element={<Navigate to="/" replace />} />
       </Route>
+    </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </>,
-  ),
-  { basename: APP_BASE_PATH },
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </>,
 );
 
+function createVmsRouter() {
+  // Android/iOS WebView + Capacitor live URL often breaks History API updates
+  // until a full reload. Hash routing keeps tab changes instant in the emulator.
+  if (isCapacitorNativeRuntime()) {
+    return createHashRouter(routeElements);
+  }
+  return createBrowserRouter(routeElements, { basename: APP_BASE_PATH });
+}
+
 export function AppRouter() {
+  const router = useMemo(() => createVmsRouter(), []);
   return <RouterProvider router={router} />;
 }

@@ -90,6 +90,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
       hostName,
       receivedAt: Date.now(),
       reminderCount: 0,
+      variant: "host",
     };
 
     setAlerts((prev) => ({ ...prev, [visitorEntry]: alert }));
@@ -106,27 +107,81 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const registerSecurityAlert = useCallback((payload: HostAlertPayload) => {
+    const visitorEntry = payload.visitor_entry;
+    if (!visitorEntry) return;
+
+    const visitorName = payload.visitor_name || visitorEntry;
+    const message =
+      payload.message || `${visitorName} has completed the meeting. Proceed with gate checkout.`;
+    const hostName = payload.host || "Host";
+
+    const alert: ActiveHostAlert = {
+      visitorEntry,
+      visitorName,
+      message,
+      hostName,
+      receivedAt: Date.now(),
+      reminderCount: 0,
+      variant: "security",
+    };
+
+    setAlerts((prev) => ({ ...prev, [visitorEntry]: alert }));
+
+    void requestNotificationPermission().then(() => setNotifyPerm(notificationPermissionState()));
+    startHostAlertRing();
+    void pushHostAlertNotification(visitorEntry, "Visitor ready for checkout", message, 0);
+
+    startHostAlertReminders(alert, (next) => {
+      setAlerts((prev) => {
+        if (!prev[visitorEntry]) return prev;
+        return { ...prev, [visitorEntry]: next };
+      });
+    });
+  }, []);
+
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_host_alert",
     (payload) => {
+      if (mode !== "host") return;
       const currentUser = user?.user;
       if (!currentUser) return;
       if (payload?.host_user && payload.host_user !== currentUser) return;
       registerAlert(payload);
     },
-    Boolean(user?.user),
+    Boolean(user?.user) && mode === "host",
   );
 
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_visitor_update",
     (payload) => {
+      if (mode !== "host") return;
       if (payload?.event !== "host_notified") return;
       const currentUser = user?.user;
       if (!currentUser) return;
       if (payload?.host_user && payload.host_user !== currentUser) return;
       registerAlert(payload);
     },
-    Boolean(user?.user),
+    Boolean(user?.user) && mode === "host",
+  );
+
+  useVmsRealtimeEvent<HostAlertPayload>(
+    "vms_security_alert",
+    (payload) => {
+      if (mode !== "security") return;
+      registerSecurityAlert(payload);
+    },
+    Boolean(user?.user) && mode === "security",
+  );
+
+  useVmsRealtimeEvent<HostAlertPayload>(
+    "vms_visitor_update",
+    (payload) => {
+      if (mode !== "security") return;
+      if (payload?.event !== "meeting_done" && payload?.event !== "security_checkout_required") return;
+      registerSecurityAlert(payload);
+    },
+    Boolean(user?.user) && mode === "security",
   );
 
   useVmsRealtimeEvent<{ visitor_entry?: string; event?: string }>(
@@ -136,6 +191,9 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
       const event = payload?.event;
       if (!visitorEntry) return;
       if (event === "approved" || event === "rejected" || event === "transferred" || event === "checked_in") {
+        clearAlert(visitorEntry);
+      }
+      if (event === "checked_out") {
         clearAlert(visitorEntry);
       }
     },
@@ -212,12 +270,12 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleReview = useCallback(() => {
-    // Close ring popup, then open Pending page for Accept / Reject on cards
+    const variant = activeAlert?.variant;
     stopHostAlertRing();
     stopAllHostAlertReminders();
     setAlerts({});
-    navigate("/approvals");
-  }, [navigate]);
+    navigate(variant === "security" ? "/inside" : "/approvals");
+  }, [navigate, activeAlert?.variant]);
 
   const openPermissionSetup = useCallback(() => {
     sessionStorage.removeItem("vms_notify_modal_skip");

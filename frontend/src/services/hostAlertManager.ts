@@ -14,6 +14,7 @@ export type HostAlertPayload = {
   host?: string;
   host_user?: string;
   message?: string;
+  alert_variant?: "host" | "security";
 };
 
 export type ActiveHostAlert = {
@@ -23,6 +24,7 @@ export type ActiveHostAlert = {
   hostName: string;
   receivedAt: number;
   reminderCount: number;
+  variant: "host" | "security";
 };
 
 const REMINDER_INTERVAL_MS = 45_000;

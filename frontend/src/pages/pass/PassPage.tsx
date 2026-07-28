@@ -68,7 +68,7 @@ export function PublicPassPage() {
         floor={pass?.floor || "—"}
         status={pass?.status || (result.valid ? "Approved" : "Invalid")}
         noticeMessage={noticeMsg}
-        validUntil={pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : "11:30"}
+        validUntil={pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : "11:30 AM"}
         photoUrl={pass?.photo}
         qrPayload={qrTarget}
         onDownload={() => window.print()}

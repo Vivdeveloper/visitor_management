@@ -90,6 +90,18 @@ def get_kpis(
 		)
 		or 0
 	)
+	counts["Checkout Pending"] = counts.get("Meeting Done", 0)
+	counts["Transferred"] = int(
+		frappe.db.count(
+			"Visitor Entry",
+			{
+				"transfer_to_user": ["!=", ""],
+				"creation": ("between", [f"{start} 00:00:00", f"{end} 23:59:59"]),
+			},
+		)
+		or 0
+	)
+	counts["pending"] = counts.get("Pending Approval", 0)
 	counts["total"] = total
 	return counts
 

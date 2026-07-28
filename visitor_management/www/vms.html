@@ -65,10 +65,85 @@
 				socketio_port: {{ vms_socketio_port }},
 				developer_mode: {{ vms_developer_mode }},
 			};
+
+			/* Capacitor WebView: patch DOM + clear boot markup before React loads. */
+			(function () {
+				function isCapNative() {
+					try {
+						return Boolean(
+							window.Capacitor &&
+								window.Capacitor.isNativePlatform &&
+								window.Capacitor.isNativePlatform(),
+						);
+					} catch (e) {
+						return false;
+					}
+				}
+
+				if (typeof Node !== "undefined" && Node.prototype) {
+					var origRemove = Node.prototype.removeChild;
+					Node.prototype.removeChild = function (child) {
+						if (child.parentNode !== this) {
+							if (child.parentNode) {
+								return origRemove.call(child.parentNode, child);
+							}
+							return child;
+						}
+						return origRemove.call(this, child);
+					};
+					var origInsert = Node.prototype.insertBefore;
+					Node.prototype.insertBefore = function (newNode, ref) {
+						if (ref && ref.parentNode !== this) {
+							return origInsert.call(this, newNode, null);
+						}
+						return origInsert.call(this, newNode, ref);
+					};
+				}
+
+				function swallowDomRace(err) {
+					if (!err) return false;
+					var name = err.name || "";
+					var msg = String(err.message || err);
+					return (
+						name === "NotFoundError" &&
+						(msg.indexOf("removeChild") !== -1 || msg.indexOf("insertBefore") !== -1)
+					);
+				}
+
+				window.addEventListener(
+					"error",
+					function (ev) {
+						if (swallowDomRace(ev.error)) {
+							ev.preventDefault();
+							return true;
+						}
+					},
+					true,
+				);
+				window.addEventListener("unhandledrejection", function (ev) {
+					if (swallowDomRace(ev.reason)) {
+						ev.preventDefault();
+					}
+				});
+
+				if (isCapNative() && "serviceWorker" in navigator) {
+					navigator.serviceWorker.getRegistrations().then(function (regs) {
+						regs.forEach(function (r) {
+							r.unregister();
+						});
+					});
+				}
+			})();
 		</script>
 		<div id="root">
 			<div class="vms-boot">Loading Visitor Management…</div>
 		</div>
+		<script>
+			(function () {
+				var root = document.getElementById("root");
+				if (root) root.replaceChildren();
+			})();
+		</script>
 		<script
 			src="/assets/visitor_management/frontend/vms-app.js?v={{ vms_asset_v }}"
 			type="module"

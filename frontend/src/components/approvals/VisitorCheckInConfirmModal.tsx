@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
-import { formatTime, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
+import { formatStageTimestamp, getCurrentStageTimestamp } from "@/lib/visitStages";
 
 type Props = {
   visitor: VisitorListRow | null;
@@ -26,7 +27,10 @@ export function VisitorCheckInConfirmModal({
   const mobile = visitor.mobile || "—";
   const host = visitor.person_to_meet_name || "—";
   const purpose = visitor.visit_purpose_type || "—";
-  const time = formatTime(visitor.modified || visitor.creation || undefined) || "18:16";
+  const time = formatStageTimestamp(
+    visitor.approved_on || getCurrentStageTimestamp(visitor),
+    true,
+  );
 
   async function handleGenerate() {
     if (!visitor) return;

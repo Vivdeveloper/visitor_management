@@ -17,18 +17,29 @@ import { CheckInSuccessCard } from "@/components/checkin/CheckInSuccessCard";
 import { MeetingInProgressCard } from "@/components/checkin/MeetingInProgressCard";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
 import { DiscardEntryModal } from "@/components/checkin/DiscardEntryModal";
+import { AdditionalGuestsModal } from "@/components/checkin/AdditionalGuestsModal";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import {
   type VisitorLang,
   vt,
 } from "@/i18n/visitorJourney";
 import { useAppLanguage } from "@/context/AppLanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePageChrome } from "@/context/PageChromeContext";
 import {
   applyReturningProfileFields,
   getReturningVisitorProfileFields,
   VISIT_FIELDS_TO_CLEAR,
 } from "@/lib/returningVisitorFields";
+import { resolveVisitPurposeType, VISIT_PURPOSE_OTHER_VALUE } from "@/lib/visitPurpose";
+import { formatTime } from "@/lib/format";
+import { canPerformCheckout } from "@/lib/roles";
+import {
+  formatAdditionalGuestsRemarks,
+  normalizeAdditionalGuests,
+  validateAdditionalGuests,
+  type AdditionalGuest,
+} from "@/lib/additionalGuests";
 
 type JourneyStep =
   | "mobile"
@@ -89,15 +100,6 @@ function extractError(err: unknown, lang: VisitorLang): string {
   return vt(lang, "err_generic");
 }
 
-function formatTime(value?: string): string {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return value;
-  }
-}
-
 
 
 export function MobileCheckInPage() {
@@ -105,6 +107,8 @@ export function MobileCheckInPage() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const allowLeaveRef = useRef(false);
   const { lang, setLang } = useAppLanguage();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
   const [step, setStep] = useState<JourneyStep>("mobile");
 
   usePageChrome({
@@ -123,6 +127,8 @@ export function MobileCheckInPage() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSuccess, setOtpSuccess] = useState(false);
   const [returningVisitor, setReturningVisitor] = useState(false);
+  const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
+  const [additionalGuestsOpen, setAdditionalGuestsOpen] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -145,6 +151,7 @@ export function MobileCheckInPage() {
     visitor_location: "",
     person_to_meet: "",
     visit_purpose_type: "",
+    visit_purpose_other: "",
     number_of_visitors: "1",
     id_proof_type: "",
     vehicle_type: "",
@@ -250,7 +257,25 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 }
 
   function setField(key: keyof typeof form, value: string) {
+    if (key === "number_of_visitors") {
+      const count = Math.max(1, parseInt(value, 10) || 1);
+      setForm((prev) => ({ ...prev, [key]: value }));
+      setAdditionalGuests((prev) => normalizeAdditionalGuests(prev, count));
+      if (count > 1) {
+        setAdditionalGuestsOpen(true);
+      } else {
+        setAdditionalGuests([]);
+        setAdditionalGuestsOpen(false);
+      }
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleAdditionalGuestsSave(guests: AdditionalGuest[]) {
+    setAdditionalGuests(guests);
+    setAdditionalGuestsOpen(false);
+    setError(null);
   }
 
   async function onPhotoCapture(file: File) {
@@ -298,7 +323,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           setStep("ready");
         } else if (step === "awaiting" && (doc.status === "Checked In" || doc.status === "Meeting Done")) {
           setStep("ready");
-        } else if (step === "meeting" && doc.status === "Meeting Done") {
+        } else if (step === "meeting" && doc.status === "Meeting Done" && showCheckout) {
           setStep("checkout");
         } else if (step === "meeting" && doc.status === "Checked Out") {
           allowLeaveRef.current = true;
@@ -315,7 +340,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [visitorName, step, navigate]);
+  }, [visitorName, step, navigate, showCheckout]);
 
 
 
@@ -406,6 +431,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     e.preventDefault();
     setError(null);
     setDevOtp(null);
+    setOtpVerified(false);
+    setOtpSuccess(false);
     setReturningVisitor(false);
     setBusy(true);
     try {
@@ -415,10 +442,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const existing = await lookupReturningVisitor(mobile);
       if (existing) {
         applyReturningVisitor(existing as VisitorListRow & Record<string, unknown>);
-        setOtpVerified(true);
         setReturningVisitor(true);
-        setStep("details");
-        return;
       }
 
       const res = await authApi.sendOtp(mobile, "visitor_registration");
@@ -468,7 +492,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       await authApi.verifyOtp(form.mobile, otpValue, "visitor_registration");
       setOtpVerified(true);
       setOtpSuccess(true);
-      setReturningVisitor(false);
       setTimeout(() => {
         setStep("details");
       }, 750);
@@ -504,6 +527,28 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       setError(vt(lang, "err_photo"));
       return;
     }
+    const visitPurposeType = resolveVisitPurposeType(form.visit_purpose_type, form.visit_purpose_other);
+    if (form.visit_purpose_type === VISIT_PURPOSE_OTHER_VALUE && !visitPurposeType) {
+      setError(vt(lang, "err_purpose_other"));
+      return;
+    }
+
+    const visitorCount = Math.max(1, Number(form.number_of_visitors) || 1);
+    if (visitorCount > 1) {
+      const slots = visitorCount - 1;
+      if (additionalGuests.length !== slots) {
+        setAdditionalGuests(normalizeAdditionalGuests(additionalGuests, visitorCount));
+        setAdditionalGuestsOpen(true);
+        setError("Please enter details for all additional visitors.");
+        return;
+      }
+      const guestError = validateAdditionalGuests(additionalGuests);
+      if (guestError) {
+        setAdditionalGuestsOpen(true);
+        setError(guestError);
+        return;
+      }
+    }
 
     setBusy(true);
     setError(null);
@@ -520,6 +565,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         id_proof_photo = await uploadPublicFile(idProofFile);
       }
 
+      const remarks = visitorCount > 1 ? formatAdditionalGuestsRemarks(additionalGuests) : undefined;
+
       const created = (await visitorApi.create({
         mobile,
         photo,
@@ -532,11 +579,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         visitor_company: form.visitor_company || undefined,
         visitor_location: form.visitor_location || undefined,
         person_to_meet: form.person_to_meet.trim(),
-        visit_purpose_type: form.visit_purpose_type || undefined,
+        visit_purpose_type: visitPurposeType || undefined,
         id_proof_type: form.id_proof_type || undefined,
         vehicle_type: form.vehicle_type || undefined,
         vehicle_number: form.vehicle_number || undefined,
-        number_of_visitors: Number(form.number_of_visitors) || 1,
+        number_of_visitors: visitorCount,
+        approval_remarks: remarks,
         otp_verified: 1,
       })) as { name?: string; visitor?: VisitorDoc };
 
@@ -554,7 +602,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           visitor_company: form.visitor_company,
           person_to_meet: form.person_to_meet.trim(),
           person_to_meet_name: form.person_to_meet.trim(),
-          visit_purpose_type: form.visit_purpose_type,
+          visit_purpose_type: visitPurposeType,
           photo,
         },
       );
@@ -629,7 +677,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setStep("meeting");
   }
 
-  async function onRequestCheckout() {
+  async function onFinishMeeting() {
     if (!visitorName) return;
     setBusy(true);
     setError(null);
@@ -637,15 +685,17 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const doc = (await visitorApi.get(visitorName)) as VisitorDoc;
       setVisitor(doc);
       if (doc.status === "Approved") {
-        setError("Please complete check-in at the gate before checkout.");
+        setError("Please complete check-in at the gate before finishing your meeting.");
         return;
       }
       if (doc.status === "Checked In") {
-        await meetingApi.complete(visitorName, "Visitor requested checkout");
+        await meetingApi.complete(visitorName, "Meeting completed via mobile");
       }
       const refreshed = (await visitorApi.get(visitorName)) as VisitorDoc;
       setVisitor(refreshed);
-      setStep("checkout");
+      if (showCheckout) {
+        setStep("checkout");
+      }
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -676,6 +726,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   const company = visitor?.visitor_company || form.visitor_company || "—";
   const photoUrl = visitor?.photo || photoPreview;
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
+  const meetingDone = visitor?.status === "Meeting Done";
 
   return (
     <section className="m-page vj-page">
@@ -719,6 +770,11 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         <form className="vj-screen vm-verify-screen vm-otp-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
+            {returningVisitor ? (
+              <p className="vm-returning-otp-hint" role="status">
+                {vt(lang, "returning_otp_hint")}
+              </p>
+            ) : null}
           </div>
 
           <div className="vm-otp-grid-row" onPaste={(e) => onOtpPaste(e.clipboardData.getData("text"))}>
@@ -803,7 +859,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <button
               type="button"
               className="vm-back-btn"
-              onClick={() => setStep(returningVisitor ? "mobile" : "otp")}
+              onClick={() => setStep("otp")}
               aria-label="Back"
             >
               ‹
@@ -813,7 +869,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
           {returningVisitor ? (
             <div className="vm-returning-banner" role="status">
-              Returning Visitor Found.
+              {vt(lang, "returning_found")}
             </div>
           ) : null}
 
@@ -831,6 +887,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                 visitor_location: form.visitor_location,
                 person_to_meet: form.person_to_meet,
                 visit_purpose_type: form.visit_purpose_type,
+                visit_purpose_other: form.visit_purpose_other,
                 number_of_visitors: form.number_of_visitors,
                 id_proof_type: form.id_proof_type,
                 vehicle_type: form.vehicle_type,
@@ -845,6 +902,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
               onIdProofCapture={onIdProofCapture}
               onSubmit={(e) => void onSubmitDetails(e)}
             />
+            {Number(form.number_of_visitors) > 1 ? (
+              <button
+                type="button"
+                className="vm-additional-guests-link"
+                onClick={() => setAdditionalGuestsOpen(true)}
+              >
+                Edit additional visitor details ({Math.max(0, Number(form.number_of_visitors) - 1)})
+              </button>
+            ) : null}
           </main>
         </div>
       ) : null}
@@ -1000,21 +1066,47 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </div>
 
           <main className="vm-main-body vm-form-surface">
-            <MeetingInProgressCard
-              hostName={hostName}
-              department="Production Dept."
-              checkInTime="23 Jul 2026, 09:15 AM"
-              expectedCheckout="05:30 PM"
-              expectedDuration="08:15 Hrs"
-              busy={busy}
-              onFinishMeeting={() => void onRequestCheckout()}
-            />
+            {meetingDone && !showCheckout ? (
+              <div style={{ textAlign: "center", padding: "1rem 0" }}>
+                <div
+                  style={{
+                    width: "80px",
+                    height: "80px",
+                    borderRadius: "50%",
+                    background: "#DCFCE7",
+                    margin: "0.5rem auto 1rem",
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: "2.2rem",
+                    color: "#16A34A",
+                  }}
+                >
+                  ✓
+                </div>
+                <h1 className="vm-page-title" style={{ fontSize: "1.35rem", textAlign: "center", color: "#0F172A" }}>
+                  Meeting Complete
+                </h1>
+                <p style={{ textAlign: "center", color: "#64748B", fontSize: "0.9rem", margin: "0.5rem 0 0" }}>
+                  Security has been notified. Please proceed to the security desk for check-out.
+                </p>
+              </div>
+            ) : (
+              <MeetingInProgressCard
+                hostName={hostName}
+                department="Production Dept."
+                checkInTime="23 Jul 2026, 09:15 AM"
+                expectedCheckout="05:30 PM"
+                expectedDuration="08:15 Hrs"
+                busy={busy}
+                onFinishMeeting={() => void onFinishMeeting()}
+              />
+            )}
             {error ? <p className="login-error" style={{ textAlign: "center", marginTop: "0.5rem" }}>{error}</p> : null}
           </main>
         </div>
       ) : null}
 
-      {step === "checkout" ? (
+      {step === "checkout" && showCheckout ? (
         <div className="vm-home-page">
           {/* Header */}
           <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
@@ -1054,6 +1146,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </main>
         </div>
       ) : null}
+
+      <AdditionalGuestsModal
+        open={additionalGuestsOpen}
+        visitorCount={Math.max(1, Number(form.number_of_visitors) || 1)}
+        guests={additionalGuests}
+        busy={busy}
+        onClose={() => setAdditionalGuestsOpen(false)}
+        onSave={handleAdditionalGuestsSave}
+      />
 
       <DiscardEntryModal
         open={blocker.state === "blocked"}

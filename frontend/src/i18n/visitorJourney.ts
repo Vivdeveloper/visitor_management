@@ -70,6 +70,9 @@ const en: Dict = {
   location: "Visitor Location",
   person_to_meet: "Person to Meet *",
   visit_purpose: "Visit Purpose",
+  visit_purpose_other_option: "Other",
+  visit_purpose_other_label: "Specify Purpose",
+  visit_purpose_other_placeholder: "Enter visit purpose",
   num_visitors: "No. of Visitors",
   floor: "Floor",
   id_proof_type: "ID Proof Type",
@@ -104,10 +107,13 @@ const en: Dict = {
   err_generic: "Something went wrong",
   otp_resent: "OTP resent",
   mobile_verified: "Mobile verified",
+  returning_otp_hint: "Welcome back. Verify your mobile number to continue.",
+  returning_found: "Returning visitor found. Your details will be pre-filled after verification.",
   err_verify_otp: "Verify mobile OTP before continuing",
   err_first_name: "First name is required",
   err_person: "Person to meet is required",
   err_photo: "Please capture a visitor photo",
+  err_purpose_other: "Please specify the visit purpose",
 };
 
 const hi: Dict = {
@@ -152,6 +158,9 @@ const hi: Dict = {
   location: "विज़िटर स्थान",
   person_to_meet: "मिलने वाला व्यक्ति *",
   visit_purpose: "भेंट का उद्देश्य",
+  visit_purpose_other_option: "अन्य",
+  visit_purpose_other_label: "उद्देश्य बताएँ",
+  visit_purpose_other_placeholder: "भेंट का उद्देश्य दर्ज करें",
   num_visitors: "विज़िटर संख्या",
   floor: "मंज़िल",
   id_proof_type: "पहचान पत्र प्रकार",
@@ -186,10 +195,13 @@ const hi: Dict = {
   err_generic: "कुछ गलत हो गया",
   otp_resent: "OTP फिर भेजा गया",
   mobile_verified: "मोबाइल सत्यापित",
+  returning_otp_hint: "वापसी पर स्वागत है। जारी रखने के लिए अपना मोबाइल नंबर सत्यापित करें।",
+  returning_found: "पिछला विज़िटर मिला। सत्यापन के बाद आपका विवरण पहले से भरा जाएगा।",
   err_verify_otp: "जारी रखने से पहले मोबाइल OTP सत्यापित करें",
   err_first_name: "पहला नाम आवश्यक है",
   err_person: "मिलने वाला व्यक्ति आवश्यक है",
   err_photo: "कृपया विज़िटर फ़ोटो कैप्चर करें",
+  err_purpose_other: "कृपया भेंट का उद्देश्य बताएँ",
 };
 
 const mr: Dict = {
@@ -234,6 +246,9 @@ const mr: Dict = {
   location: "अभ्यागत स्थान",
   person_to_meet: "भेटायचे व्यक्ती *",
   visit_purpose: "भेटीचा उद्देश",
+  visit_purpose_other_option: "इतर",
+  visit_purpose_other_label: "उद्देश सांगा",
+  visit_purpose_other_placeholder: "भेटीचा उद्देश प्रविष्ट करा",
   num_visitors: "अभ्यागतांची संख्या",
   floor: "मजला",
   id_proof_type: "ओळखपत्र प्रकार",
@@ -268,10 +283,13 @@ const mr: Dict = {
   err_generic: "काहीतरी चुकीचे झाले",
   otp_resent: "OTP पुन्हा पाठवला",
   mobile_verified: "मोबाइल सत्यापित",
+  returning_otp_hint: "पुन्हा स्वागत आहे. पुढे जाण्यासाठी आपला मोबाइल नंबर सत्यापित करा.",
+  returning_found: "मागील भेट देणारा सापडला. सत्यापनानंतर तुमचे तपशील आधीच भरले जातील.",
   err_verify_otp: "पुढे जाण्यापूर्वी मोबाइल OTP सत्यापित करा",
   err_first_name: "पहिले नाव आवश्यक आहे",
   err_person: "भेटायचे व्यक्ती आवश्यक आहे",
   err_photo: "कृपया अभ्यागत फोटो कॅप्चर करा",
+  err_purpose_other: "कृपया भेटीचा उद्देश सांगा",
 };
 
 const TABLES: Record<VisitorLang, Dict> = { en, hi, mr };

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { securityApi, visitorApi } from "@/api/vms";
 import { extractError } from "@/lib/format";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { useAuth } from "@/context/AuthContext";
+import { canPerformCheckout } from "@/lib/roles";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
 
 type VisitorDoc = {
@@ -16,6 +18,8 @@ type VisitorDoc = {
 export function MobileCheckoutPage() {
   const { name: routeName = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
   const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +49,10 @@ export function MobileCheckoutPage() {
       cancelled = true;
     };
   }, [routeName]);
+
+  if (!showCheckout) {
+    return <Navigate to="/approvals" replace />;
+  }
 
   async function onCheckout() {
     const id = visitor?.name || routeName;

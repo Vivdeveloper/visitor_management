@@ -61,7 +61,6 @@ export function usePageChromeState() {
 export function usePageChrome(options: Partial<PageChromeOptions>) {
   const ctx = useContext(PageChromeContext);
   const setChrome = ctx?.setChrome;
-  const resetChrome = ctx?.resetChrome;
 
   const {
     title = DEFAULT_CHROME.title,
@@ -73,8 +72,9 @@ export function usePageChrome(options: Partial<PageChromeOptions>) {
   } = options;
 
   useEffect(() => {
-    if (!setChrome || !resetChrome) return;
+    if (!setChrome) return;
     setChrome({ title, subtitle, showBack, backTo, showNotification, showProfile });
-    return () => resetChrome();
-  }, [title, subtitle, showBack, backTo, showNotification, showProfile, setChrome, resetChrome]);
+    // Do not reset on unmount — the next page sets chrome. Resetting here
+    // flashes the default title and feels like the page "didn't load".
+  }, [title, subtitle, showBack, backTo, showNotification, showProfile, setChrome]);
 }

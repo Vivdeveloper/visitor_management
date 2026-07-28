@@ -8,6 +8,7 @@ import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { formatTime } from "@/lib/format";
+import { getCurrentStageTimestamp } from "@/lib/visitStages";
 
 export function MobileNotificationsPage() {
   const navigate = useNavigate();
@@ -109,7 +110,7 @@ export function MobileNotificationsPage() {
                         <span>{item.person_to_meet_name || item.host_name || "Awaiting assignment"}</span>
                       </div>
                       <span className="vm-notif-time">
-                        {formatTime(item.check_in || item.checked_in_on || item.modified || item.creation) || "—"}
+                        {formatTime(getCurrentStageTimestamp(item)) || "—"}
                       </span>
                     </button>
                   </li>
