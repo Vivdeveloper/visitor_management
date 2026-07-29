@@ -171,7 +171,7 @@ def get_queues(
 	start, end = _parse_dates(from_date, to_date)
 	pending = frappe.get_all(
 		"Visitor Entry",
-		filters={"status": "Pending Approval"},
+		filters={"status": ["in", ["Pending Approval", "Pending"]]},
 		fields=QUEUE_FIELDS,
 		order_by="modified desc",
 		limit_page_length=50,

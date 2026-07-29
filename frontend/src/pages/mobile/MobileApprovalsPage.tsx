@@ -17,6 +17,7 @@ import { ApprovalTransferModal } from "@/components/approvals/ApprovalTransferMo
 import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
 import { ViewGatePassModal } from "@/components/approvals/ViewGatePassModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { formatNowTime } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
@@ -147,6 +148,8 @@ export function MobileApprovalsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  usePageRefresh(load);
 
   useVmsRealtime(() => {
     void load();
@@ -480,7 +483,7 @@ export function MobileApprovalsPage() {
               onMeetingDone={
                 viewOnlyAll
                   ? undefined
-                  : !showCheckout && item.status === "Checked In"
+                  : item.status === "Checked In"
                     ? (v) => void handleMeetingDone(v)
                     : undefined
               }

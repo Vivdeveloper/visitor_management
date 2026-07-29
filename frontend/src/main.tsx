@@ -3,11 +3,11 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import { IS_CAPACITOR_BUILD } from "./config/env";
 import { patchDomNodeSafety } from "@/lib/domSafety";
+import { isLikelyNativeWebView, isNativePlatform } from "@/native/platform";
 import "./styles/index.css";
 
 function isCapacitorNativeRuntime(): boolean {
-  const cap = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-  return Boolean(cap?.isNativePlatform?.());
+  return isNativePlatform() || isLikelyNativeWebView();
 }
 
 /* Soften WebView / service-worker DOM races that crash React removeChild. */

@@ -1,7 +1,13 @@
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { PushNotifications, Token, PushNotificationSchema } from "@capacitor/push-notifications";
+import {
+  PushNotifications,
+  type Token,
+  type PushNotificationSchema,
+  type ActionPerformed,
+} from "@capacitor/push-notifications";
 import { isNativePlatform } from "@/native/platform";
 import { ensureBackgroundPushReady, ensureServiceWorkerReady } from "@/services/webPush";
+import { cacheFcmToken, saveFcmTokenToServer } from "@/services/fcmPush";
 
 export type PushTokenHandler = (token: string) => void;
 export type PushMessageHandler = (notification: PushNotificationSchema) => void;
@@ -11,6 +17,46 @@ const NOTIFY_ICON = "/assets/visitor_management/frontend/icons/icon-192.png";
 
 let pushInitialized = false;
 let urgentChannelReady = false;
+
+function isNativePushEnabled(): boolean {
+  return String(import.meta.env.VITE_NATIVE_PUSH ?? "") === "true";
+}
+
+function isPushPluginAvailable(): boolean {
+  const cap = (
+    window as Window & { Capacitor?: { isPluginAvailable?: (name: string) => boolean } }
+  ).Capacitor;
+  if (!cap?.isPluginAvailable) return true;
+  return cap.isPluginAvailable("PushNotifications");
+}
+
+/** Open in-app route from FCM tap (HashRouter on native). */
+export function openPushDeepLink(rawUrl?: string | null): void {
+  let path = (rawUrl || "/approvals").trim() || "/approvals";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    try {
+      const parsed = new URL(path);
+      path = parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      path = "/approvals";
+    }
+  }
+  path = path.replace(/^\/vms/, "") || "/";
+  if (!path.startsWith("/")) path = `/${path}`;
+
+  if (isNativePlatform()) {
+    window.location.hash = `#${path}`;
+    return;
+  }
+  const base = import.meta.env.BASE_URL || "/vms/";
+  window.location.assign(`${base.replace(/\/$/, "")}${path}`);
+}
+
+function extractPushUrl(notification: PushNotificationSchema | ActionPerformed["notification"]): string {
+  const data = (notification.data || {}) as Record<string, unknown>;
+  const url = data.url ?? data.path ?? data.click_action;
+  return typeof url === "string" ? url : "/approvals";
+}
 
 async function showBrowserNotification(title: string, body: string, tag: string): Promise<boolean> {
   if (!("Notification" in window)) return false;
@@ -61,6 +107,15 @@ export async function ensureUrgentNotificationChannel(): Promise<void> {
       visibility: 1,
       sound: "default",
     });
+    await LocalNotifications.createChannel({
+      id: "gatepass_default",
+      name: "GatePass Alerts",
+      description: "Visitor approvals, check-ins, and gate notifications",
+      importance: 4,
+      vibration: true,
+      visibility: 1,
+      sound: "default",
+    });
     urgentChannelReady = true;
   } catch {
     urgentChannelReady = true;
@@ -68,43 +123,57 @@ export async function ensureUrgentNotificationChannel(): Promise<void> {
 }
 
 export async function initPushNotifications(
-  onToken: PushTokenHandler,
+  onToken?: PushTokenHandler,
   onMessage?: PushMessageHandler,
 ): Promise<void> {
-  if (!isNativePlatform() || pushInitialized) return;
-  pushInitialized = true;
+  if (!isNativePlatform()) return;
+  if (pushInitialized) {
+    // Already registered — still try to persist any cached token after login.
+    void saveFcmTokenToServer();
+    return;
+  }
 
   await ensureUrgentNotificationChannel();
 
   // Never call PushNotifications.register() without google-services.json —
   // Capacitor treats the native Firebase exception as FATAL and kills the app.
-  // Enable only with VITE_NATIVE_PUSH=true after Firebase is configured.
-  const pushEnabled = String(import.meta.env.VITE_NATIVE_PUSH ?? "") === "true";
-  if (!pushEnabled) {
+  if (!isNativePushEnabled() || !isPushPluginAvailable()) {
     return;
   }
 
+  pushInitialized = true;
+
   try {
     const perm = await PushNotifications.requestPermissions();
-    if (perm.receive !== "granted") return;
+    if (perm.receive !== "granted") {
+      pushInitialized = false;
+      return;
+    }
 
     await PushNotifications.addListener("registration", (token: Token) => {
-      onToken(token.value);
+      cacheFcmToken(token.value);
+      onToken?.(token.value);
+      void saveFcmTokenToServer(token.value);
     });
 
     await PushNotifications.addListener("registrationError", () => {
-      /* device push unavailable */
+      /* device push unavailable — usually missing google-services.json */
     });
 
-    if (onMessage) {
-      await PushNotifications.addListener("pushNotificationReceived", onMessage);
-      await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-        if (action.notification) onMessage(action.notification);
-      });
-    }
+    await PushNotifications.addListener("pushNotificationReceived", (notification) => {
+      onMessage?.(notification);
+    });
+
+    await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+      if (action.notification) {
+        onMessage?.(action.notification);
+        openPushDeepLink(extractPushUrl(action.notification));
+      }
+    });
 
     await PushNotifications.register();
   } catch {
+    pushInitialized = false;
     /* Push / Firebase not configured — local notifications still work */
   }
 }
@@ -207,14 +276,24 @@ export async function cancelHostAlertNotifications(ids: number[]): Promise<void>
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (isNativePlatform()) {
-    // Local notifications only unless FCM is explicitly enabled — requesting /
-    // registering push without google-services.json crashes the Android app.
     const localPerm = await LocalNotifications.requestPermissions();
-    if (String(import.meta.env.VITE_NATIVE_PUSH ?? "") !== "true") {
+    if (!isNativePushEnabled() || !isPushPluginAvailable()) {
       return localPerm.display === "granted";
     }
     try {
       const pushPerm = await PushNotifications.requestPermissions();
+      if (pushPerm.receive === "granted") {
+        // Ensure registration runs after a user gesture grant.
+        if (!pushInitialized) {
+          await initPushNotifications();
+        } else {
+          try {
+            await PushNotifications.register();
+          } catch {
+            /* already registered / firebase missing */
+          }
+        }
+      }
       return pushPerm.receive === "granted" || localPerm.display === "granted";
     } catch {
       return localPerm.display === "granted";

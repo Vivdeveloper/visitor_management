@@ -103,13 +103,13 @@ define(['./workbox-50bb6711'], (function (workbox) { 'use strict';
     "revision": "ca6a8774253dc0d0358c8ecceac9469b"
   }, {
     "url": "vms-chunk-capacitor-init.js",
-    "revision": "bd2e4c361078dc91a0c8e0b946814bc0"
+    "revision": "a1758eb7280ba47f82d6d333580e1e8b"
   }, {
     "url": "vms-asset-index.css",
-    "revision": "8c1f5f5700f82b03777274781b74d206"
+    "revision": "8a2da1024cc33703a6eaae33f01cee18"
   }, {
     "url": "vms-app.js",
-    "revision": "7f74ddee61856be1536e0656babb27f1"
+    "revision": "7586041364a3c642410710716729a3b6"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

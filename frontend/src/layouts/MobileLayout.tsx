@@ -1,22 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { FloatingNavbar } from "@/components/navigation/FloatingNavbar";
 import { OfflineIndicator } from "@/components/common/OfflineIndicator";
 import { HeaderBar } from "@/components/common/HeaderBar";
 import { PageChromeProvider, usePageChromeState } from "@/context/PageChromeContext";
 import { HostAlertProvider } from "@/context/HostAlertContext";
 import { VMS_PAGE_REFRESH_EVENT } from "@/hooks/usePageRefresh";
+import { setSpaNavigators, syncSpaDepth } from "@/native/backNavigation";
 
 function AppTopBar() {
   const chrome = usePageChromeState();
   const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (chrome.onBack) {
+      chrome.onBack();
+      return;
+    }
+    if (chrome.backTo) {
+      navigate(chrome.backTo);
+      return;
+    }
+    navigate(-1);
+  };
 
   return (
     <HeaderBar
       title={chrome.title}
       subtitle={chrome.subtitle}
       showBack={chrome.showBack}
-      onBack={chrome.backTo ? () => navigate(chrome.backTo!) : undefined}
+      onBack={handleBack}
       showNotification={chrome.showNotification}
       showProfile={chrome.showProfile}
     />
@@ -25,6 +38,8 @@ function AppTopBar() {
 
 export function MobileLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const navType = useNavigationType();
   const mainRef = useRef<HTMLDivElement | null>(null);
   const startYRef = useRef<number | null>(null);
   const lastDeltaRef = useRef(0);
@@ -34,8 +49,18 @@ export function MobileLayout() {
   const refreshingRef = useRef(false);
   const hideDock = location.pathname === "/check-in";
 
-  /* New route → scroll to top so the next screen is visible immediately.
-   * Double rAF: Android WebView often applies layout after the first frame. */
+  useEffect(() => {
+    return setSpaNavigators(
+      () => navigate(-1),
+      () => navigate("/", { replace: false }),
+    );
+  }, [navigate]);
+
+  useEffect(() => {
+    syncSpaDepth(navType);
+  }, [location.key, navType]);
+
+  /* New route → scroll to top + soft-reload page data (no window.reload). */
   useEffect(() => {
     const el = mainRef.current;
     if (!el) return;
@@ -48,6 +73,8 @@ export function MobileLayout() {
     const id = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(reset);
     });
+    // Tell pages hooked with usePageRefresh to re-fetch immediately on tab change.
+    window.dispatchEvent(new Event(VMS_PAGE_REFRESH_EVENT));
     return () => window.cancelAnimationFrame(id);
   }, [location.pathname, location.key]);
 
@@ -165,8 +192,8 @@ export function MobileLayout() {
               )}
             </div>
 
-            {/* Remount on route change only; pull-to-refresh uses vms:page-refresh event */}
-            <Outlet key={location.key} />
+            {/* Remount on pathname so each tab mounts cleanly in Android WebView */}
+            <Outlet key={location.pathname} />
           </main>
           <FloatingNavbar />
         </div>

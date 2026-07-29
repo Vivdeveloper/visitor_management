@@ -13,6 +13,7 @@ import { extractError, formatDate } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { canPerformCheckout } from "@/lib/roles";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
 
 type SubTab = "overview" | "checkout_pending";
@@ -75,6 +76,8 @@ export function MobileAnalyticsPage() {
   useEffect(() => {
     void load(selectedDate);
   }, [load, selectedDate]);
+
+  usePageRefresh(() => load(selectedDate));
 
   useVmsRealtime(() => {
     void load(selectedDate);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import {
@@ -26,6 +26,7 @@ import {
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { registerBackHandler, getSpaDepth } from "@/native/backNavigation";
 import {
   applyReturningProfileFields,
   getReturningVisitorProfileFields,
@@ -111,15 +112,6 @@ export function MobileCheckInPage() {
   const showCheckout = canPerformCheckout(user);
   const [step, setStep] = useState<JourneyStep>("mobile");
 
-  usePageChrome({
-    title: "Add Entry",
-    subtitle: "Visitor Entry & Desk Verification",
-    showBack: step !== "otp",
-    backTo: "/",
-    showNotification: true,
-    showProfile: true,
-  });
-
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devOtp, setDevOtp] = useState<string | null>(null);
@@ -158,10 +150,74 @@ export function MobileCheckInPage() {
     vehicle_number: "",
   });
 
-  function leaveTo(path: string) {
+  const leaveTo = useCallback((path: string) => {
     allowLeaveRef.current = true;
     navigate(path, { replace: true });
-  }
+  }, [navigate]);
+
+  const leaveCheckIn = useCallback(() => {
+    allowLeaveRef.current = true;
+    if (getSpaDepth() > 0) {
+      navigate(-1);
+      return;
+    }
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  const goBackInJourney = useCallback(() => {
+    switch (step) {
+      case "otp":
+        setOtpDigits(Array(OTP_LEN).fill(""));
+        setOtpSuccess(false);
+        setOtpVerified(false);
+        setError(null);
+        setDevOtp(null);
+        setStep("mobile");
+        return;
+      case "details":
+        setStep("otp");
+        return;
+      case "awaiting":
+        setStep("details");
+        return;
+      case "ready":
+        setStep("details");
+        return;
+      case "pass":
+        setStep("ready");
+        return;
+      case "meeting":
+        setStep("pass");
+        return;
+      case "checkout":
+        setStep("meeting");
+        return;
+      case "mobile":
+        leaveCheckIn();
+        return;
+      default: {
+        const _exhaustive: never = step;
+        return _exhaustive;
+      }
+    }
+  }, [step, leaveCheckIn]);
+
+  usePageChrome({
+    title: "Add Entry",
+    subtitle: "Visitor Entry & Desk Verification",
+    showBack: step !== "otp",
+    backTo: "/",
+    onBack: goBackInJourney,
+    showNotification: true,
+    showProfile: true,
+  });
+
+  useEffect(() => {
+    return registerBackHandler(() => {
+      goBackInJourney();
+      return true;
+    });
+  }, [goBackInJourney]);
 
   const hasEntryProgress =
     step !== "mobile" ||
@@ -768,6 +824,18 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
       {step === "otp" ? (
         <form className="vj-screen vm-verify-screen vm-otp-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
+          <header className="vm-page-header vm-checkin-step-header vm-otp-back-row">
+            <button
+              type="button"
+              className="vm-back-btn"
+              onClick={goBackInJourney}
+              aria-label="Back to mobile number"
+            >
+              ‹
+            </button>
+            <div style={{ width: "24px" }} />
+          </header>
+
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
             {returningVisitor ? (
@@ -855,7 +923,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
       {step === "details" ? (
         <div className="vm-home-page" lang={lang}>
-          <header className="vm-page-header" style={{ justifyContent: "flex-start", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0", gap: "0.75rem" }}>
+          <header className="vm-page-header vm-checkin-step-header" style={{ justifyContent: "flex-start", gap: "0.75rem" }}>
             <button
               type="button"
               className="vm-back-btn"
@@ -947,7 +1015,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "ready" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("details")} aria-label="Back">
               ‹
             </button>
@@ -985,7 +1053,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "pass" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("ready")} aria-label="Back">
               ‹
             </button>
@@ -1044,7 +1112,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "meeting" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("pass")} aria-label="Back">
               ‹
             </button>
@@ -1109,7 +1177,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "checkout" && showCheckout ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("meeting")} aria-label="Back">
               ‹
             </button>

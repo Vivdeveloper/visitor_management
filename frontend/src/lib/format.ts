@@ -130,6 +130,9 @@ export function extractError(err: unknown, fallback = "Something went wrong") {
     if (/plugin is not implemented/i.test(msg)) {
       return "Could not reach the server. Check your internet connection and try again.";
     }
+    if (msg === "Network Error" || /cannot reach the server/i.test(msg)) {
+      return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
     if (err.message === "Request failed with status code 417") {
       return "Validation failed. Check host, purpose, and ID proof values from ERPNext.";
     }

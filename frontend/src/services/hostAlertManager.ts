@@ -2,9 +2,11 @@ import { Haptics } from "@capacitor/haptics";
 import { isNativePlatform } from "@/native/platform";
 import {
   cancelHostAlertNotifications,
+  initPushNotifications,
   requestNotificationPermission,
   scheduleUrgentHostAlert,
 } from "@/native/services/notifications";
+import { saveFcmTokenToServer } from "@/services/fcmPush";
 import { subscribeWebPush } from "@/services/webPush";
 
 export type HostAlertPayload = {
@@ -136,6 +138,12 @@ export async function enableHostAlertPermissions(): Promise<{
   let webPush = false;
   if (notifications && !isNativePlatform()) {
     webPush = await subscribeWebPush();
+  }
+  if (notifications && isNativePlatform()) {
+    await initPushNotifications((token) => {
+      void saveFcmTokenToServer(token);
+    });
+    await saveFcmTokenToServer();
   }
   primeHostAlertAudio();
   playHostAlertSound();

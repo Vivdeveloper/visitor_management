@@ -1,6 +1,6 @@
 import axios from "axios";
 import { API_BASE } from "@/config/env";
-import { enqueueRequest } from "@/offline/queue";
+import { enqueueRequest, shouldEnqueueRequest } from "@/offline/queue";
 import { isOnline } from "@/native/services/network";
 
 declare global {
@@ -36,14 +36,21 @@ apiClient.interceptors.response.use(
     const config = error.config;
     const method = String(config?.method ?? "").toLowerCase();
 
-    if (config && MUTATING_METHODS.has(method) && !config.headers?.["X-VMS-Offline-Retry"]) {
+    // Only queue when the device is actually offline — not on CORS / wrong-host
+    // Network Errors (those used to flood localStorage with failed logins).
+    if (
+      config &&
+      MUTATING_METHODS.has(method) &&
+      !config.headers?.["X-VMS-Offline-Retry"] &&
+      shouldEnqueueRequest(config)
+    ) {
       let online = true;
       try {
         online = await isOnline();
       } catch {
         online = typeof navigator !== "undefined" ? navigator.onLine : true;
       }
-      if (!online || error.code === "ERR_NETWORK") {
+      if (!online) {
         enqueueRequest(config);
       }
     }

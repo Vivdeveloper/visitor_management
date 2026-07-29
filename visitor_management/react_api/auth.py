@@ -68,8 +68,18 @@ def login_with_password(usr: str | None = None, pwd: str | None = None) -> dict:
 		frappe.throw(_("Username/Email and Password are required"))
 
 	login_manager = frappe.auth.LoginManager()
-	login_manager.authenticate(usr.strip(), pwd)
-	login_manager.post_login()
+	try:
+		login_manager.authenticate(usr.strip(), pwd)
+		login_manager.post_login()
+	except frappe.AuthenticationError:
+		# Return JSON instead of re-raising — local Frappe error handler can abort
+		# the HTTP response (missing `sys` import) which the SPA shows as "Network Error".
+		frappe.local.response["http_status_code"] = 401
+		return {
+			"success": False,
+			"authenticated": False,
+			"message": _("Invalid ERPNext username or password"),
+		}
 
 	profile = get_profile(frappe.session.user)
 	return {

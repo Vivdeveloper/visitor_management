@@ -10,6 +10,7 @@ import { usePageChrome } from "@/context/PageChromeContext";
 import { useAuth } from "@/context/AuthContext";
 import { canPerformCheckout } from "@/lib/roles";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 const CHECKOUT_PENDING_STATUS = "Meeting Done";
@@ -87,6 +88,8 @@ export function MobileInsidePage() {
   useEffect(() => {
     void loadVisitors();
   }, [loadVisitors]);
+
+  usePageRefresh(loadVisitors);
 
   useVmsRealtime(() => {
     void loadVisitors();

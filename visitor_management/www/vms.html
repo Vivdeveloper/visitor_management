@@ -70,14 +70,16 @@
 			(function () {
 				function isCapNative() {
 					try {
-						return Boolean(
+						if (
 							window.Capacitor &&
-								window.Capacitor.isNativePlatform &&
-								window.Capacitor.isNativePlatform(),
-						);
-					} catch (e) {
-						return false;
-					}
+							window.Capacitor.isNativePlatform &&
+							window.Capacitor.isNativePlatform()
+						) {
+							return true;
+						}
+					} catch (e) {}
+					/* Live URL: Capacitor injects after first paint — Android WebView UA. */
+					return /;\s*wv\)/i.test(navigator.userAgent || "") || /Capacitor/i.test(navigator.userAgent || "");
 				}
 
 				if (typeof Node !== "undefined" && Node.prototype) {

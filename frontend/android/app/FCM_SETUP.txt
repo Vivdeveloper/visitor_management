@@ -1,0 +1,20 @@
+# Firebase / FCM setup for GatePass Android lock-screen notifications
+#
+# 1. Firebase Console → create project → Add Android app
+#    Package name: com.preciousalloys.gatepass
+# 2. Download google-services.json → copy to:
+#    frontend/android/app/google-services.json
+#    (see google-services.json.example)
+# 3. Project settings → Service accounts → Generate new private key
+#    Save as site private file, e.g.:
+#      sites/<site>/private/files/vms_fcm_service_account.json
+#    Or set in site_config.json:
+#      "vms_fcm_service_account": "/absolute/path/to/service-account.json"
+#      "vms_fcm_project_id": "your-firebase-project-id"   # optional if in JSON
+# 4. Bench:
+#      bench pip install google-auth requests
+#      (or rely on visitor_management pyproject dependencies)
+# 5. Build APK with VITE_NATIVE_PUSH=true (already in .env.capacitor):
+#      cd frontend && npm run cap:sync
+#      then Gradle installDebug / bundleRelease
+# 6. Login on device → Allow notifications → create pending visitor for that host

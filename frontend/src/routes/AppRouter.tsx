@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createBrowserRouter,
   createHashRouter,
@@ -27,6 +27,7 @@ import { MobileNotificationsPage } from "@/pages/mobile/MobileNotificationsPage"
 import { MobileVisitorDetailPage } from "@/pages/mobile/MobileVisitorDetailPage";
 import { useAuth } from "@/context/AuthContext";
 import { APP_BASE_PATH } from "@/config/env";
+import { isLikelyNativeWebView, shouldUseHashRouter } from "@/native/platform";
 
 function RequirePwaAuth() {
   const { isAuthenticated, loading, user } = useAuth();
@@ -37,12 +38,6 @@ function RequirePwaAuth() {
     return <Navigate to="/login" replace />;
   }
   return <Outlet />;
-}
-
-function isCapacitorNativeRuntime(): boolean {
-  if (typeof window === "undefined") return false;
-  const cap = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-  return Boolean(cap?.isNativePlatform?.());
 }
 
 const routeElements = createRoutesFromElements(
@@ -79,16 +74,54 @@ const routeElements = createRoutesFromElements(
   </>,
 );
 
-function createVmsRouter() {
+function createVmsRouter(useHash: boolean) {
   // Android/iOS WebView + Capacitor live URL often breaks History API updates
-  // until a full reload. Hash routing keeps tab changes instant in the emulator.
-  if (isCapacitorNativeRuntime()) {
+  // until a full reload. Hash routing keeps tab changes instant.
+  if (useHash) {
     return createHashRouter(routeElements);
   }
   return createBrowserRouter(routeElements, { basename: APP_BASE_PATH });
 }
 
+/**
+ * Wait briefly for Capacitor bridge on APK live URL so we don't lock into
+ * BrowserRouter before the native shell injects (forces hard refresh otherwise).
+ */
+function useHashRouterDecision(): boolean | null {
+  const [decision, setDecision] = useState<boolean | null>(() => {
+    if (typeof window === "undefined") return false;
+    if (shouldUseHashRouter()) return true;
+    if (isLikelyNativeWebView()) return null;
+    return false;
+  });
+
+  useEffect(() => {
+    if (decision !== null) return;
+
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      if (shouldUseHashRouter() || Date.now() - started > 450) {
+        setDecision(shouldUseHashRouter() || isLikelyNativeWebView());
+        window.clearInterval(id);
+      }
+    }, 25);
+
+    return () => window.clearInterval(id);
+  }, [decision]);
+
+  return decision;
+}
+
 export function AppRouter() {
-  const router = useMemo(() => createVmsRouter(), []);
+  const useHash = useHashRouterDecision();
+  const router = useMemo(
+    () => (useHash === null ? null : createVmsRouter(useHash)),
+    [useHash],
+  );
+
+  if (!router) {
+    return <div className="login-page">Loading…</div>;
+  }
+
   return <RouterProvider router={router} />;
 }

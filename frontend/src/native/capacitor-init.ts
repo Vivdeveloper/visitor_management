@@ -2,9 +2,11 @@ import { App } from "@capacitor/app";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { isNativePlatform, isAndroid, isIos } from "@/native/platform";
+import { dispatchHardwareBack } from "@/native/backNavigation";
 import { lockPortrait } from "@/native/services/screenOrientation";
 import { onKeyboardChange, hideKeyboard } from "@/native/services/keyboard";
 import { initPushNotifications, ensureUrgentNotificationChannel } from "@/native/services/notifications";
+import { saveFcmTokenToServer } from "@/services/fcmPush";
 import { startOfflineSyncListener } from "@/offline/sync";
 
 function resolveDeepLinkPath(url: string): string | null {
@@ -20,6 +22,12 @@ function resolveDeepLinkPath(url: string): string | null {
 }
 
 function navigateToPath(path: string) {
+  // Capacitor live WebView uses HashRouter — History API alone needs a hard refresh.
+  if (isNativePlatform() || isAndroid()) {
+    const normalized = path.startsWith("/") ? path : `/${path}`;
+    window.location.hash = `#${normalized}`;
+    return;
+  }
   if (window.location.pathname + window.location.search + window.location.hash !== path) {
     window.history.pushState({}, "", path);
     window.dispatchEvent(new PopStateEvent("popstate"));
@@ -62,10 +70,8 @@ export async function initCapacitorNative(): Promise<() => void> {
   });
 
   const removeBack = App.addListener("backButton", () => {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
+    // Prefer SPA / page handlers — do not use history.length (WebView often exits wrongly).
+    if (dispatchHardwareBack()) return;
     void App.exitApp();
   });
 
@@ -80,8 +86,8 @@ export async function initCapacitorNative(): Promise<() => void> {
     }
   });
 
-  void initPushNotifications(() => {
-    /* token registration — wire to backend when push endpoint is ready */
+  void initPushNotifications((token) => {
+    void saveFcmTokenToServer(token);
   });
 
   const removeOffline = startOfflineSyncListener();

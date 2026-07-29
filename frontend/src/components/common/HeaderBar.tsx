@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { dashboardApi } from "@/api/vms";
+import { dashboardApi, visitorApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
@@ -37,7 +37,7 @@ export function HeaderBar({
   showProfile = true,
 }: HeaderBarProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { lang } = useAppLanguage();
   const [popup, setPopup] = useState<PopupKind>("none");
   const [pendingCount, setPendingCount] = useState(0);
@@ -47,13 +47,27 @@ export function HeaderBar({
   const displayName = user?.full_name || user?.user || "User";
 
   const loadPendingCount = useCallback(async () => {
-    try {
-      const list = await dashboardApi.getPendingApprovals();
-      setPendingCount(list?.length || 0);
-    } catch {
+    // Skip while signed out — Frappe answers guest calls with a server error.
+    if (authLoading || !isAuthenticated) {
       setPendingCount(0);
+      return;
     }
-  }, []);
+    try {
+      // Same source as Pending tab / Notifications page — avoid empty dashboard queue misses.
+      const list = await visitorApi.listDetailed(200);
+      const pending = (list || []).filter(
+        (row) => row.status === "Pending Approval" || row.status === "Pending",
+      );
+      setPendingCount(pending.length);
+    } catch {
+      try {
+        const list = await dashboardApi.getPendingApprovals();
+        setPendingCount(list?.length || 0);
+      } catch {
+        setPendingCount(0);
+      }
+    }
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     void loadPendingCount();
@@ -61,7 +75,7 @@ export function HeaderBar({
 
   useVmsRealtime(() => {
     void loadPendingCount();
-  }, true);
+  }, isAuthenticated);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {

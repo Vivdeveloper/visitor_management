@@ -3262,7 +3262,8 @@ a {
 .m-shell--chrome .m-content {
   padding-left: var(--vms-page-gutter) !important;
   padding-right: var(--vms-page-gutter) !important;
-  padding-top: calc(4.35rem + env(safe-area-inset-top, 0px)) !important;
+  /* Clear fixed topbar only (topbar already includes safe-area in its own padding) */
+  padding-top: calc(3.65rem + env(safe-area-inset-top, 0px)) !important;
   /* Extra clearance for elevated dock icons so Accept/Reject aren't covered */
   padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)) !important;
   background: #F8FAFC;
@@ -3275,6 +3276,23 @@ a {
 
 .m-shell--no-dock .m-content {
   padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Check-in step headers sit under chrome — do not re-apply safe-area top inset */
+.vm-checkin-step-header {
+  background: transparent;
+  border: none;
+  justify-content: space-between;
+  padding: 0.2rem 0.25rem 0.15rem;
+  margin: 0;
+}
+
+.m-shell--chrome .vm-home-page:has(.vm-checkin-step-header) {
+  gap: 0.55rem;
+}
+
+.m-shell--chrome .m-page.vj-page:has(.vm-checkin-step-header) {
+  padding-top: 0;
 }
 
 .m-app-topbar .vm-topbar {
@@ -5224,6 +5242,25 @@ a {
   color: #1e293b;
   max-width: 16rem;
   line-height: 1.4;
+}
+
+.vm-notif-alerts-section {
+  margin-top: 1.25rem;
+}
+
+.vm-notif-alerts-toolbar {
+  padding-top: 0;
+}
+
+.vm-notif-alert-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #e8eef8;
+  color: #0a3d91;
+  flex-shrink: 0;
 }
 
 .vm-notif-row.is-read::before {
@@ -11335,7 +11372,7 @@ button.vm-photo-preview.is-clickable:active {
 }
 
 .m-shell--chrome .m-page.vj-page {
-  padding-top: 0.5rem;
+  padding-top: 0.25rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -11391,12 +11428,18 @@ button.vm-photo-preview.is-clickable:active {
 .vm-otp-screen {
   justify-content: flex-start;
   gap: 1.1rem;
-  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
-  min-height: 100dvh;
+  padding-top: 0.35rem;
+  min-height: auto;
+}
+
+.m-shell--chrome .vm-otp-screen {
+  padding-top: 0.15rem;
+  /* Chrome topbar already clears safe-area — avoid a second blank band */
+  min-height: auto;
 }
 
 .vm-otp-screen .vm-verify-top {
-  margin-top: 0.35rem;
+  margin-top: 0.15rem;
   margin-bottom: 0.35rem;
 }
 
@@ -11404,8 +11447,15 @@ button.vm-photo-preview.is-clickable:active {
   justify-content: flex-start;
 }
 
+.vm-otp-back-row {
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+  justify-content: flex-start;
+}
+
 .vm-returning-banner {
-  margin: 0.85rem 0.25rem 0.35rem;
+  margin: 0.35rem 0.25rem 0.15rem;
   padding: 0.7rem 0.9rem;
   border-radius: 12px;
   background: #ecfdf3;

@@ -152,7 +152,7 @@ def _notify_one_user(
 		frappe.log_error(title="VMS realtime notify failed")
 
 	try:
-		from visitor_management.react_api.push_notification import send_push_to_user
+		from visitor_management.react_api.push_notification import send_fcm_to_user, send_push_to_user
 
 		send_push_to_user(
 			user,
@@ -161,8 +161,15 @@ def _notify_one_user(
 			url=_push_url_for(event),
 			tag=f"vms-{visitor_entry}-{event}",
 		)
+		send_fcm_to_user(
+			user,
+			title=title,
+			body=body,
+			url=_push_url_for(event),
+			tag=f"vms-{visitor_entry}-{event}",
+		)
 	except Exception:
-		frappe.log_error(title="VMS web push notify failed")
+		frappe.log_error(title="VMS web/FCM push notify failed")
 
 
 def notify_security_checkout(doc) -> dict:

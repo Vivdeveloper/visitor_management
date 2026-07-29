@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { mobileTabsFor, resolveMode } from "@/lib/roles";
 import { MobileTabIconView } from "@/components/ui/MobileIcons";
 import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 import type { VisitorLang } from "@/i18n/visitorJourney";
+import { shouldUseHashRouter } from "@/native/platform";
 
 function dockLabel(lang: VisitorLang, to: string, fallback: string): string {
   const keyByPath: Record<string, UiCopyKey> = {
@@ -28,6 +29,7 @@ const UP_DELTA = 10;
 export function FloatingNavbar() {
   const { user } = useAuth();
   const { lang } = useAppLanguage();
+  const navigate = useNavigate();
   const mode = resolveMode(user);
   const tabs = mobileTabsFor(mode);
   const location = useLocation();
@@ -35,6 +37,7 @@ export function FloatingNavbar() {
   const compactRef = useRef(false);
   const lastYRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nativeNav = shouldUseHashRouter();
 
   /* Hide dock on Add Entry so the + button does not cover Continue. */
   const hideDock = location.pathname === "/check-in";
@@ -109,6 +112,13 @@ export function FloatingNavbar() {
               }
               aria-label={label}
               title={label}
+              onClick={(event) => {
+                // Capacitor WebView: force client navigate so tabs update without hard refresh.
+                if (!nativeNav) return;
+                event.preventDefault();
+                if (location.pathname === tab.to) return;
+                navigate(tab.to);
+              }}
             >
               <span className="vm-dock-pill">
                 <span className={`vm-dock-icon${isAddEntry ? " is-add" : ""}`}>

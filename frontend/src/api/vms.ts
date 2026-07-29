@@ -74,12 +74,26 @@ function extractApiError(err: unknown): string {
     if (ax.response?.status === 417) {
       return "Server rejected the request (invalid field or value). Refresh and try again.";
     }
+    if (ax.response?.status === 401) {
+      return "Invalid ERPNext username or password";
+    }
     if (ax.response?.status === 502 || ax.response?.status === 503 || ax.response?.status === 530) {
       return "Server is unreachable. Check your network connection and that Frappe / socket.io are running, then try again.";
     }
+    if (ax.response?.status && ax.response.status >= 500) {
+      return "Server error during sign-in. Check that bench is running, then try again.";
+    }
+    if (ax.message === "Network Error" || (ax as { code?: string }).code === "ERR_NETWORK") {
+      return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
     if (ax.message) return ax.message;
   }
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    if (err.message === "Network Error") {
+      return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
+    return err.message;
+  }
   return "Something went wrong";
 }
 
@@ -88,8 +102,13 @@ export const authApi = {
     callMethod<AuthProfile>("auth.send_otp", { mobile, purpose }),
   verifyOtp: (mobile: string, otp: string, purpose = "login") =>
     callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose }),
-  loginWithPassword: (usr: string, pwd: string) =>
-    callMethod<AuthProfile>("auth.login_with_password", { usr, pwd }),
+  loginWithPassword: async (usr: string, pwd: string) => {
+    const res = await callMethod<AuthProfile>("auth.login_with_password", { usr, pwd });
+    if (res && res.success === false) {
+      throw new Error(res.message || "Invalid ERPNext username or password");
+    }
+    return res;
+  },
   me: () => callMethod<AuthProfile>("auth.me"),
   logout: () => callMethod<AuthProfile>("auth.logout"),
   getCsrf: () => callMethod<string>("auth.get_csrf_token"),
@@ -360,4 +379,22 @@ export const meetingApi = {
     callMethod("meeting.start_meeting", { visitor_entry, remarks }),
   complete: (visitor_entry: string, remarks?: string) =>
     callMethod("meeting.complete_meeting", { visitor_entry, remarks }),
+};
+
+export type InAppNotification = {
+  name: string;
+  subject?: string;
+  email_content?: string;
+  document_type?: string;
+  document_name?: string;
+  type?: string;
+  read?: number | boolean;
+  creation?: string;
+  from_user?: string;
+};
+
+export const notificationApi = {
+  list: (limit = 50) => callMethod<InAppNotification[]>("notification.list_notifications", { limit }),
+  markRead: (name: string) => callMethod("notification.mark_read", { name }),
+  markAllRead: () => callMethod("notification.mark_all_read"),
 };
