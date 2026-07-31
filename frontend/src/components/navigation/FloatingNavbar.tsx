@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
-import { mobileTabsFor, resolveMode } from "@/lib/roles";
+import { mobileTabsFor } from "@/lib/roles";
 import { MobileTabIconView } from "@/components/ui/MobileIcons";
 import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 import type { VisitorLang } from "@/i18n/visitorJourney";
@@ -30,8 +30,7 @@ export function FloatingNavbar() {
   const { user } = useAuth();
   const { lang } = useAppLanguage();
   const navigate = useNavigate();
-  const mode = resolveMode(user);
-  const tabs = mobileTabsFor(mode);
+  const tabs = mobileTabsFor(user);
   const location = useLocation();
   const [compact, setCompact] = useState(false);
   const compactRef = useRef(false);
@@ -90,7 +89,7 @@ export function FloatingNavbar() {
     };
   }, [location.pathname, hideDock]);
 
-  if (hideDock) return null;
+  if (hideDock || tabs.length === 0) return null;
 
   return (
     <nav

@@ -90,6 +90,7 @@ app_include_js = "msg91_widget.bundle.js"
 
 # before_install = "visitor_management.install.before_install"
 after_install = "visitor_management.install.after_install"
+after_migrate = "visitor_management.install.after_migrate"
 
 # Uninstallation
 # ------------

@@ -7,6 +7,7 @@ import {
   Outlet,
   Route,
   RouterProvider,
+  useLocation,
 } from "react-router-dom";
 import { MobileLayout } from "@/layouts/MobileLayout";
 import { PublicPassPage } from "@/pages/pass/PassPage";
@@ -28,6 +29,11 @@ import { MobileVisitorDetailPage } from "@/pages/mobile/MobileVisitorDetailPage"
 import { useAuth } from "@/context/AuthContext";
 import { APP_BASE_PATH } from "@/config/env";
 import { isLikelyNativeWebView, shouldUseHashRouter } from "@/native/platform";
+import {
+  firstAllowedPath,
+  hasCapability,
+  type CapabilityKey,
+} from "@/lib/roles";
 
 function RequirePwaAuth() {
   const { isAuthenticated, loading, user } = useAuth();
@@ -40,6 +46,42 @@ function RequirePwaAuth() {
   return <Outlet />;
 }
 
+/** Block routes the user's Role Permission Manager DocPerm does not allow. */
+function RequireCapability({ capability }: { capability: CapabilityKey }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="login-page">Loading…</div>;
+  }
+
+  if (!hasCapability(user, capability)) {
+    const fallback = firstAllowedPath(user);
+    if (fallback === location.pathname) {
+      return (
+        <div className="login-page" style={{ padding: 24, textAlign: "center" }}>
+          <p>You do not have permission to use Visitor Management.</p>
+          <p style={{ opacity: 0.7, fontSize: 14 }}>
+            Ask an administrator to assign roles in Role Permission Manager.
+          </p>
+        </div>
+      );
+    }
+    return <Navigate to={fallback} replace />;
+  }
+
+  return <Outlet />;
+}
+
+function HomeOrRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="login-page">Loading…</div>;
+  if (!hasCapability(user, "dashboard")) {
+    return <Navigate to={firstAllowedPath(user)} replace />;
+  }
+  return <MobileHomePage />;
+}
+
 const routeElements = createRoutesFromElements(
   <>
     <Route path="/login" element={<MobileLoginPage />} />
@@ -49,22 +91,53 @@ const routeElements = createRoutesFromElements(
 
     <Route element={<RequirePwaAuth />}>
       <Route element={<MobileLayout />}>
-        <Route path="/" element={<MobileHomePage />} />
-        <Route path="/check-in" element={<MobileCheckInPage />} />
-        <Route path="/scan" element={<MobileScanPage />} />
-        <Route path="/inside" element={<MobileInsidePage />} />
-        <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
-        <Route path="/history" element={<MobileHistoryPage />} />
-        <Route path="/approvals" element={<MobileApprovalsPage />} />
-        <Route path="/pre-register" element={<MobilePreRegisterPage />} />
-        <Route path="/analytics" element={<MobileAnalyticsPage />} />
-        <Route path="/meetings" element={<MobileMeetingsPage />} />
-        <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
-        <Route path="/checkout" element={<MobileCheckoutPage />} />
-        <Route path="/my-pass" element={<MobilePassPage />} />
-        <Route path="/pass" element={<MobilePassPage />} />
-        <Route path="/profile" element={<MobileProfilePage />} />
-        <Route path="/notifications" element={<MobileNotificationsPage />} />
+        <Route path="/" element={<HomeOrRedirect />} />
+
+        <Route element={<RequireCapability capability="check_in" />}>
+          <Route path="/check-in" element={<MobileCheckInPage />} />
+          <Route path="/pre-register" element={<MobilePreRegisterPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="scan" />}>
+          <Route path="/scan" element={<MobileScanPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="inside" />}>
+          <Route path="/inside" element={<MobileInsidePage />} />
+          <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="history" />}>
+          <Route path="/history" element={<MobileHistoryPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="approvals" />}>
+          <Route path="/approvals" element={<MobileApprovalsPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="reports" />}>
+          <Route path="/analytics" element={<MobileAnalyticsPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="meetings" />}>
+          <Route path="/meetings" element={<MobileMeetingsPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="checkout" />}>
+          <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
+          <Route path="/checkout" element={<MobileCheckoutPage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="profile" />}>
+          <Route path="/my-pass" element={<MobilePassPage />} />
+          <Route path="/pass" element={<MobilePassPage />} />
+          <Route path="/profile" element={<MobileProfilePage />} />
+        </Route>
+
+        <Route element={<RequireCapability capability="notifications" />}>
+          <Route path="/notifications" element={<MobileNotificationsPage />} />
+        </Route>
+
         <Route path="/m" element={<Navigate to="/" replace />} />
         <Route path="/m/*" element={<Navigate to="/" replace />} />
       </Route>

@@ -21,7 +21,7 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { formatNowTime } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
-import { canPerformCheckout } from "@/lib/roles";
+import { canApproveReject, canPerformCheckout } from "@/lib/roles";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
@@ -87,6 +87,7 @@ export function MobileApprovalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
+  const canDecide = canApproveReject(user);
 
   usePageChrome({
     title: "Pending",
@@ -468,9 +469,10 @@ export function MobileApprovalsPage() {
               key={item.name}
               item={item}
               busy={busy === item.name}
+              approveBlocked={!viewOnlyAll && !canDecide}
               onOpen={viewOnlyAll ? undefined : () => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
-              onApprove={viewOnlyAll ? undefined : (v) => handleApprove(v)}
-              onReject={viewOnlyAll ? undefined : () => handleReject(item)}
+              onApprove={viewOnlyAll || !canDecide ? undefined : (v) => handleApprove(v)}
+              onReject={viewOnlyAll || !canDecide ? undefined : () => handleReject(item)}
               onNotifyHost={viewOnlyAll ? undefined : () => handleNotifyHost(item)}
               onTransfer={viewOnlyAll ? undefined : (v) => setTransferVisitor(v)}
               onCallHost={viewOnlyAll ? undefined : (v) => void handleCallHost(v)}

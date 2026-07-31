@@ -9,6 +9,8 @@ import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 type Props = {
   item: VisitorListRow;
   busy?: boolean;
+  /** When true, Accept/Reject stay visible but disabled (non-approver roles). */
+  approveBlocked?: boolean;
   onOpen?: () => void;
   onApprove?: (item: VisitorListRow) => void;
   onReject?: (item: VisitorListRow) => void;
@@ -42,6 +44,7 @@ function statusLabel(status?: string) {
 export function PendingDecisionCard({
   item,
   busy = false,
+  approveBlocked = false,
   onOpen,
   onApprove,
   onReject,
@@ -75,8 +78,13 @@ export function PendingDecisionCard({
   const isApproved = item.status === "Approved";
   const isMeetingDone = item.status === "Meeting Done";
   const showInsideActions = !!(onMeetingDone || onCheckOut);
-  const showPendingPrimaryActions = isPending && (!!onReject || !!onApprove);
+  // Keep Accept/Reject visible for pending; block clicks when role is not approver.
+  const showPendingPrimaryActions = isPending && (!!onReject || !!onApprove || approveBlocked);
   const showPendingSecondaryActions = isPending && (!!onTransfer || !!onCallHost || !!onNotifyHost);
+  const decideDisabled = busy || approveBlocked;
+  const decideTitle = approveBlocked
+    ? "Only PA GatePass Approval or System Manager can Accept or Reject"
+    : undefined;
   const gridThirdLabel = "FLOOR";
   const gridThirdValue = item.floor || "—";
 
@@ -184,47 +192,47 @@ export function PendingDecisionCard({
 
         {showPendingPrimaryActions ? (
           <div className="vm-pending-redesign-actions is-pending-row">
-            {onReject ? (
-              <button
-                type="button"
-                className="vm-redesign-act-btn is-reject"
-                disabled={busy}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReject(item);
-                }}
-                aria-label={`Reject ${visitorName}`}
-              >
-                <span className="vm-redesign-act-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="m15 9-6 6M9 9l6 6" />
-                  </svg>
-                </span>
-                <span>Reject</span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="vm-redesign-act-btn is-reject"
+              disabled={decideDisabled}
+              title={decideTitle}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (decideDisabled || !onReject) return;
+                onReject(item);
+              }}
+              aria-label={`Reject ${visitorName}`}
+            >
+              <span className="vm-redesign-act-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m15 9-6 6M9 9l6 6" />
+                </svg>
+              </span>
+              <span>Reject</span>
+            </button>
 
-            {onApprove ? (
-              <button
-                type="button"
-                className="vm-redesign-act-btn is-accept"
-                disabled={busy}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApprove(item);
-                }}
-                aria-label={`Accept ${visitorName}`}
-              >
-                <span className="vm-redesign-act-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="m9 12 2 2 4-4" />
-                  </svg>
-                </span>
-                <span>Accept</span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="vm-redesign-act-btn is-accept"
+              disabled={decideDisabled}
+              title={decideTitle}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (decideDisabled || !onApprove) return;
+                onApprove(item);
+              }}
+              aria-label={`Accept ${visitorName}`}
+            >
+              <span className="vm-redesign-act-icon" aria-hidden>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </span>
+              <span>Accept</span>
+            </button>
           </div>
         ) : null}
 

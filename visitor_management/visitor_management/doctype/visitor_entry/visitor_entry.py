@@ -158,6 +158,9 @@ def _assign_gate_pass(doc: VisitorEntry) -> None:
 @frappe.whitelist()
 def approve(visitor_entry: str | None = None, remarks: str | None = None, floor: str | None = None) -> dict:
 	"""Pending Approval → Approved (host approves before gate check-in)."""
+	from visitor_management.auth.permissions import require_approve_role
+
+	require_approve_role()
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
 	if doc.status != "Pending Approval":
@@ -216,6 +219,9 @@ def check_in(visitor_entry: str | None = None, floor: str | None = None) -> dict
 @frappe.whitelist()
 def reject(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
 	"""Reject while Pending Approval (before host approval)."""
+	from visitor_management.auth.permissions import require_approve_role
+
+	require_approve_role()
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
 	if doc.status != "Pending Approval":

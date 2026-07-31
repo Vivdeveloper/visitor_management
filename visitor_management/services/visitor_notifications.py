@@ -12,8 +12,7 @@ import frappe
 from frappe import _
 
 from visitor_management.realtime.publisher import publish_vms_event
-
-SECURITY_ROLES = ("Security", "Reception", "VMS Admin", "System Manager")
+from visitor_management.auth.permissions import get_users_with_doctype_permission
 
 
 def resolve_host_user(raw: str | None) -> str | None:
@@ -36,15 +35,8 @@ def resolve_host_user(raw: str | None) -> str | None:
 
 
 def get_security_users() -> list[str]:
-	"""Enabled desk users who can process gate checkout."""
-	users: set[str] = set()
-	for role in SECURITY_ROLES:
-		for user in frappe.get_users_with_role(role) or []:
-			if not user or user == "Guest":
-				continue
-			if frappe.db.get_value("User", user, "enabled"):
-				users.add(user)
-	return sorted(users)
+	"""Enabled users with Visitor Entry create (gate) via Role Permission Manager."""
+	return get_users_with_doctype_permission("Visitor Entry", "create")
 
 
 def _status_copy(status: str, visitor_name: str) -> tuple[str, str, str, bool]:

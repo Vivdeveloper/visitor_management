@@ -1,17 +1,7 @@
 """App-level constants and feature flags."""
 
-ROLES = (
-	"System Manager",
-	"VMS Admin",
-	"Reception",
-	"Security",
-	"Employee",
-	"Visitor",
-	"Facility Manager",
-	"Building Manager",
-	"HR",
-	"Auditor",
-)
+# Roles are not hardcoded here — assign them in Role Permission Manager per DocType.
+# See Visitor Entry (and other VMS DocTypes) → Permissions / Role Permission Manager.
 
 VISITOR_STATUSES = (
 	"Pending Approval",

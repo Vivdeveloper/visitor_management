@@ -7,11 +7,12 @@ from frappe import _
 
 from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
 from visitor_management.react_api.visitor_pass import _validate_pass
+from visitor_management.auth.permissions import require_permission
 
 
 def _ensure_gate() -> None:
-	if "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Only System Manager can perform gate operations for now."))
+	# Gate ops require create on Visitor Entry (Role Permission Manager).
+	require_permission("Visitor Entry", "create")
 
 
 @frappe.whitelist()

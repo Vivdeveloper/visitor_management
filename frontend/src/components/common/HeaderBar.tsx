@@ -10,6 +10,7 @@ import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPr
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
+import { hasCapability } from "@/lib/roles";
 
 interface HeaderBarProps {
   title?: string;
@@ -45,10 +46,11 @@ export function HeaderBar({
 
   const photo = resolveUserImage(user?.user_image);
   const displayName = user?.full_name || user?.user || "User";
+  const canSeeNotifications = hasCapability(user, "notifications");
 
   const loadPendingCount = useCallback(async () => {
     // Skip while signed out — Frappe answers guest calls with a server error.
-    if (authLoading || !isAuthenticated) {
+    if (authLoading || !isAuthenticated || !canSeeNotifications) {
       setPendingCount(0);
       return;
     }
@@ -67,7 +69,7 @@ export function HeaderBar({
         setPendingCount(0);
       }
     }
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, canSeeNotifications]);
 
   useEffect(() => {
     void loadPendingCount();
@@ -124,7 +126,7 @@ export function HeaderBar({
         </div>
 
         <div className="vm-topbar-actions">
-          {showNotification ? (
+          {showNotification && canSeeNotifications ? (
             <button
               type="button"
               className="vm-bell-btn"

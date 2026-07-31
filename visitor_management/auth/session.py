@@ -5,20 +5,12 @@ from __future__ import annotations
 import frappe
 from frappe.utils import cstr
 
-from visitor_management.react_api.otp import normalize_mobile
-
-
-STAFF_ROLES = (
-	"System Manager",
-	"VMS Admin",
-	"Reception",
-	"Security",
-	"Employee",
-	"Facility Manager",
-	"Building Manager",
-	"HR",
-	"Auditor",
+from visitor_management.auth.permissions import (
+	get_capabilities,
+	get_doctype_permissions,
+	vms_roles_for_user,
 )
+from visitor_management.react_api.otp import normalize_mobile
 
 
 def find_user_by_mobile(mobile: str) -> str | None:
@@ -81,6 +73,8 @@ def get_profile(user: str | None = None) -> dict:
 			"session_type": "guest",
 			"user": "Guest",
 			"roles": [],
+			"permissions": {},
+			"capabilities": get_capabilities({}, []),
 		}
 
 	row = frappe.db.get_value(
@@ -91,7 +85,8 @@ def get_profile(user: str | None = None) -> dict:
 	) or {"name": user}
 
 	roles = frappe.get_roles(user) or []
-	vms_roles = [role for role in roles if role in STAFF_ROLES or role == "Visitor"]
+	permissions = get_doctype_permissions(user)
+	capabilities = get_capabilities(permissions, roles)
 
 	return {
 		"authenticated": True,
@@ -103,6 +98,8 @@ def get_profile(user: str | None = None) -> dict:
 		"mobile_no": row.get("mobile_no"),
 		"email": row.get("email"),
 		"roles": roles,
-		"vms_roles": vms_roles,
+		"vms_roles": vms_roles_for_user(roles),
+		"permissions": permissions,
+		"capabilities": capabilities,
 		"csrf_token": cstr(frappe.sessions.get_csrf_token()),
 	}

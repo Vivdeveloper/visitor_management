@@ -13143,6 +13143,18 @@ button.vm-photo-preview.is-clickable:active {
   transform: scale(0.96);
 }
 
+.vm-redesign-act-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.vm-redesign-act-btn.is-reject:disabled:hover,
+.vm-redesign-act-btn.is-accept:disabled:hover {
+  background: inherit;
+}
+
 .vm-redesign-act-btn.is-reject {
   flex: 1;
   background: #fff5f5;

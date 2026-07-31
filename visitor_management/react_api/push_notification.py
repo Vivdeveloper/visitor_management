@@ -9,14 +9,37 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import cstr, now_datetime
+
+# Error Log.title max length in Frappe
+_ERROR_TITLE_MAX = 140
+
+
+def _log_vms(title: str, message: str | Exception | None = None) -> None:
+	"""Always pass a short title — Frappe log_error(title=…) truncates at 140 chars."""
+	short = cstr(title).replace("\n", " ").strip()[:_ERROR_TITLE_MAX] or "VMS Push"
+	detail = cstr(message) if message is not None else frappe.get_traceback()
+	frappe.log_error(title=short, message=detail)
+
+
+def _vapid_private_usable(priv_pem: str) -> bool:
+	"""Reject corrupt / truncated PEM so we regenerate instead of failing every push."""
+	if not priv_pem or "BEGIN" not in priv_pem:
+		return False
+	try:
+		from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+		load_pem_private_key(priv_pem.encode() if isinstance(priv_pem, str) else priv_pem, password=None)
+		return True
+	except Exception:
+		return False
 
 
 def _ensure_vapid_keys() -> tuple[str, str]:
 	conf = frappe.conf
 	pub = getattr(conf, "vms_vapid_public_key", None)
 	priv = getattr(conf, "vms_vapid_private_pem", None)
-	if pub and priv:
+	if pub and priv and _vapid_private_usable(cstr(priv)):
 		return pub, priv
 
 	try:
@@ -45,8 +68,11 @@ def _ensure_vapid_keys() -> tuple[str, str]:
 		cfg["vms_vapid_private_pem"] = priv
 		with open(site_config_path, "w") as handle:
 			json.dump(cfg, handle, indent="\t")
+		# Keep in-process conf in sync so this request can send push.
+		frappe.conf.vms_vapid_public_key = pub
+		frappe.conf.vms_vapid_private_pem = priv
 	except Exception:
-		frappe.log_error(title="VMS VAPID key persist failed")
+		_log_vms("VMS VAPID key persist failed")
 
 	return pub, priv
 
@@ -194,7 +220,7 @@ def send_push_to_user(
 	try:
 		from pywebpush import webpush
 	except ImportError:
-		frappe.log_error(title="VMS Web Push: install pywebpush and py-vapid on bench")
+		_log_vms("VMS Web Push: install pywebpush and py-vapid")
 		return False
 
 	_, priv_pem = _ensure_vapid_keys()
@@ -229,7 +255,8 @@ def send_push_to_user(
 			if "404" in err or "410" in err or "Gone" in err:
 				stale.append(sub.get("endpoint", ""))
 			else:
-				frappe.log_error(f"VMS push failed for {user}: {err}", "VMS Web Push")
+				# title must stay short (Error Log max 140); details go in message
+				_log_vms("VMS Web Push failed", f"user={user}\n{err}")
 
 	if stale:
 		all_subs[user] = [s for s in user_subs if s.get("endpoint") not in stale]
@@ -408,15 +435,16 @@ def send_fcm_to_user(
 			access_token = _fcm_access_token(service_account)
 			project_id = project_id or service_account.get("project_id")
 		except ImportError:
-			frappe.log_error(title="VMS FCM: install google-auth on bench (pip install google-auth)")
+			_log_vms("VMS FCM: install google-auth on bench")
 			service_account = None
 		except Exception:
-			frappe.log_error(title="VMS FCM: service account auth failed")
+			_log_vms("VMS FCM: service account auth failed")
 			service_account = None
 
 	if not server_key and not (service_account and access_token and project_id):
-		frappe.log_error(
-			title="VMS FCM not configured — set vms_fcm_service_account or vms_fcm_server_key in site_config"
+		_log_vms(
+			"VMS FCM not configured",
+			"Set vms_fcm_service_account or vms_fcm_server_key in site_config.json",
 		)
 		return False
 
@@ -452,7 +480,7 @@ def send_fcm_to_user(
 			if any(code in err for code in ("NOT_FOUND", "UNREGISTERED", "InvalidRegistration", "404", "410")):
 				stale.append(token)
 			else:
-				frappe.log_error(f"VMS FCM failed for {user}: {err}", "VMS FCM")
+				_log_vms("VMS FCM failed", f"user={user}\n{err}")
 
 	if stale:
 		all_tokens[user] = [t for t in user_tokens if t.get("token") not in stale]

@@ -6,6 +6,34 @@ import { apiClient } from "@/api/client";
 
 const METHOD = "visitor_management.react_api";
 
+/** DocPerm flags from Frappe Role Permission Manager for one DocType. */
+export type DocPermFlags = {
+  read?: boolean;
+  write?: boolean;
+  create?: boolean;
+  delete?: boolean;
+  report?: boolean;
+  export?: boolean;
+  print?: boolean;
+};
+
+/** UI screens/actions derived from DocPerm (see auth.session.get_capabilities). */
+export type VmsCapabilities = {
+  dashboard?: boolean;
+  approvals?: boolean;
+  check_in?: boolean;
+  inside?: boolean;
+  reports?: boolean;
+  checkout?: boolean;
+  scan?: boolean;
+  meetings?: boolean;
+  history?: boolean;
+  profile?: boolean;
+  notifications?: boolean;
+  /** Accept / Reject — PA GatePass Approval or System Manager only. */
+  approve?: boolean;
+};
+
 export type AuthProfile = {
   success?: boolean;
   verified?: boolean;
@@ -19,6 +47,9 @@ export type AuthProfile = {
   user_image?: string;
   roles?: string[];
   vms_roles?: string[];
+  /** Role Permission Manager metadata keyed by DocType name. */
+  permissions?: Record<string, DocPermFlags>;
+  capabilities?: VmsCapabilities;
   csrf_token?: string;
   message?: string;
   otp?: string;
