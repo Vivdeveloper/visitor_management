@@ -1,43 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   dashboardApi,
+  securityApi,
   visitorApi,
   type DashboardKpis,
-  type DashboardTrendPoint,
   type VisitorListRow,
 } from "@/api/vms";
-import { extractError, formatDate, formatTime, initials } from "@/lib/format";
-import { VisitorTrendChart } from "@/components/dashboard/VisitorTrendChart";
-import { VisitorBarChart } from "@/components/dashboard/VisitorBarChart";
-import { VisitorCalendarGrid } from "@/components/dashboard/VisitorCalendarGrid";
-import { AnalyticsInsightWidgets } from "@/components/dashboard/AnalyticsInsightWidgets";
+import { CheckoutPendingReport } from "@/components/reports/CheckoutPendingReport";
+import { StageCountsReport } from "@/components/reports/StageCountsReport";
+import { extractError, formatDate } from "@/lib/format";
+import { useAuth } from "@/context/AuthContext";
+import { canPerformCheckout } from "@/lib/roles";
+import { useVmsRealtime } from "@/hooks/useVmsRealtime";
+import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
-type MeetAgg = { name: string; count: number; color: string };
-type SubTab = "overview" | "visitors" | "meet";
-type ChartMode = "line" | "bar" | "calendar";
-type StatusFilter = "all" | "Pending Approval" | "Approved" | "Checked In" | "Checked Out";
 
-const MEET_COLORS = ["green", "blue", "purple", "orange"] as const;
-
-const TREND_PERIODS = [
-  { id: "7d", label: "Last 7 days" },
-  { id: "14d", label: "Last 14 days" },
-  { id: "30d", label: "Last 30 days" },
-];
-
-const STATUS_FILTERS: Array<{ id: StatusFilter; label: string }> = [
-  { id: "all", label: "All statuses" },
-  { id: "Pending Approval", label: "Pending" },
-  { id: "Approved", label: "Approved" },
-  { id: "Checked In", label: "Checked in" },
-  { id: "Checked Out", label: "Checked out" },
-];
+type SubTab = "overview" | "checkout_pending";
 
 const TAB_LABELS: Record<SubTab, string> = {
   overview: "Overview",
-  visitors: "Visitors",
-  meet: "Person to meet",
+  checkout_pending: "Checkout Pending",
 };
 
 function toInputDate(d: Date) {
@@ -47,12 +30,16 @@ function toInputDate(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-function rowDate(r: VisitorListRow) {
-  return (r.creation || r.checked_in_on || r.modified || "").slice(0, 10);
+function parseReportsTab(raw: string | null): SubTab {
+  return raw === "checkout_pending" ? "checkout_pending" : "overview";
 }
 
 export function MobileAnalyticsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
+  const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
 
   usePageChrome({
     title: "Reports",
@@ -62,29 +49,22 @@ export function MobileAnalyticsPage() {
     showProfile: true,
   });
 
-  const [subTab, setSubTab] = useState<SubTab>("overview");
-  const [chartMode, setChartMode] = useState<ChartMode>("line");
+  const [subTab, setSubTab] = useState<SubTab>(() => parseReportsTab(searchParams.get("tab")));
   const [selectedDate, setSelectedDate] = useState(() => toInputDate(new Date()));
-  const [period, setPeriod] = useState("7d");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [meetFilter, setMeetFilter] = useState("all");
   const [kpis, setKpis] = useState<DashboardKpis>({});
-  const [trend, setTrend] = useState<DashboardTrendPoint[]>([]);
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (date: string, periodId: string) => {
+  const load = useCallback(async (date: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [kpi, trends, detailed] = await Promise.all([
+      const [kpi, detailed] = await Promise.all([
         dashboardApi.getKpis({ from_date: date, to_date: date }),
-        dashboardApi.getVisitorTrends({ period: periodId }),
         visitorApi.listDetailed(200),
       ]);
       setKpis(kpi || {});
-      setTrend(trends?.series || []);
       setRows(detailed || []);
     } catch (err: unknown) {
       setError(extractError(err, "Could not load analytics"));
@@ -94,46 +74,52 @@ export function MobileAnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    void load(selectedDate, period);
-  }, [load, selectedDate, period]);
+    void load(selectedDate);
+  }, [load, selectedDate]);
 
-  const meetOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const row of rows) {
-      const name = (row.person_to_meet_name || "").trim();
-      if (name) set.add(name);
-    }
-    return ["all", ...[...set].sort((a, b) => a.localeCompare(b))];
-  }, [rows]);
+  usePageRefresh(() => load(selectedDate));
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      const stamp = rowDate(r);
-      if (stamp !== selectedDate) return false;
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      if (meetFilter !== "all" && (r.person_to_meet_name || "").trim() !== meetFilter) return false;
-      return true;
-    });
-  }, [rows, selectedDate, statusFilter, meetFilter]);
+  useVmsRealtime(() => {
+    void load(selectedDate);
+  }, true);
 
-  const topMeet = useMemo(() => {
-    const source = subTab === "meet" ? rows : filteredRows;
-    const map = new Map<string, number>();
-    for (const row of source) {
-      const name = (row.person_to_meet_name || "").trim();
-      if (!name) continue;
-      if (meetFilter !== "all" && name !== meetFilter) continue;
-      map.set(name, (map.get(name) || 0) + 1);
-    }
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name, count], i): MeetAgg => ({
-        name,
-        count,
-        color: MEET_COLORS[i % MEET_COLORS.length],
-      }));
-  }, [rows, filteredRows, subTab, meetFilter]);
+  useEffect(() => {
+    setSubTab(parseReportsTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const setReportsTab = useCallback(
+    (tab: SubTab) => {
+      setSubTab(tab);
+      const next = new URLSearchParams(searchParams);
+      if (tab === "overview") {
+        next.delete("tab");
+      } else {
+        next.set("tab", tab);
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const checkoutPendingCount = useMemo(
+    () => rows.filter((row) => row.status === "Meeting Done").length,
+    [rows],
+  );
+
+  const handleCheckout = useCallback(
+    async (row: VisitorListRow) => {
+      setCheckoutBusy(row.name);
+      try {
+        await securityApi.checkOut(row.name);
+        await load(selectedDate);
+      } catch (err: unknown) {
+        setError(extractError(err, "Checkout failed"));
+      } finally {
+        setCheckoutBusy(null);
+      }
+    },
+    [load, selectedDate],
+  );
 
   const dateLabel = formatDate(selectedDate) || selectedDate;
   const isToday = selectedDate === toInputDate(new Date());
@@ -191,49 +177,19 @@ export function MobileAnalyticsPage() {
               ›
             </button>
           </div>
-
-          <div className="vm-filter-row">
-            <label className="vm-filter-field">
-              <span>Person to meet</span>
-              <select value={meetFilter} onChange={(e) => setMeetFilter(e.target.value)}>
-                {meetOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt === "all" ? "All people" : opt}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="vm-filter-field">
-              <span>Status</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              >
-                {STATUS_FILTERS.map((opt) => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
         </div>
 
-        <AnalyticsInsightWidgets
-          insideCount={Number(kpis["On Premises"] ?? 0)}
-          totalToday={Number(kpis.total ?? 0)}
-          checkedIn={Number(kpis["Checked In"] ?? 0)}
-          checkedOut={Number(kpis["Checked Out"] ?? 0)}
-          trend={trend}
-          loading={loading}
-          onOpenInside={() => navigate("/inside?status=inside")}
-          onOpenFlow={() => {
-            setSubTab("overview");
-            setChartMode("line");
-          }}
-        />
+        <button type="button" className="vm-meetings-cta" onClick={() => setReportsTab("checkout_pending")}>
+          <span className="vm-meetings-cta-copy">
+            <strong>Checkout Pending Report</strong>
+            <span>
+              {loading ? "Loading…" : `${checkoutPendingCount} visitor${checkoutPendingCount === 1 ? "" : "s"} awaiting gate checkout`}
+            </span>
+          </span>
+          <span className="vm-meetings-cta-count">{loading ? "…" : checkoutPendingCount}</span>
+        </button>
 
-        <button type="button" className="vm-meetings-cta" onClick={() => navigate("/meetings")}>
+        <button type="button" className="vm-meetings-cta is-secondary" onClick={() => navigate("/meetings")}>
           <span className="vm-meetings-cta-copy">
             <strong>Meetings by day</strong>
             <span>Timeline cards with time · person to meet</span>
@@ -241,181 +197,49 @@ export function MobileAnalyticsPage() {
           <span aria-hidden>›</span>
         </button>
 
-        <div className="vm-reports-tabs" role="tablist" aria-label="Reports sections">
-          {(["overview", "visitors", "meet"] as const).map((t) => (
+        <div className="vm-reports-tabs vm-reports-tabs--compact" role="tablist" aria-label="Reports sections">
+          {(["overview", "checkout_pending"] as const).map((t) => (
             <button
               key={t}
               type="button"
               role="tab"
               aria-selected={subTab === t}
               className={`vm-reports-tab${subTab === t ? " is-active" : ""}`}
-              onClick={() => setSubTab(t)}
+              onClick={() => setReportsTab(t)}
             >
               {TAB_LABELS[t]}
+              {t === "checkout_pending" ? (
+                <span className="vm-reports-tab-count">{checkoutPendingCount}</span>
+              ) : null}
             </button>
           ))}
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
 
-        {(subTab === "overview" || subTab === "visitors") && (
-          <>
-            <div className="vm-overview-card vm-reports-kpi-grid vm-analytics-card">
-              {(
-                [
-                  { label: "Total today", value: Number(kpis.total ?? 0), to: "/inside?status=all" },
-                  { label: "On premises", value: Number(kpis["On Premises"] ?? 0), to: "/inside?status=inside" },
-                  { label: "Pending", value: Number(kpis["Pending Approval"] ?? 0), to: "/inside?status=pending" },
-                  { label: "Checked out", value: Number(kpis["Checked Out"] ?? 0), to: "/inside?status=checked_out" },
-                ] as const
-              ).map((item, idx) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="vm-reports-kpi"
-                  style={{ animationDelay: `${idx * 50}ms` }}
-                  onClick={() => navigate(item.to)}
-                >
-                  <span>{item.label}</span>
-                  <strong>{loading ? "—" : item.value}</strong>
-                </button>
-              ))}
-            </div>
-
-            <div className="vm-chart-mode-tabs" role="tablist" aria-label="Chart type">
-              {(
-                [
-                  { id: "line", label: "Line" },
-                  { id: "bar", label: "Bar" },
-                  { id: "calendar", label: "Calendar" },
-                ] as const
-              ).map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={chartMode === mode.id}
-                  className={`vm-chart-mode-tab${chartMode === mode.id ? " is-active" : ""}`}
-                  onClick={() => {
-                    setChartMode(mode.id);
-                    if (mode.id === "calendar" && period === "7d") setPeriod("30d");
-                  }}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-
-            {chartMode === "line" ? (
-              <VisitorTrendChart
-                series={trend}
-                loading={loading}
-                periodId={period}
-                periodOptions={TREND_PERIODS}
-                onPeriodChange={setPeriod}
-                clickable={false}
-              />
-            ) : null}
-            {chartMode === "bar" ? (
-              <VisitorBarChart
-                series={trend}
-                loading={loading}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
-            ) : null}
-            {chartMode === "calendar" ? (
-              <VisitorCalendarGrid
-                series={trend}
-                loading={loading}
-                selectedDate={selectedDate}
-                onSelectDate={(date) => {
-                  setSelectedDate(date);
-                  navigate(`/meetings?date=${encodeURIComponent(date)}`);
-                }}
-              />
-            ) : null}
-          </>
-        )}
-
-        {subTab === "visitors" ? (
-          <div className="vm-overview-card vm-reports-visitors vm-analytics-card">
-            <div className="vm-chart-card-head">
-              <h3 className="vm-chart-card-title">
-                Visitors · {dateLabel}
-                <span className="vm-reports-count-badge">{filteredRows.length}</span>
-              </h3>
-              <button type="button" className="vm-card-link-btn" onClick={() => navigate("/inside")}>
-                View All ›
-              </button>
-            </div>
-            {loading ? (
-              <p className="vm-empty-hint">Loading…</p>
-            ) : filteredRows.length === 0 ? (
-              <p className="vm-empty-hint">No visitors for these filters</p>
-            ) : (
-              filteredRows.slice(0, 12).map((row, idx) => (
-                <button
-                  key={row.name}
-                  type="button"
-                  className="vm-activity-row vm-visitor-row is-interactive"
-                  style={{ animationDelay: `${Math.min(idx, 10) * 35}ms` }}
-                  onClick={() => navigate(`/visitor/${encodeURIComponent(row.name)}`)}
-                >
-                  <div className="vm-activity-avatar avatar-green">{initials(row.full_name || row.name)}</div>
-                  <div className="vm-activity-info">
-                    <span className="vm-activity-name">{row.full_name || row.name}</span>
-                    <span className="vm-activity-status">
-                      {row.person_to_meet_name || row.visit_purpose_type || "—"}
-                    </span>
-                  </div>
-                  <div className="vm-activity-meta">
-                    <span className="vm-activity-time">
-                      {formatTime(row.check_in || row.checked_in_on || row.modified || row.creation) || "—"}
-                    </span>
-                    <span className="vm-badge-out">{row.status || "—"}</span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+        {subTab === "overview" ? (
+          <StageCountsReport
+            kpis={kpis}
+            rows={rows}
+            loading={loading}
+            selectedDate={selectedDate}
+            isToday={isToday}
+            dateLabel={dateLabel}
+          />
         ) : null}
 
-        {(subTab === "overview" || subTab === "meet") && (
-          <div className="vm-overview-card vm-reports-hosts vm-analytics-card">
-            <h3 className="vm-card-heading" style={{ fontSize: "1rem", marginBottom: "0.85rem" }}>
-              Top people to meet
-            </h3>
-            {loading ? (
-              <p className="vm-empty-hint">Loading…</p>
-            ) : topMeet.length === 0 ? (
-              <p className="vm-empty-hint">No person-to-meet data yet</p>
-            ) : (
-              <div className="vm-host-list">
-                {topMeet.map((person, idx) => (
-                  <button
-                    key={person.name}
-                    type="button"
-                    className="vm-host-row is-interactive"
-                    style={{ animationDelay: `${idx * 40}ms` }}
-                    onClick={() => {
-                      setMeetFilter(person.name);
-                      setSubTab("visitors");
-                    }}
-                  >
-                    <div className="vm-host-row-left">
-                      <div className={`vm-activity-avatar avatar-${person.color}`} style={{ width: "36px", height: "36px" }}>
-                        {initials(person.name)}
-                      </div>
-                      <span className="vm-host-name">{person.name}</span>
-                    </div>
-                    <span className="vm-host-count">{String(person.count).padStart(2, "0")}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+        {subTab === "checkout_pending" ? (
+          <div className="vm-overview-card vm-analytics-card">
+            <CheckoutPendingReport
+              rows={rows}
+              loading={loading}
+              showCheckoutAction={showCheckout}
+              checkoutBusyId={checkoutBusy}
+              onOpenVisitor={(row) => navigate(`/visitor/${encodeURIComponent(row.name)}`)}
+              onCheckout={(row) => void handleCheckout(row)}
+            />
           </div>
-        )}
+        ) : null}
       </main>
     </div>
   );

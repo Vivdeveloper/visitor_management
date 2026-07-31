@@ -4,6 +4,11 @@ import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
+import {
+  VISIT_PURPOSE_OTHER_VALUE,
+  visitPurposeOtherText,
+  visitPurposeSelectValue,
+} from "@/lib/visitPurpose";
 
 export type VisitorFormValues = {
   first_name: string;
@@ -15,6 +20,7 @@ export type VisitorFormValues = {
   visitor_location: string;
   person_to_meet: string;
   visit_purpose_type: string;
+  visit_purpose_other: string;
   number_of_visitors: string;
   id_proof_type: string;
   vehicle_type: string;
@@ -116,14 +122,29 @@ export function VisitorDetailsForm({
     [hosts],
   );
 
+  const knownPurposeValues = useMemo(
+    () => purposes.map((p) => p.name),
+    [purposes],
+  );
+
   const purposeOptions = useMemo(
-    () =>
-      purposes.map((p) => ({
+    () => [
+      ...purposes.map((p) => ({
         value: p.name,
         label: p.visit_purpose_type_name || p.name,
       })),
-    [purposes],
+      { value: VISIT_PURPOSE_OTHER_VALUE, label: vt(lang, "visit_purpose_other_option") },
+    ],
+    [purposes, lang],
   );
+
+  const purposeSelectValue = visitPurposeSelectValue(values.visit_purpose_type, knownPurposeValues);
+  const purposeOtherValue = visitPurposeOtherText(
+    values.visit_purpose_type,
+    values.visit_purpose_other,
+    knownPurposeValues,
+  );
+  const showPurposeOther = purposeSelectValue === VISIT_PURPOSE_OTHER_VALUE;
 
   const idProofOptions = useMemo(
     () =>
@@ -256,9 +277,14 @@ export function VisitorDetailsForm({
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "visit_purpose")}</label>
           <SearchSelect
-            value={values.visit_purpose_type}
+            value={purposeSelectValue}
             options={purposeOptions}
-            onChange={(val) => onChangeField("visit_purpose_type", val)}
+            onChange={(val) => {
+              onChangeField("visit_purpose_type", val);
+              if (val !== VISIT_PURPOSE_OTHER_VALUE) {
+                onChangeField("visit_purpose_other", "");
+              }
+            }}
             placeholder={vt(lang, "select")}
             searchPlaceholder="Search visit purpose"
             loading={loading}
@@ -277,6 +303,22 @@ export function VisitorDetailsForm({
           />
         </div>
       </div>
+
+      {showPurposeOther ? (
+        <div className="vm-form-group">
+          <label className="vm-form-label">{vt(lang, "visit_purpose_other_label")}</label>
+          <input
+            className="vm-input-field"
+            value={purposeOtherValue}
+            onChange={(e) => {
+              onChangeField("visit_purpose_type", VISIT_PURPOSE_OTHER_VALUE);
+              onChangeField("visit_purpose_other", e.target.value);
+            }}
+            placeholder={vt(lang, "visit_purpose_other_placeholder")}
+            aria-label={vt(lang, "visit_purpose_other_label")}
+          />
+        </div>
+      ) : null}
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "id_proof_type")}</label>

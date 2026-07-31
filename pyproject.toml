@@ -9,6 +9,10 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=16.0.0" # Installed and managed by bench.
+    "google-auth>=2.0.0",
+    "requests>=2.28.0",
+    # Web Push (VAPID) for browser background alerts; pulls in py-vapid
+    "pywebpush>=1.14.0",
 ]
 
 [build-system]

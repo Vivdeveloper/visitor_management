@@ -80,6 +80,7 @@ export const VISIT_FIELDS_TO_CLEAR = [
   "visitor_location",
   "person_to_meet",
   "visit_purpose_type",
+  "visit_purpose_other",
   "number_of_visitors",
   "id_proof_type",
   "vehicle_type",

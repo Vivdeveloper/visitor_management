@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
-import { formatTime, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
+import { formatStageTimestamp, getCurrentStageTimestamp } from "@/lib/visitStages";
 
 type Props = {
   visitor: VisitorListRow | null;
@@ -26,7 +27,10 @@ export function VisitorCheckInConfirmModal({
   const mobile = visitor.mobile || "—";
   const host = visitor.person_to_meet_name || "—";
   const purpose = visitor.visit_purpose_type || "—";
-  const time = formatTime(visitor.modified || visitor.creation || undefined) || "18:16";
+  const time = formatStageTimestamp(
+    visitor.approved_on || getCurrentStageTimestamp(visitor),
+    true,
+  );
 
   async function handleGenerate() {
     if (!visitor) return;
@@ -138,7 +142,7 @@ export function VisitorCheckInConfirmModal({
               <path d="M7 8h5M7 12h5M7 16h3" />
               <circle cx="16.5" cy="11.5" r="2.5" />
             </svg>
-            <span>{busyGen ? "Generating Gate Pass..." : "Generate Gate Pass"}</span>
+            <span>{busyGen ? "Opening Gate Pass…" : "View Gate Pass"}</span>
           </button>
 
           <button

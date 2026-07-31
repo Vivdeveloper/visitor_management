@@ -28,7 +28,7 @@ def get_masters() -> dict:
 		"sites": active_list("Site", ["name", "site_name", "organization"]),
 		"buildings": active_list("Building", ["name", "building_name", "site"]),
 		"towers": active_list("Tower", ["name", "tower_name", "building"]),
-		"floors": active_list("Floor", ["name", "floor_name", "building", "tower", "floor_number"]),
+		"floors": active_list("Floor", ["name", "floor_name", "building", "tower", "floor_number"], order_by="floor_number asc, floor_name asc"),
 		"units": active_list("Unit", ["name", "unit_name", "floor", "unit_code"]),
 		"departments": active_list("VMS Department", ["name", "department_name", "organization"]),
 		"visit_purpose_types": active_list("Visit Purpose Type", ["name", "visit_purpose_type_name"], order_by="visit_purpose_type_name asc, name asc"),

@@ -1,4 +1,10 @@
 import { apiClient } from "@/api/client";
+import * as msg91Otp from "@/services/msg91Otp";
+
+/**
+ * Module-level map to store pending MSG91 Widget reqIds per mobile number.
+ */
+const _pendingOtpReqIds = new Map<string, string>();
 
 const METHOD = "visitor_management.react_api";
 
@@ -74,35 +80,89 @@ function extractApiError(err: unknown): string {
     if (ax.response?.status === 417) {
       return "Server rejected the request (invalid field or value). Refresh and try again.";
     }
+    if (ax.response?.status === 401) {
+      return "Invalid ERPNext username or password";
+    }
     if (ax.response?.status === 502 || ax.response?.status === 503 || ax.response?.status === 530) {
       return "Server is unreachable. Check your network connection and that Frappe / socket.io are running, then try again.";
     }
+    if (ax.response?.status && ax.response.status >= 500) {
+      return "Server error during sign-in. Check that bench is running, then try again.";
+    }
+    if (ax.message === "Network Error" || (ax as { code?: string }).code === "ERR_NETWORK") {
+      return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
     if (ax.message) return ax.message;
   }
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    if (err.message === "Network Error") {
+      return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
+    return err.message;
+  }
   return "Something went wrong";
 }
 
-export type OtpWidgetConfig = {
-  enabled: boolean;
-  widget_id?: string;
-  token_auth?: string;
-};
-
-export const otpApi = {
-  getWidgetConfig: () => callMethod<OtpWidgetConfig>("otp.get_widget_config"),
-  /** Validates an MSG91 widget access token server-side. The verified mobile
-   *  comes from MSG91, so none is sent from here. Does not change the session. */
-  verify: (accessToken: string, purpose = "visitor_registration") =>
-    callMethod<{ verified: boolean; mobile: string; purpose: string }>("otp.verify", {
-      access_token: accessToken,
-      purpose,
-    }),
-};
-
 export const authApi = {
-  loginWithPassword: (usr: string, pwd: string) =>
-    callMethod<AuthProfile>("auth.login_with_password", { usr, pwd }),
+  /**
+   * Send OTP to mobile.
+   * If MSG91 Widget is configured (VITE_MSG91_WIDGET_ID), calls MSG91 directly
+   * from the browser using the browser-safe Widget Token.
+   * Otherwise falls back to Frappe backend proxy.
+   */
+  sendOtp: async (mobile: string, purpose = "login"): Promise<AuthProfile> => {
+    if (msg91Otp.isWidgetConfigured()) {
+      try {
+        const { reqId } = await msg91Otp.sendOtp(mobile);
+        _pendingOtpReqIds.set(mobile, reqId);
+        return {
+          success: true,
+          mobile,
+          purpose,
+          message: "OTP sent via MSG91",
+          expires_in: 300,
+        } as AuthProfile;
+      } catch (err: unknown) {
+        throw new Error(err instanceof Error ? err.message : "Failed to send OTP");
+      }
+    }
+    return callMethod<AuthProfile>("auth.send_otp", { mobile, purpose });
+  },
+
+  /**
+   * Verify OTP entered by user.
+   * If MSG91 Widget is configured, verifies directly with MSG91 from browser,
+   * then exchanges returned JWT access-token for Frappe session via auth.verify_widget_token.
+   */
+  verifyOtp: async (mobile: string, otp: string, purpose = "login"): Promise<AuthProfile> => {
+    if (msg91Otp.isWidgetConfigured()) {
+      const reqId = _pendingOtpReqIds.get(mobile);
+      if (!reqId) {
+        throw new Error("No active OTP request found. Please request a new OTP.");
+      }
+      let accessToken: string;
+      try {
+        accessToken = await msg91Otp.verifyOtp(reqId, otp);
+      } catch (err: unknown) {
+        throw new Error(err instanceof Error ? err.message : "OTP verification failed");
+      }
+      _pendingOtpReqIds.delete(mobile);
+      return callMethod<AuthProfile>("auth.verify_widget_token", {
+        access_token: accessToken,
+        mobile,
+        purpose,
+      });
+    }
+    return callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose });
+  },
+
+  loginWithPassword: async (usr: string, pwd: string) => {
+    const res = await callMethod<AuthProfile>("auth.login_with_password", { usr, pwd });
+    if (res && res.success === false) {
+      throw new Error(res.message || "Invalid ERPNext username or password");
+    }
+    return res;
+  },
   me: () => callMethod<AuthProfile>("auth.me"),
   logout: () => callMethod<AuthProfile>("auth.logout"),
   getCsrf: () => callMethod<string>("auth.get_csrf_token"),
@@ -156,7 +216,13 @@ export type MasterOption = {
 export type MastersPayload = {
   sites?: MasterOption[];
   buildings?: MasterOption[];
-  floors?: Array<{ name: string; floor_name?: string }>;
+  floors?: Array<{
+    name: string;
+    floor_name?: string;
+    floor_number?: number;
+    building?: string;
+    tower?: string;
+  }>;
   visit_purpose_types?: Array<{ name: string; visit_purpose_type_name?: string }>;
   vehicle_types?: Array<{ name: string; vehicle_type_name?: string }>;
   id_proof_types?: Array<{ name: string; id_proof_type_name?: string }>;
@@ -206,6 +272,11 @@ export type VisitorListRow = {
   visit_purpose_type?: string;
   check_in?: string;
   checked_in_on?: string;
+  checked_out_on?: string;
+  meeting_done_on?: string;
+  approved_on?: string;
+  rejected_on?: string;
+  transfer_to_user?: string;
   creation?: string;
   visitor_company?: string;
   visitor_location?: string;
@@ -214,6 +285,8 @@ export type VisitorListRow = {
   vehicle_number?: string;
   number_of_visitors?: number | string;
   photo?: string;
+  pass_url?: string;
+  qr_expires_on?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -263,10 +336,17 @@ export const visitorApi = {
         "modified",
         "visit_purpose_type",
         "checked_in_on",
+        "checked_out_on",
+        "meeting_done_on",
+        "approved_on",
+        "rejected_on",
+        "transfer_to_user",
         "creation",
         "visitor_company",
         "number_of_visitors",
         "photo",
+        "pass_url",
+        "qr_expires_on",
       ],
       order_by: "modified desc",
       limit_page_length: limit,
@@ -324,7 +404,7 @@ export const passApi = {
     callMethod<{ success: boolean; pass_url?: string }>("visitor_pass.generate_pass", { visitor_entry, force: force ? 1 : 0 }),
   sendPassToMobile: (visitor_entry: string, mobile?: string) =>
     callMethod<{ success: boolean; message?: string; pass_url?: string }>("visitor_pass.send_pass_to_mobile", { visitor_entry, mobile }),
-  get: (name: string) => callMethod("visitor_pass.get_pass", { name }),
+  get: (name: string) => callMethod<PublicPassResult["pass"] & { name?: string; mobile?: string }>("visitor_pass.get_pass", { name }),
   validate: (token: string) => callMethod<PublicPassResult>("visitor_pass.validate_pass", { token }),
   getPublicPass: (token: string) =>
     callMethod<PublicPassResult>("visitor_pass.get_public_pass", { token }),
@@ -353,4 +433,22 @@ export const meetingApi = {
     callMethod("meeting.start_meeting", { visitor_entry, remarks }),
   complete: (visitor_entry: string, remarks?: string) =>
     callMethod("meeting.complete_meeting", { visitor_entry, remarks }),
+};
+
+export type InAppNotification = {
+  name: string;
+  subject?: string;
+  email_content?: string;
+  document_type?: string;
+  document_name?: string;
+  type?: string;
+  read?: number | boolean;
+  creation?: string;
+  from_user?: string;
+};
+
+export const notificationApi = {
+  list: (limit = 50) => callMethod<InAppNotification[]>("notification.list_notifications", { limit }),
+  markRead: (name: string) => callMethod("notification.mark_read", { name }),
+  markAllRead: () => callMethod("notification.mark_all_read"),
 };

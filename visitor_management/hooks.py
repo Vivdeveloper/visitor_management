@@ -26,10 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/visitor_management/css/visitor_management.css"
-# Bundle name, not a raw path: `bench build` emits a content-hashed file and
-# maps it in assets.json, so Desk clients pick up changes instead of serving a
-# stale cached copy forever.
-app_include_js = "msg91_widget.bundle.js"
+# app_include_js = "/assets/visitor_management/js/visitor_management.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/visitor_management/css/visitor_management.css"

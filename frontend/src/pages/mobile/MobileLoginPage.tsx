@@ -49,9 +49,7 @@ export function MobileLoginPage() {
     <div className="vm-auth-page">
       <div className="vm-auth-mobile-frame">
         <header className="vm-auth-header">
-          <button type="button" className="vm-back-btn" onClick={() => navigate(-1)} aria-label="Back">
-            ‹
-          </button>
+          <span className="vm-auth-header-spacer" aria-hidden />
           <span className="vm-auth-pill">ERPNext Sign In</span>
           <span className="vm-auth-header-spacer" aria-hidden />
         </header>

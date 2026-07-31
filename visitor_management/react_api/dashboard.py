@@ -90,6 +90,18 @@ def get_kpis(
 		)
 		or 0
 	)
+	counts["Checkout Pending"] = counts.get("Meeting Done", 0)
+	counts["Transferred"] = int(
+		frappe.db.count(
+			"Visitor Entry",
+			{
+				"transfer_to_user": ["!=", ""],
+				"creation": ("between", [f"{start} 00:00:00", f"{end} 23:59:59"]),
+			},
+		)
+		or 0
+	)
+	counts["pending"] = counts.get("Pending Approval", 0)
 	counts["total"] = total
 	return counts
 
@@ -159,7 +171,7 @@ def get_queues(
 	start, end = _parse_dates(from_date, to_date)
 	pending = frappe.get_all(
 		"Visitor Entry",
-		filters={"status": "Pending Approval"},
+		filters={"status": ["in", ["Pending Approval", "Pending"]]},
 		fields=QUEUE_FIELDS,
 		order_by="modified desc",
 		limit_page_length=50,

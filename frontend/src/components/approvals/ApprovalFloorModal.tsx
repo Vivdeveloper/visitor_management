@@ -17,10 +17,12 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
   const [floors, setFloors] = useState<Array<{ value: string; display: string }>>([]);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open || !visitor) return;
     setError(null);
+    setSubmitting(false);
     setFloor(visitor.floor || "");
     setLoadingFloors(true);
     let cancelled = false;
@@ -28,10 +30,17 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
       .getMasters()
       .then((masters) => {
         if (cancelled) return;
-        setFloors(buildFloorOptions(masters || {}));
+        const options = buildFloorOptions(masters || {});
+        setFloors(options);
+        // Keep existing floor only if it still exists in Floor master
+        if (visitor.floor && !options.some((o) => o.value === visitor.floor)) {
+          setFloor("");
+        }
       })
-      .catch(() => {
-        if (!cancelled) setFloors([]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFloors([]);
+        setError(err instanceof Error ? err.message : "Could not load floors from Floor master.");
       })
       .finally(() => {
         if (!cancelled) setLoadingFloors(false);
@@ -42,22 +51,38 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
   }, [open, visitor]);
 
   const floorOptions = useMemo(
-    () => floors.map((f) => ({ value: f.value, label: f.display })),
+    () =>
+      floors.map((f) => ({
+        value: f.value,
+        label: f.display,
+      })),
     [floors],
   );
 
   if (!open || !visitor) return null;
 
   const visitorName = visitor.full_name || visitor.name;
+  const isBusy = busy || submitting;
 
   async function handleConfirm() {
     if (!visitor) return;
+    if (!floors.length) {
+      setError("No floors found. Add Floor records in Desk (Visitor Management → Floor).");
+      return;
+    }
     if (!floor.trim()) {
       setError("Please select a floor.");
       return;
     }
     setError(null);
-    await onConfirm(visitor, floor.trim());
+    setSubmitting(true);
+    try {
+      await onConfirm(visitor, floor.trim());
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Approve failed");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -97,18 +122,22 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
 
         <div className="vm-checkin-floor-form">
           <label className="vm-sheet-label" htmlFor="approval-floor-select">
-            Floor No.
+            Floor No. <span className="vm-required-star" aria-hidden>*</span>
           </label>
           <SearchSelect
             id="approval-floor-select"
             value={floor}
             options={floorOptions}
-            onChange={setFloor}
-            placeholder="Select"
+            onChange={(val) => {
+              setFloor(val);
+              setError(null);
+            }}
+            placeholder={loadingFloors ? "Loading floors…" : floors.length ? "Select" : "No floors configured"}
             searchPlaceholder="Search floor"
             loading={loadingFloors}
             loadingText="Loading floors…"
-            disabled={busy}
+            emptyText="No floors found in Floor master"
+            disabled={isBusy || loadingFloors || floors.length === 0}
             required
             allowEmpty
             aria-label="Floor"
@@ -117,16 +146,16 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
         </div>
 
         <div className="vm-confirm-modal-actions">
-          <button type="button" className="vm-confirm-act-btn is-secondary" disabled={busy} onClick={onClose}>
+          <button type="button" className="vm-confirm-act-btn is-secondary" disabled={isBusy} onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
             className="vm-confirm-act-btn is-primary"
-            disabled={busy || loadingFloors}
+            disabled={isBusy || loadingFloors || floors.length === 0}
             onClick={() => void handleConfirm()}
           >
-            {busy ? "Approving…" : "Approve"}
+            {isBusy ? "Approving…" : "Approve"}
           </button>
         </div>
       </div>

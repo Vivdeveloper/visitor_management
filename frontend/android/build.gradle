@@ -22,6 +22,14 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Capacitor plugins may pull androidx.core 1.17+ (needs compileSdk 36 / AGP 8.9+).
+    // Keep aligned with variables.gradle until the Android toolchain is upgraded.
+    configurations.configureEach {
+        resolutionStrategy {
+            force "androidx.core:core:$androidxCoreVersion"
+            force "androidx.core:core-ktx:$androidxCoreVersion"
+        }
+    }
 }
 
 task clean(type: Delete) {

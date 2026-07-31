@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useBlocker, useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import {
+  authApi,
   frappeGetList,
   meetingApi,
-  otpApi,
   passApi,
   securityApi,
   visitorApi,
@@ -16,19 +16,31 @@ import { JourneyLangSwitcher } from "@/components/checkin/JourneyLangSwitcher";
 import { CheckInSuccessCard } from "@/components/checkin/CheckInSuccessCard";
 import { MeetingInProgressCard } from "@/components/checkin/MeetingInProgressCard";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
+import { DiscardEntryModal } from "@/components/checkin/DiscardEntryModal";
+import { AdditionalGuestsModal } from "@/components/checkin/AdditionalGuestsModal";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import {
   type VisitorLang,
   vt,
 } from "@/i18n/visitorJourney";
-import * as msg91Widget from "@/services/msg91Widget";
 import { useAppLanguage } from "@/context/AppLanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { registerBackHandler, getSpaDepth } from "@/native/backNavigation";
 import {
   applyReturningProfileFields,
   getReturningVisitorProfileFields,
   VISIT_FIELDS_TO_CLEAR,
 } from "@/lib/returningVisitorFields";
+import { resolveVisitPurposeType, VISIT_PURPOSE_OTHER_VALUE } from "@/lib/visitPurpose";
+import { formatTime } from "@/lib/format";
+import { canPerformCheckout } from "@/lib/roles";
+import {
+  formatAdditionalGuestsRemarks,
+  normalizeAdditionalGuests,
+  validateAdditionalGuests,
+  type AdditionalGuest,
+} from "@/lib/additionalGuests";
 
 type JourneyStep =
   | "mobile"
@@ -66,7 +78,7 @@ type VisitorDoc = {
   middle_name?: string;
 };
 
-const OTP_LEN_DEFAULT = 6;
+const OTP_LEN = 6;
 
 function normalizeMobile(raw: string): string {
   return raw.replace(/[\s\-()+]/g, "");
@@ -89,39 +101,26 @@ function extractError(err: unknown, lang: VisitorLang): string {
   return vt(lang, "err_generic");
 }
 
-function formatTime(value?: string): string {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return value;
-  }
-}
-
 
 
 export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const allowLeaveRef = useRef(false);
   const { lang, setLang } = useAppLanguage();
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
   const [step, setStep] = useState<JourneyStep>("mobile");
-
-  usePageChrome({
-    title: "Add Entry",
-    subtitle: "Visitor Entry & Desk Verification",
-    showBack: step !== "otp",
-    backTo: "/",
-    showNotification: true,
-    showProfile: true,
-  });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [otpLen, setOtpLen] = useState(OTP_LEN_DEFAULT);
-  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN_DEFAULT).fill(""));
+  const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSuccess, setOtpSuccess] = useState(false);
   const [returningVisitor, setReturningVisitor] = useState(false);
+  const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
+  const [additionalGuestsOpen, setAdditionalGuestsOpen] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -144,11 +143,110 @@ export function MobileCheckInPage() {
     visitor_location: "",
     person_to_meet: "",
     visit_purpose_type: "",
+    visit_purpose_other: "",
     number_of_visitors: "1",
     id_proof_type: "",
     vehicle_type: "",
     vehicle_number: "",
   });
+
+  const leaveTo = useCallback((path: string) => {
+    allowLeaveRef.current = true;
+    navigate(path, { replace: true });
+  }, [navigate]);
+
+  const leaveCheckIn = useCallback(() => {
+    allowLeaveRef.current = true;
+    if (getSpaDepth() > 0) {
+      navigate(-1);
+      return;
+    }
+    navigate("/", { replace: true });
+  }, [navigate]);
+
+  const goBackInJourney = useCallback(() => {
+    switch (step) {
+      case "otp":
+        setOtpDigits(Array(OTP_LEN).fill(""));
+        setOtpSuccess(false);
+        setOtpVerified(false);
+        setError(null);
+        setDevOtp(null);
+        setStep("mobile");
+        return;
+      case "details":
+        setStep("otp");
+        return;
+      case "awaiting":
+        setStep("details");
+        return;
+      case "ready":
+        setStep("details");
+        return;
+      case "pass":
+        setStep("ready");
+        return;
+      case "meeting":
+        setStep("pass");
+        return;
+      case "checkout":
+        setStep("meeting");
+        return;
+      case "mobile":
+        leaveCheckIn();
+        return;
+      default: {
+        const _exhaustive: never = step;
+        return _exhaustive;
+      }
+    }
+  }, [step, leaveCheckIn]);
+
+  usePageChrome({
+    title: "Add Entry",
+    subtitle: "Visitor Entry & Desk Verification",
+    showBack: step !== "otp",
+    backTo: "/",
+    onBack: goBackInJourney,
+    showNotification: true,
+    showProfile: true,
+  });
+
+  useEffect(() => {
+    return registerBackHandler(() => {
+      goBackInJourney();
+      return true;
+    });
+  }, [goBackInJourney]);
+
+  const hasEntryProgress =
+    step !== "mobile" ||
+    normalizeMobile(form.mobile).length > 0 ||
+    Boolean(form.first_name.trim()) ||
+    Boolean(form.last_name.trim()) ||
+    Boolean(form.person_to_meet) ||
+    Boolean(form.visitor_company.trim()) ||
+    Boolean(form.visitor_location.trim()) ||
+    Boolean(photoFile) ||
+    Boolean(idProofFile) ||
+    Boolean(visitorName);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !allowLeaveRef.current &&
+      hasEntryProgress &&
+      currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (!hasEntryProgress) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasEntryProgress]);
 
 function normalizePhotoToVertical(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -215,7 +313,25 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 }
 
   function setField(key: keyof typeof form, value: string) {
+    if (key === "number_of_visitors") {
+      const count = Math.max(1, parseInt(value, 10) || 1);
+      setForm((prev) => ({ ...prev, [key]: value }));
+      setAdditionalGuests((prev) => normalizeAdditionalGuests(prev, count));
+      if (count > 1) {
+        setAdditionalGuestsOpen(true);
+      } else {
+        setAdditionalGuests([]);
+        setAdditionalGuestsOpen(false);
+      }
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleAdditionalGuestsSave(guests: AdditionalGuest[]) {
+    setAdditionalGuests(guests);
+    setAdditionalGuestsOpen(false);
+    setError(null);
   }
 
   async function onPhotoCapture(file: File) {
@@ -263,9 +379,10 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           setStep("ready");
         } else if (step === "awaiting" && (doc.status === "Checked In" || doc.status === "Meeting Done")) {
           setStep("ready");
-        } else if (step === "meeting" && doc.status === "Meeting Done") {
+        } else if (step === "meeting" && doc.status === "Meeting Done" && showCheckout) {
           setStep("checkout");
         } else if (step === "meeting" && doc.status === "Checked Out") {
+          allowLeaveRef.current = true;
           navigate("/history", { replace: true });
         }
       } catch {
@@ -279,7 +396,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [visitorName, step, navigate]);
+  }, [visitorName, step, navigate, showCheckout]);
 
 
 
@@ -292,7 +409,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       next[index] = digit;
       return next;
     });
-    if (digit && index < otpLen - 1) {
+    if (digit && index < OTP_LEN - 1) {
       otpRefs.current[index + 1]?.focus();
     }
   }
@@ -304,10 +421,10 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   }
 
   function onOtpPaste(text: string) {
-    const digits = text.replace(/\D/g, "").slice(0, otpLen).split("");
+    const digits = text.replace(/\D/g, "").slice(0, OTP_LEN).split("");
     if (!digits.length) return;
-    setOtpDigits(Array(otpLen).fill("").map((_, i) => digits[i] || ""));
-    const focusAt = Math.min(digits.length, otpLen - 1);
+    setOtpDigits(Array(OTP_LEN).fill("").map((_, i) => digits[i] || ""));
+    const focusAt = Math.min(digits.length, OTP_LEN - 1);
     otpRefs.current[focusAt]?.focus();
   }
 
@@ -369,6 +486,9 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   async function onContinueMobile(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setDevOtp(null);
+    setOtpVerified(false);
+    setOtpSuccess(false);
     setReturningVisitor(false);
     setBusy(true);
     try {
@@ -378,17 +498,16 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const existing = await lookupReturningVisitor(mobile);
       if (existing) {
         applyReturningVisitor(existing as VisitorListRow & Record<string, unknown>);
-        setOtpVerified(true);
         setReturningVisitor(true);
-        setStep("details");
-        return;
       }
 
-      await msg91Widget.sendOtp(mobile);
-      // The widget reports its own OTP length; adopt it instead of assuming 6.
-      const len = msg91Widget.getWidgetInfo().otpLength;
-      setOtpLen(len);
-      setOtpDigits(Array(len).fill(""));
+      const res = await authApi.sendOtp(mobile, "visitor_registration");
+      if (res.otp) {
+        setDevOtp(res.otp);
+        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
+      } else {
+        setOtpDigits(Array(OTP_LEN).fill(""));
+      }
       setResendIn(30);
       setStep("otp");
     } catch (err: unknown) {
@@ -403,8 +522,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     setBusy(true);
     try {
-      validateMobile(form.mobile, lang);
-      await msg91Widget.retryOtp();
+      const mobile = validateMobile(form.mobile, lang);
+      const res = await authApi.sendOtp(mobile, "visitor_registration");
+      if (res.otp) {
+        setDevOtp(res.otp);
+        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
+      }
       setResendIn(30);
     } catch (err: unknown) {
       setError(extractError(err, lang));
@@ -416,19 +539,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   async function onVerifyOtp(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (otpValue.length !== otpLen) {
-      setError(`Enter the ${otpLen}-digit OTP`);
+    if (otpValue.length !== OTP_LEN) {
+      setError(`Enter the ${OTP_LEN}-digit OTP`);
       return;
     }
     setBusy(true);
     try {
-      // MSG91 checks the code, then the server validates the returned token —
-      // only that second call actually marks the mobile verified.
-      const accessToken = await msg91Widget.verifyOtp(otpValue);
-      await otpApi.verify(accessToken, "visitor_registration");
+      await authApi.verifyOtp(form.mobile, otpValue, "visitor_registration");
       setOtpVerified(true);
       setOtpSuccess(true);
-      setReturningVisitor(false);
       setTimeout(() => {
         setStep("details");
       }, 750);
@@ -464,6 +583,28 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       setError(vt(lang, "err_photo"));
       return;
     }
+    const visitPurposeType = resolveVisitPurposeType(form.visit_purpose_type, form.visit_purpose_other);
+    if (form.visit_purpose_type === VISIT_PURPOSE_OTHER_VALUE && !visitPurposeType) {
+      setError(vt(lang, "err_purpose_other"));
+      return;
+    }
+
+    const visitorCount = Math.max(1, Number(form.number_of_visitors) || 1);
+    if (visitorCount > 1) {
+      const slots = visitorCount - 1;
+      if (additionalGuests.length !== slots) {
+        setAdditionalGuests(normalizeAdditionalGuests(additionalGuests, visitorCount));
+        setAdditionalGuestsOpen(true);
+        setError("Please enter details for all additional visitors.");
+        return;
+      }
+      const guestError = validateAdditionalGuests(additionalGuests);
+      if (guestError) {
+        setAdditionalGuestsOpen(true);
+        setError(guestError);
+        return;
+      }
+    }
 
     setBusy(true);
     setError(null);
@@ -480,6 +621,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         id_proof_photo = await uploadPublicFile(idProofFile);
       }
 
+      const remarks = visitorCount > 1 ? formatAdditionalGuestsRemarks(additionalGuests) : undefined;
+
       const created = (await visitorApi.create({
         mobile,
         photo,
@@ -492,11 +635,12 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         visitor_company: form.visitor_company || undefined,
         visitor_location: form.visitor_location || undefined,
         person_to_meet: form.person_to_meet.trim(),
-        visit_purpose_type: form.visit_purpose_type || undefined,
+        visit_purpose_type: visitPurposeType || undefined,
         id_proof_type: form.id_proof_type || undefined,
         vehicle_type: form.vehicle_type || undefined,
         vehicle_number: form.vehicle_number || undefined,
-        number_of_visitors: Number(form.number_of_visitors) || 1,
+        number_of_visitors: visitorCount,
+        approval_remarks: remarks,
         otp_verified: 1,
       })) as { name?: string; visitor?: VisitorDoc };
 
@@ -514,7 +658,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           visitor_company: form.visitor_company,
           person_to_meet: form.person_to_meet.trim(),
           person_to_meet_name: form.person_to_meet.trim(),
-          visit_purpose_type: form.visit_purpose_type,
+          visit_purpose_type: visitPurposeType,
           photo,
         },
       );
@@ -524,7 +668,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       } catch {
         /* ignore storage errors */
       }
-      navigate("/approvals", { replace: true });
+      leaveTo("/approvals");
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -589,7 +733,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setStep("meeting");
   }
 
-  async function onRequestCheckout() {
+  async function onFinishMeeting() {
     if (!visitorName) return;
     setBusy(true);
     setError(null);
@@ -597,15 +741,17 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const doc = (await visitorApi.get(visitorName)) as VisitorDoc;
       setVisitor(doc);
       if (doc.status === "Approved") {
-        setError("Please complete check-in at the gate before checkout.");
+        setError("Please complete check-in at the gate before finishing your meeting.");
         return;
       }
       if (doc.status === "Checked In") {
-        await meetingApi.complete(visitorName, "Visitor requested checkout");
+        await meetingApi.complete(visitorName, "Meeting completed via mobile");
       }
       const refreshed = (await visitorApi.get(visitorName)) as VisitorDoc;
       setVisitor(refreshed);
-      setStep("checkout");
+      if (showCheckout) {
+        setStep("checkout");
+      }
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -619,7 +765,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     try {
       await securityApi.checkOut(visitorName, "Checked out via mobile");
-      navigate("/history", { replace: true });
+      leaveTo("/history");
     } catch (err: unknown) {
       setError(extractError(err, lang));
     } finally {
@@ -636,6 +782,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   const company = visitor?.visitor_company || form.visitor_company || "—";
   const photoUrl = visitor?.photo || photoPreview;
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
+  const meetingDone = visitor?.status === "Meeting Done";
 
   return (
     <section className="m-page vj-page">
@@ -677,31 +824,68 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
       {step === "otp" ? (
         <form className="vj-screen vm-verify-screen vm-otp-screen" onSubmit={(e) => void onVerifyOtp(e)} lang={lang}>
+          <header className="vm-page-header vm-checkin-step-header vm-otp-back-row">
+            <button
+              type="button"
+              className="vm-back-btn"
+              onClick={goBackInJourney}
+              aria-label="Back to mobile number"
+            >
+              ‹
+            </button>
+            <div style={{ width: "24px" }} />
+          </header>
+
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
+            {returningVisitor ? (
+              <p className="vm-returning-otp-hint" role="status">
+                {vt(lang, "returning_otp_hint")}
+              </p>
+            ) : null}
           </div>
 
           <div className="vm-otp-grid-row" onPaste={(e) => onOtpPaste(e.clipboardData.getData("text"))}>
-            {otpDigits.map((d, i) => (
-              <Fragment key={i}>
-                {i === Math.ceil(otpLen / 2) ? <span className="vm-otp-dash">—</span> : null}
+            {otpDigits.slice(0, 3).map((d, i) => (
+              <input
+                key={i}
+                ref={(el) => {
+                  otpRefs.current[i] = el;
+                }}
+                className={`vm-otp-box-dark${d ? " is-filled" : ""}${
+                  otpDigits.findIndex((digit) => !digit) === i ? " is-focused" : ""
+                }`}
+                inputMode="numeric"
+                autoComplete={i === 0 ? "one-time-code" : "off"}
+                maxLength={1}
+                value={d}
+                aria-label={`OTP digit ${i + 1}`}
+                onChange={(e) => setOtpAt(i, e.target.value)}
+                onKeyDown={(e) => onOtpKeyDown(i, e.key)}
+              />
+            ))}
+            <span className="vm-otp-dash">—</span>
+            {otpDigits.slice(3, 6).map((d, i) => {
+              const idx = i + 3;
+              return (
                 <input
+                  key={idx}
                   ref={(el) => {
-                    otpRefs.current[i] = el;
+                    otpRefs.current[idx] = el;
                   }}
                   className={`vm-otp-box-dark${d ? " is-filled" : ""}${
-                    otpDigits.findIndex((digit) => !digit) === i ? " is-focused" : ""
+                    otpDigits.findIndex((digit) => !digit) === idx ? " is-focused" : ""
                   }`}
                   inputMode="numeric"
-                  autoComplete={i === 0 ? "one-time-code" : "off"}
+                  autoComplete="off"
                   maxLength={1}
                   value={d}
-                  aria-label={`OTP digit ${i + 1}`}
-                  onChange={(e) => setOtpAt(i, e.target.value)}
-                  onKeyDown={(e) => onOtpKeyDown(i, e.key)}
+                  aria-label={`OTP digit ${idx + 1}`}
+                  onChange={(e) => setOtpAt(idx, e.target.value)}
+                  onKeyDown={(e) => onOtpKeyDown(idx, e.key)}
                 />
-              </Fragment>
-            ))}
+              );
+            })}
           </div>
 
           <p className="vm-resend-timer-text">
@@ -716,6 +900,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             )}
           </p>
 
+          {devOtp ? <p className="dev-otp">Dev OTP: {devOtp}</p> : null}
 
           {otpSuccess ? (
             <div className="vm-otp-success-badge" role="status">
@@ -728,8 +913,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
           <button
             type="submit"
-            className={`vj-btn vm-verify-submit-btn${otpValue.length === otpLen ? " is-active" : " is-disabled"}`}
-            disabled={busy || otpValue.length !== otpLen || otpSuccess}
+            className={`vj-btn vm-verify-submit-btn${otpValue.length === OTP_LEN ? " is-active" : " is-disabled"}`}
+            disabled={busy || otpValue.length !== OTP_LEN || otpSuccess}
           >
             {busy ? vt(lang, "verifying") : otpSuccess ? "Verified ✓" : vt(lang, "verify")}
           </button>
@@ -738,11 +923,11 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
       {step === "details" ? (
         <div className="vm-home-page" lang={lang}>
-          <header className="vm-page-header" style={{ justifyContent: "flex-start", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0", gap: "0.75rem" }}>
+          <header className="vm-page-header vm-checkin-step-header" style={{ justifyContent: "flex-start", gap: "0.75rem" }}>
             <button
               type="button"
               className="vm-back-btn"
-              onClick={() => setStep(returningVisitor ? "mobile" : "otp")}
+              onClick={() => setStep("otp")}
               aria-label="Back"
             >
               ‹
@@ -752,7 +937,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
           {returningVisitor ? (
             <div className="vm-returning-banner" role="status">
-              Returning Visitor Found.
+              {vt(lang, "returning_found")}
             </div>
           ) : null}
 
@@ -770,6 +955,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                 visitor_location: form.visitor_location,
                 person_to_meet: form.person_to_meet,
                 visit_purpose_type: form.visit_purpose_type,
+                visit_purpose_other: form.visit_purpose_other,
                 number_of_visitors: form.number_of_visitors,
                 id_proof_type: form.id_proof_type,
                 vehicle_type: form.vehicle_type,
@@ -784,6 +970,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
               onIdProofCapture={onIdProofCapture}
               onSubmit={(e) => void onSubmitDetails(e)}
             />
+            {Number(form.number_of_visitors) > 1 ? (
+              <button
+                type="button"
+                className="vm-additional-guests-link"
+                onClick={() => setAdditionalGuestsOpen(true)}
+              >
+                Edit additional visitor details ({Math.max(0, Number(form.number_of_visitors) - 1)})
+              </button>
+            ) : null}
           </main>
         </div>
       ) : null}
@@ -820,7 +1015,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "ready" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("details")} aria-label="Back">
               ‹
             </button>
@@ -858,7 +1053,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "pass" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("ready")} aria-label="Back">
               ‹
             </button>
@@ -899,7 +1094,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
                   window.print();
                 }
               }}
-              onExit={() => navigate("/", { replace: true })}
+              onExit={() => leaveTo("/")}
             />
             <button
               type="button"
@@ -917,7 +1112,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       {step === "meeting" ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("pass")} aria-label="Back">
               ‹
             </button>
@@ -939,24 +1134,50 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </div>
 
           <main className="vm-main-body vm-form-surface">
-            <MeetingInProgressCard
-              hostName={hostName}
-              department="Production Dept."
-              checkInTime="23 Jul 2026, 09:15 AM"
-              expectedCheckout="05:30 PM"
-              expectedDuration="08:15 Hrs"
-              busy={busy}
-              onFinishMeeting={() => void onRequestCheckout()}
-            />
+            {meetingDone && !showCheckout ? (
+              <div style={{ textAlign: "center", padding: "1rem 0" }}>
+                <div
+                  style={{
+                    width: "80px",
+                    height: "80px",
+                    borderRadius: "50%",
+                    background: "#DCFCE7",
+                    margin: "0.5rem auto 1rem",
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: "2.2rem",
+                    color: "#16A34A",
+                  }}
+                >
+                  ✓
+                </div>
+                <h1 className="vm-page-title" style={{ fontSize: "1.35rem", textAlign: "center", color: "#0F172A" }}>
+                  Meeting Complete
+                </h1>
+                <p style={{ textAlign: "center", color: "#64748B", fontSize: "0.9rem", margin: "0.5rem 0 0" }}>
+                  Security has been notified. Please proceed to the security desk for check-out.
+                </p>
+              </div>
+            ) : (
+              <MeetingInProgressCard
+                hostName={hostName}
+                department="Production Dept."
+                checkInTime="23 Jul 2026, 09:15 AM"
+                expectedCheckout="05:30 PM"
+                expectedDuration="08:15 Hrs"
+                busy={busy}
+                onFinishMeeting={() => void onFinishMeeting()}
+              />
+            )}
             {error ? <p className="login-error" style={{ textAlign: "center", marginTop: "0.5rem" }}>{error}</p> : null}
           </main>
         </div>
       ) : null}
 
-      {step === "checkout" ? (
+      {step === "checkout" && showCheckout ? (
         <div className="vm-home-page">
           {/* Header */}
-          <header className="vm-page-header" style={{ justifyContent: "space-between", background: "transparent", border: "none", padding: "max(1.2rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) 0.25rem 0" }}>
+          <header className="vm-page-header vm-checkin-step-header">
             <button type="button" className="vm-back-btn" onClick={() => setStep("meeting")} aria-label="Back">
               ‹
             </button>
@@ -993,6 +1214,26 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </main>
         </div>
       ) : null}
+
+      <AdditionalGuestsModal
+        open={additionalGuestsOpen}
+        visitorCount={Math.max(1, Number(form.number_of_visitors) || 1)}
+        guests={additionalGuests}
+        busy={busy}
+        onClose={() => setAdditionalGuestsOpen(false)}
+        onSave={handleAdditionalGuestsSave}
+      />
+
+      <DiscardEntryModal
+        open={blocker.state === "blocked"}
+        onStay={() => {
+          if (blocker.state === "blocked") blocker.reset();
+        }}
+        onLeave={() => {
+          allowLeaveRef.current = true;
+          if (blocker.state === "blocked") blocker.proceed();
+        }}
+      />
     </section>
   );
 }

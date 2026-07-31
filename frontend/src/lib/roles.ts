@@ -29,6 +29,11 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
   return "guest";
 }
 
+/** Only gate/security desk staff may check visitors out. */
+export function canPerformCheckout(user: AuthProfile | null): boolean {
+  return resolveMode(user) === "security";
+}
+
 export type MobileTab = {
   to: string;
   label: string;
@@ -41,7 +46,8 @@ export function mobileTabsFor(_mode: VmsMode): MobileTab[] {
     { to: "/", label: "Home", icon: "home" },
     { to: "/approvals", label: "Pending", icon: "approvals" },
     { to: "/check-in", label: "Add Entry", icon: "checkin", fab: true },
-    { to: "/inside", label: "History", icon: "history" },
+    // Live Visitors (Inside) — not History. History log stays at /history.
+    { to: "/inside", label: "Inside", icon: "inside" },
     { to: "/analytics", label: "Reports", icon: "reports" },
   ];
 }

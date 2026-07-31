@@ -13,6 +13,8 @@ export type PageChromeOptions = {
   subtitle: string;
   showBack: boolean;
   backTo?: string;
+  /** When set, HeaderBar calls this instead of navigating to backTo. */
+  onBack?: () => void;
   showNotification: boolean;
   showProfile: boolean;
 };
@@ -61,20 +63,21 @@ export function usePageChromeState() {
 export function usePageChrome(options: Partial<PageChromeOptions>) {
   const ctx = useContext(PageChromeContext);
   const setChrome = ctx?.setChrome;
-  const resetChrome = ctx?.resetChrome;
 
   const {
     title = DEFAULT_CHROME.title,
     subtitle = DEFAULT_CHROME.subtitle,
     showBack = DEFAULT_CHROME.showBack,
     backTo,
+    onBack,
     showNotification = DEFAULT_CHROME.showNotification,
     showProfile = DEFAULT_CHROME.showProfile,
   } = options;
 
   useEffect(() => {
-    if (!setChrome || !resetChrome) return;
-    setChrome({ title, subtitle, showBack, backTo, showNotification, showProfile });
-    return () => resetChrome();
-  }, [title, subtitle, showBack, backTo, showNotification, showProfile, setChrome, resetChrome]);
+    if (!setChrome) return;
+    setChrome({ title, subtitle, showBack, backTo, onBack, showNotification, showProfile });
+    // Do not reset on unmount — the next page sets chrome. Resetting here
+    // flashes the default title and feels like the page "didn't load".
+  }, [title, subtitle, showBack, backTo, onBack, showNotification, showProfile, setChrome]);
 }

@@ -16,6 +16,26 @@
       rel="stylesheet"
     />
     <title>Visitor Management</title>
+    <script type="text/javascript">
+      window.configuration = {
+        widgetId: "36674446a5445343637343131",
+        tokenAuth: "555597TBA3RNES6a6b01d9P1",
+        exposeMethods: true,
+        success: function(data) {
+          console.log("MSG91 Success:", data);
+          if (window._msg91SuccessCallback) window._msg91SuccessCallback(data);
+        },
+        failure: function(error) {
+          console.error("MSG91 Failure:", error);
+          if (window._msg91FailureCallback) window._msg91FailureCallback(error);
+        }
+      };
+    </script>
+    <script
+      type="text/javascript"
+      src="https://control.msg91.com/app/assets/otp-provider/otp-provider.js"
+      onload="if (window.initSendOTP && window.configuration) window.initSendOTP(window.configuration);"
+    ></script>
   </head>
   <body>
     <div id="root"></div>

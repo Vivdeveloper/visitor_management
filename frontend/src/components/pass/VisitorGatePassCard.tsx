@@ -35,7 +35,7 @@ export function VisitorGatePassCard({
   floor = "—",
   status = "Approved",
   noticeMessage = "Pass not valid for status: Approved",
-  validUntil = "11:24",
+  validUntil = "11:24 AM",
   photoUrl,
   qrPayload,
   onDownload,

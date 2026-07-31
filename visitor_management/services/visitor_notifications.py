@@ -3,6 +3,7 @@
 Sends Notification Log + Frappe realtime + Web Push to:
 - Host (Person to Meet)
 - Creator (document owner)
+- Security desk (meeting done / checkout required)
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ import frappe
 from frappe import _
 
 from visitor_management.realtime.publisher import publish_vms_event
+
+SECURITY_ROLES = ("Security", "Reception", "VMS Admin", "System Manager")
 
 
 def resolve_host_user(raw: str | None) -> str | None:
@@ -30,6 +33,18 @@ def resolve_host_user(raw: str | None) -> str | None:
 		or frappe.db.get_value("User", {"first_name": person, "enabled": 1}, "name")
 		or frappe.db.get_value("User", {"mobile_no": person, "enabled": 1}, "name")
 	)
+
+
+def get_security_users() -> list[str]:
+	"""Enabled desk users who can process gate checkout."""
+	users: set[str] = set()
+	for role in SECURITY_ROLES:
+		for user in frappe.get_users_with_role(role) or []:
+			if not user or user == "Guest":
+				continue
+			if frappe.db.get_value("User", user, "enabled"):
+				users.add(user)
+	return sorted(users)
 
 
 def _status_copy(status: str, visitor_name: str) -> tuple[str, str, str, bool]:
@@ -96,6 +111,8 @@ def _push_url_for(event: str) -> str:
 		return "/vms/approvals"
 	if event in ("checked_in", "meeting_done"):
 		return "/vms/inside"
+	if event == "security_checkout_required":
+		return "/vms/inside"
 	return "/vms/"
 
 
@@ -135,7 +152,7 @@ def _notify_one_user(
 		frappe.log_error(title="VMS realtime notify failed")
 
 	try:
-		from visitor_management.react_api.push_notification import send_push_to_user
+		from visitor_management.react_api.push_notification import send_fcm_to_user, send_push_to_user
 
 		send_push_to_user(
 			user,
@@ -144,8 +161,60 @@ def _notify_one_user(
 			url=_push_url_for(event),
 			tag=f"vms-{visitor_entry}-{event}",
 		)
+		send_fcm_to_user(
+			user,
+			title=title,
+			body=body,
+			url=_push_url_for(event),
+			tag=f"vms-{visitor_entry}-{event}",
+		)
 	except Exception:
-		frappe.log_error(title="VMS web push notify failed")
+		frappe.log_error(title="VMS web/FCM push notify failed")
+
+
+def notify_security_checkout(doc) -> dict:
+	"""Alert security desk users when a visitor is ready for gate checkout."""
+	if getattr(frappe.flags, "in_vms_notify", False):
+		return {"skipped": True}
+
+	visitor_name = doc.full_name or doc.name
+	title = _("Visitor ready for checkout")
+	body = _("{0} has completed the meeting. Proceed with gate checkout.").format(visitor_name)
+
+	recipients = get_security_users()
+	checked_in_by = doc.get("checked_in_by")
+	if checked_in_by and checked_in_by not in recipients and frappe.db.exists("User", checked_in_by):
+		recipients.append(checked_in_by)
+
+	if not recipients:
+		return {"success": False, "recipients": [], "message": "No security users found"}
+
+	payload = {
+		"visitor_entry": doc.name,
+		"visitor_name": visitor_name,
+		"host": doc.get("person_to_meet_name") or doc.get("person_to_meet"),
+		"status": doc.status,
+		"message": body,
+		"event": "security_checkout_required",
+		"alert_variant": "security",
+	}
+
+	frappe.flags.in_vms_notify = True
+	try:
+		for user in recipients:
+			_notify_one_user(
+				user,
+				title=title,
+				body=body,
+				visitor_entry=doc.name,
+				event="security_checkout_required",
+				payload=payload,
+				ring_host=True,
+			)
+	finally:
+		frappe.flags.in_vms_notify = False
+
+	return {"success": True, "recipients": recipients, "event": "security_checkout_required"}
 
 
 def notify_host_and_creator(
@@ -251,4 +320,7 @@ def notify_visitor_lifecycle(doc, previous=None) -> dict | None:
 			ring_host=doc.status in ("Pending Approval", "Pending"),
 		)
 
-	return notify_host_and_creator(doc)
+	result = notify_host_and_creator(doc)
+	if status_changed and doc.status == "Meeting Done":
+		notify_security_checkout(doc)
+	return result

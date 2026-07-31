@@ -3239,6 +3239,7 @@ define(['exports'], (function (exports) { 'use strict';
     }
 
     /*
+<<<<<<<< HEAD:visitor_management/public/frontend/workbox-9108f9a6.js
       Copyright 2018 Google LLC
 
       Use of this source code is governed by an MIT-style
@@ -3349,6 +3350,8 @@ define(['exports'], (function (exports) { 'use strict';
     }
 
     /*
+========
+>>>>>>>> e026f176d7ac800ddcb03241fa269f206e00bde4:visitor_management/public/frontend/workbox-50bb6711.js
       Copyright 2020 Google LLC
       Use of this source code is governed by an MIT-style
       license that can be found in the LICENSE file or at

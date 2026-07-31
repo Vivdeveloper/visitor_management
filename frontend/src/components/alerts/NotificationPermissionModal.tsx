@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { enableHostAlertPermissions } from "@/services/hostAlertManager";
+import { isNativePlatform } from "@/native/platform";
 import { notificationPermissionState } from "@/native/services/notifications";
+import { getWebPushStatus } from "@/services/webPush";
 
 const SKIP_SESSION_KEY = "vms_notify_modal_skip";
 
@@ -12,19 +14,33 @@ type Props = {
 
 export function NotificationPermissionModal({ open, onClose, onEnabled }: Props) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const denied = notificationPermissionState() === "denied";
 
   if (!open) return null;
 
   async function onAllow() {
     setBusy(true);
+    setError(null);
     try {
       const result = await enableHostAlertPermissions();
-      if (result.notifications) {
-        sessionStorage.removeItem(SKIP_SESSION_KEY);
-        onEnabled();
-        onClose();
+      if (!result.notifications) {
+        setError("Notification permission was not granted.");
+        return;
       }
+      /* Web PWA: background alerts need a saved Web Push subscription. */
+      if (!isNativePlatform() && !result.webPush) {
+        const status = await getWebPushStatus();
+        if (!status.secureContext) {
+          setError("Background alerts need HTTPS. Open GatePass over https:// (or localhost).");
+          return;
+        }
+        setError("Could not enable background push. Check connection and try again.");
+        return;
+      }
+      sessionStorage.removeItem(SKIP_SESSION_KEY);
+      onEnabled();
+      onClose();
     } finally {
       setBusy(false);
     }
@@ -47,24 +63,26 @@ export function NotificationPermissionModal({ open, onClose, onEnabled }: Props)
         </div>
 
         <h2 id="vm-notify-perm-title" className="vm-notify-perm-title">
-          Allow notifications &amp; sound
+          Allow background notifications
         </h2>
         <p className="vm-notify-perm-body">
           {denied
             ? "Notifications are blocked. Open your phone Settings → GatePass → Notifications and turn them on for visitor ring alerts."
-            : "GatePass needs notification and sound access so you hear visitor approval alerts instantly — like MyGate or NoBroker."}
+            : "Enable notifications so you get visitor alerts even when GatePass is closed or in the background."}
         </p>
 
         <ul className="vm-notify-perm-list">
-          <li>Ring + vibration for pending visitors</li>
-          <li>Alerts even when the app is in background</li>
-          <li>Sound enabled after you tap Allow</li>
+          <li>System notification when a visitor is waiting</li>
+          <li>Works with the app closed (background)</li>
+          <li>Ring + vibration when the app is open</li>
         </ul>
+
+        {error ? <p className="vm-notify-perm-error">{error}</p> : null}
 
         <div className="vm-notify-perm-actions">
           {!denied ? (
             <button type="button" className="vm-notify-perm-allow" onClick={() => void onAllow()} disabled={busy}>
-              {busy ? "Please wait…" : "Allow notifications & sound"}
+              {busy ? "Please wait…" : "Enable background alerts"}
             </button>
           ) : null}
           <button type="button" className="vm-notify-perm-skip" onClick={onSkip}>
@@ -80,4 +98,15 @@ export function shouldShowNotificationPermissionModal(): boolean {
   if (sessionStorage.getItem(SKIP_SESSION_KEY) === "1") return false;
   const state = notificationPermissionState();
   return state === "default" || state === "denied";
+}
+
+/** True when host still needs Web Push setup for background alerts. */
+export async function needsBackgroundPushSetup(): Promise<boolean> {
+  if (sessionStorage.getItem(SKIP_SESSION_KEY) === "1") return false;
+  if (isNativePlatform()) return false;
+  const state = notificationPermissionState();
+  if (state === "denied" || state === "unsupported") return state === "denied";
+  if (state === "default") return true;
+  const status = await getWebPushStatus();
+  return !status.subscribed;
 }

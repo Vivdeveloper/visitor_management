@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPrompt";
 import { ut } from "@/i18n/uiChrome";
 
 type SettingsGroupsProps = {
@@ -9,7 +10,7 @@ type SettingsGroupsProps = {
   onToggleProfileCard?: () => void;
 };
 
-type GroupId = "account" | "appearance" | "tools";
+type GroupId = "account" | "appearance" | "alerts" | "tools";
 
 function SettingsGroup({
   id,
@@ -86,6 +87,7 @@ export function SettingsGroups({
   const [openGroups, setOpenGroups] = useState<Record<GroupId, boolean>>({
     account: true,
     appearance: true,
+    alerts: true,
     tools: true,
   });
 
@@ -105,6 +107,10 @@ export function SettingsGroups({
 
       <SettingsGroup id="appearance" title={ut(lang, "appearance")} open={openGroups.appearance} onToggle={toggle}>
         <LanguageSwitcher variant="settings" />
+      </SettingsGroup>
+
+      <SettingsGroup id="alerts" title={ut(lang, "alerts")} open={openGroups.alerts} onToggle={toggle}>
+        <NotificationSetupPrompt variant="settings" />
       </SettingsGroup>
 
       <SettingsGroup id="tools" title={ut(lang, "tools")} open={openGroups.tools} onToggle={toggle}>

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { authApi, type AuthProfile } from "@/api/vms";
+import { saveFcmTokenToServer } from "@/services/fcmPush";
 
 type AuthContextValue = {
   user: AuthProfile | null;
@@ -56,6 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!user?.authenticated && user?.session_type !== "visitor" && !user?.verified) return;
+    if (user?.session_type === "visitor") return;
+    void saveFcmTokenToServer();
+  }, [user]);
 
   const setProfile = useCallback((profile: AuthProfile | null) => {
     setUser(profile);

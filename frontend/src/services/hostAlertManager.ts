@@ -2,9 +2,11 @@ import { Haptics } from "@capacitor/haptics";
 import { isNativePlatform } from "@/native/platform";
 import {
   cancelHostAlertNotifications,
+  initPushNotifications,
   requestNotificationPermission,
   scheduleUrgentHostAlert,
 } from "@/native/services/notifications";
+import { saveFcmTokenToServer } from "@/services/fcmPush";
 import { subscribeWebPush } from "@/services/webPush";
 
 export type HostAlertPayload = {
@@ -14,6 +16,7 @@ export type HostAlertPayload = {
   host?: string;
   host_user?: string;
   message?: string;
+  alert_variant?: "host" | "security";
 };
 
 export type ActiveHostAlert = {
@@ -23,6 +26,7 @@ export type ActiveHostAlert = {
   hostName: string;
   receivedAt: number;
   reminderCount: number;
+  variant: "host" | "security";
 };
 
 const REMINDER_INTERVAL_MS = 45_000;
@@ -134,6 +138,12 @@ export async function enableHostAlertPermissions(): Promise<{
   let webPush = false;
   if (notifications && !isNativePlatform()) {
     webPush = await subscribeWebPush();
+  }
+  if (notifications && isNativePlatform()) {
+    await initPushNotifications((token) => {
+      void saveFcmTokenToServer(token);
+    });
+    await saveFcmTokenToServer();
   }
   primeHostAlertAudio();
   playHostAlertSound();
