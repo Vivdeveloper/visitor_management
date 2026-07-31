@@ -11,7 +11,6 @@ from frappe import _
 # pyrefly: ignore [missing-import]
 from frappe.utils import cint
 
-from visitor_management.services import otp_service
 
 
 ALLOWED_FIELDS = (
@@ -77,12 +76,9 @@ def create_visitor(**kwargs) -> dict:
 				fallback = frappe.db.get_value("User", {"enabled": 1, "user_type": "System User"}, "name") or "Administrator"
 				data["person_to_meet"] = fallback
 
+	# otp_verified is derived in Visitor Entry.validate_otp from the server-side
+	# verification cache — a client-supplied flag is not trusted here.
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
-	otp_verified = cint(kwargs.get("otp_verified"))
-	if otp_verified:
-		if not otp_service.is_mobile_verified(data["mobile"], "visitor_registration"):
-			frappe.throw(_("Please verify the mobile OTP before saving."))
-		doc.otp_verified = 1
 	doc.insert()
 	return {
 		"success": True,

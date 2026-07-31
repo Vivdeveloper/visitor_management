@@ -6,7 +6,6 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, get_url, now_datetime, time_diff_in_seconds
 
-from visitor_management.services import otp_service
 
 
 # Flow: Pending Approval → Approved → Checked In → Meeting Done → Checked Out
@@ -89,16 +88,20 @@ class VisitorEntry(Document):
 			self.id_proof_photo_preview = self.id_proof_photo
 
 	def validate_otp(self):
+		"""Derive `otp_verified` server-side; never trust it from the client."""
 		if frappe.flags.in_import or frappe.flags.in_install:
 			return
 
-		# Bypass for test OTP 12345 / 123456 or logged-in Desk users
-		if (self.otp and str(self.otp).strip() in ("12345", "123456")) or frappe.session.user != "Guest":
+		# Staff logged into the Desk are vouching for the visitor in person.
+		if frappe.session.user != "Guest":
 			self.otp_verified = 1
 			return
 
+		from visitor_management.react_api.otp import is_mobile_verified
+
+		self.otp_verified = 1 if is_mobile_verified(self.mobile, "visitor_registration") else 0
 		if not self.otp_verified:
-			frappe.throw(_("Please verify the mobile OTP before saving."))
+			frappe.throw(_("Please verify the mobile number with an OTP before saving."))
 
 	def normalize_legacy_status(self):
 		if self.status == "Awaiting":
@@ -150,16 +153,6 @@ def _assign_gate_pass(doc: VisitorEntry) -> None:
 		doc.pass_url = _pass_url(doc.name)
 	if doc.meta.has_field("qr_expires_on"):
 		doc.qr_expires_on = add_to_date(now_datetime(), hours=24, as_datetime=True)
-
-
-@frappe.whitelist()
-def send_otp(mobile):
-	return otp_service.generate_and_send_otp(mobile, purpose="visitor_registration")
-
-
-@frappe.whitelist()
-def verify_otp(mobile, otp):
-	return otp_service.verify_otp(mobile, otp, purpose="visitor_registration")
 
 
 @frappe.whitelist()

@@ -1,10 +1,8 @@
 import { apiClient } from "@/api/client";
-import * as msg91Otp from "@/services/msg91Otp";
 
 /**
  * Module-level map to store pending MSG91 Widget reqIds per mobile number.
  */
-const _pendingOtpReqIds = new Map<string, string>();
 
 const METHOD = "visitor_management.react_api";
 
@@ -103,59 +101,24 @@ function extractApiError(err: unknown): string {
   return "Something went wrong";
 }
 
+export type OtpWidgetConfig = {
+  enabled: boolean;
+  widget_id?: string;
+  token_auth?: string;
+};
+
+export const otpApi = {
+  getWidgetConfig: () => callMethod<OtpWidgetConfig>("otp.get_widget_config"),
+  /** Validates an MSG91 widget access token server-side. The verified mobile
+   *  comes from MSG91, so none is sent from here. Does not change the session. */
+  verify: (accessToken: string, purpose = "visitor_registration") =>
+    callMethod<{ verified: boolean; mobile: string; purpose: string }>("otp.verify", {
+      access_token: accessToken,
+      purpose,
+    }),
+};
+
 export const authApi = {
-  /**
-   * Send OTP to mobile.
-   * If MSG91 Widget is configured (VITE_MSG91_WIDGET_ID), calls MSG91 directly
-   * from the browser using the browser-safe Widget Token.
-   * Otherwise falls back to Frappe backend proxy.
-   */
-  sendOtp: async (mobile: string, purpose = "login"): Promise<AuthProfile> => {
-    if (msg91Otp.isWidgetConfigured()) {
-      try {
-        const { reqId } = await msg91Otp.sendOtp(mobile);
-        _pendingOtpReqIds.set(mobile, reqId);
-        return {
-          success: true,
-          mobile,
-          purpose,
-          message: "OTP sent via MSG91",
-          expires_in: 300,
-        } as AuthProfile;
-      } catch (err: unknown) {
-        throw new Error(err instanceof Error ? err.message : "Failed to send OTP");
-      }
-    }
-    return callMethod<AuthProfile>("auth.send_otp", { mobile, purpose });
-  },
-
-  /**
-   * Verify OTP entered by user.
-   * If MSG91 Widget is configured, verifies directly with MSG91 from browser,
-   * then exchanges returned JWT access-token for Frappe session via auth.verify_widget_token.
-   */
-  verifyOtp: async (mobile: string, otp: string, purpose = "login"): Promise<AuthProfile> => {
-    if (msg91Otp.isWidgetConfigured()) {
-      const reqId = _pendingOtpReqIds.get(mobile);
-      if (!reqId) {
-        throw new Error("No active OTP request found. Please request a new OTP.");
-      }
-      let accessToken: string;
-      try {
-        accessToken = await msg91Otp.verifyOtp(reqId, otp);
-      } catch (err: unknown) {
-        throw new Error(err instanceof Error ? err.message : "OTP verification failed");
-      }
-      _pendingOtpReqIds.delete(mobile);
-      return callMethod<AuthProfile>("auth.verify_widget_token", {
-        access_token: accessToken,
-        mobile,
-        purpose,
-      });
-    }
-    return callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose });
-  },
-
   loginWithPassword: async (usr: string, pwd: string) => {
     const res = await callMethod<AuthProfile>("auth.login_with_password", { usr, pwd });
     if (res && res.success === false) {

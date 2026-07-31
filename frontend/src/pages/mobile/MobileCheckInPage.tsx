@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useBlocker, useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
+import * as msg91Otp from "@/services/msg91Otp";
 import {
-  authApi,
   frappeGetList,
   meetingApi,
+  otpApi,
   passApi,
   securityApi,
   visitorApi,
@@ -114,7 +115,6 @@ export function MobileCheckInPage() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSuccess, setOtpSuccess] = useState(false);
@@ -171,8 +171,7 @@ export function MobileCheckInPage() {
         setOtpSuccess(false);
         setOtpVerified(false);
         setError(null);
-        setDevOtp(null);
-        setStep("mobile");
+            setStep("mobile");
         return;
       case "details":
         setStep("otp");
@@ -486,7 +485,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   async function onContinueMobile(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setDevOtp(null);
     setOtpVerified(false);
     setOtpSuccess(false);
     setReturningVisitor(false);
@@ -501,13 +499,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         setReturningVisitor(true);
       }
 
-      const res = await authApi.sendOtp(mobile, "visitor_registration");
-      if (res.otp) {
-        setDevOtp(res.otp);
-        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
-      } else {
-        setOtpDigits(Array(OTP_LEN).fill(""));
-      }
+      await msg91Otp.sendOtp(mobile);
+      setOtpDigits(Array(OTP_LEN).fill(""));
       setResendIn(30);
       setStep("otp");
     } catch (err: unknown) {
@@ -522,12 +515,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     setBusy(true);
     try {
-      const mobile = validateMobile(form.mobile, lang);
-      const res = await authApi.sendOtp(mobile, "visitor_registration");
-      if (res.otp) {
-        setDevOtp(res.otp);
-        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
-      }
+      validateMobile(form.mobile, lang);
+      await msg91Otp.retryOtp();
       setResendIn(30);
     } catch (err: unknown) {
       setError(extractError(err, lang));
@@ -545,7 +534,10 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     }
     setBusy(true);
     try {
-      await authApi.verifyOtp(form.mobile, otpValue, "visitor_registration");
+      // MSG91 checks the code, then the server validates the returned token —
+      // only that second call actually marks the mobile verified.
+      const accessToken = await msg91Otp.verifyOtp(otpValue);
+      await otpApi.verify(accessToken, "visitor_registration");
       setOtpVerified(true);
       setOtpSuccess(true);
       setTimeout(() => {
@@ -900,7 +892,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             )}
           </p>
 
-          {devOtp ? <p className="dev-otp">Dev OTP: {devOtp}</p> : null}
 
           {otpSuccess ? (
             <div className="vm-otp-success-badge" role="status">

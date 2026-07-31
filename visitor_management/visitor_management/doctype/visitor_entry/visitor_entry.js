@@ -11,18 +11,7 @@ frappe.ui.form.on("Visitor Entry", {
 		add_meeting_actions(frm);
 
 		if (!frm.doc.otp_verified) {
-			frm.add_custom_button(__("Send OTP"), () => send_otp(frm), __("OTP"));
-			frm.add_custom_button(__("Verify OTP"), () => verify_otp(frm), __("OTP"));
-		}
-	},
-
-	otp(frm) {
-		if (frm.doc.otp === "12345" || frm.doc.otp === "123456") {
-			frm.set_value("otp_verified", 1);
-			frappe.show_alert({
-				message: __("Test OTP 12345 accepted"),
-				indicator: "green",
-			});
+			frm.add_custom_button(__("Verify Mobile"), () => verify_mobile(frm));
 		}
 	},
 
@@ -279,58 +268,78 @@ function add_meeting_actions(frm) {
 	}, __("Meeting"));
 }
 
-function send_otp(frm) {
+/**
+ * Verify the visitor's mobile through the MSG91 widget.
+ *
+ * The widget sends and checks the code; the token it returns is validated
+ * server-side, which is what actually marks the mobile verified. The checkbox
+ * set here is only a display hint — `validate_otp` re-derives it on save.
+ */
+function verify_mobile(frm) {
 	if (!frm.doc.mobile) {
 		frappe.msgprint(__("Please enter a mobile number first."));
 		return;
 	}
 
-	frappe.call({
-		method: `${VE}.send_otp`,
-		args: { mobile: frm.doc.mobile },
-		freeze: true,
-		callback(r) {
-			if (r.exc) {
-				return;
-			}
-			const response = r.message || {};
-			frappe.show_alert({
-				message: response.message || __("OTP sent"),
-				indicator: "green",
-			});
-			if (response.otp) {
-				frappe.msgprint({
-					title: __("OTP (Testing)"),
-					message: __("Your OTP is: <b>{0}</b>", [response.otp]),
-					indicator: "blue",
-				});
-			}
-		},
-	});
+	frappe.dom.freeze(__("Sending OTP..."));
+	vms.otp
+		.sendOtp(frm.doc.mobile)
+		.then(() => {
+			frappe.dom.unfreeze();
+			prompt_for_otp(frm);
+		})
+		.catch((err) => {
+			frappe.dom.unfreeze();
+			frappe.msgprint({ title: __("Could not send OTP"), message: err.message, indicator: "red" });
+		});
 }
 
-function verify_otp(frm) {
-	if (!frm.doc.mobile) {
-		frappe.msgprint(__("Please enter a mobile number first."));
-		return;
-	}
-	if (!frm.doc.otp) {
-		frappe.msgprint(__("Please enter the OTP."));
-		return;
-	}
-
-	frappe.call({
-		method: `${VE}.verify_otp`,
-		args: { mobile: frm.doc.mobile, otp: frm.doc.otp },
-		freeze: true,
-		callback(r) {
-			if (!r.exc) {
-				frm.set_value("otp_verified", 1);
-				frappe.show_alert({
-					message: (r.message && r.message.message) || __("OTP verified"),
-					indicator: "green",
+function prompt_for_otp(frm) {
+	const dialog = new frappe.ui.Dialog({
+		title: __("Verify Mobile"),
+		fields: [
+			{
+				fieldname: "info",
+				fieldtype: "HTML",
+				options: `<p>${__("Enter the OTP sent to {0}.", [frappe.utils.escape_html(frm.doc.mobile)])}</p>`,
+			},
+			{ fieldname: "otp", fieldtype: "Data", label: __("OTP"), reqd: 1 },
+		],
+		primary_action_label: __("Verify"),
+		primary_action({ otp }) {
+			frappe.dom.freeze(__("Verifying..."));
+			vms.otp
+				.verifyOtp(otp)
+				.then((token) =>
+					frappe.call({
+						method: "visitor_management.react_api.otp.verify",
+						args: { access_token: token, purpose: "visitor_registration" },
+					})
+				)
+				.then(() => {
+					frappe.dom.unfreeze();
+					dialog.hide();
+					frm.set_value("otp_verified", 1);
+					frappe.show_alert({ message: __("Mobile verified"), indicator: "green" });
+				})
+				.catch((err) => {
+					frappe.dom.unfreeze();
+					frappe.msgprint({
+						title: __("Verification failed"),
+						message: err.message,
+						indicator: "red",
+					});
 				});
-			}
+		},
+		secondary_action_label: __("Resend"),
+		secondary_action() {
+			vms.otp
+				.retryOtp()
+				.then(() => frappe.show_alert({ message: __("OTP resent"), indicator: "blue" }))
+				.catch((err) =>
+					frappe.msgprint({ title: __("Could not resend"), message: err.message, indicator: "red" })
+				);
 		},
 	});
+	dialog.show();
 }

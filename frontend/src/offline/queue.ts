@@ -15,8 +15,8 @@ export type QueuedRequest = {
 /** Auth / session calls must never be queued for offline replay. */
 const NON_QUEUEABLE = [
   "auth.login_with_password",
-  "auth.send_otp",
-  "auth.verify_otp",
+  "otp.get_widget_config",
+  "otp.verify",
   "auth.logout",
   "auth.me",
   "auth.get_csrf_token",
