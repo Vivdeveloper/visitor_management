@@ -56,9 +56,9 @@ def create_visitor(**kwargs) -> dict:
 				fallback = frappe.db.get_value("User", {"enabled": 1, "user_type": "System User"}, "name") or "Administrator"
 				data["person_to_meet"] = fallback
 
+	# otp_verified is derived in Visitor Entry.validate_otp from the server-side
+	# verification cache — a client-supplied flag is not trusted here.
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
-	if cint(kwargs.get("otp_verified")):
-		doc.otp_verified = 1
 	doc.insert()
 	return {
 		"success": True,

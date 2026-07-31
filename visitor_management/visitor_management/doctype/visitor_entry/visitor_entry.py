@@ -6,8 +6,6 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, get_url, now_datetime, time_diff_in_seconds
 
-from visitor_management.services import otp_service
-
 
 # Flow: Pending Approval → Approved → Checked In → Meeting Done → Checked Out
 STATUS_AUDIT_FIELDS = {
@@ -32,6 +30,29 @@ class VisitorEntry(Document):
 	def before_insert(self):
 		if not self.status or self.status == "Awaiting":
 			self.status = "Pending Approval"
+
+	def after_insert(self):
+		"""Auto-create gate pass URL when Visitor Entry is first saved."""
+		if self.meta.has_field("pass_url") and not self.get("pass_url"):
+			_assign_gate_pass(self)
+			updates = {}
+			if self.meta.has_field("pass_url") and self.get("pass_url"):
+				updates["pass_url"] = self.pass_url
+			if self.meta.has_field("qr_expires_on") and self.get("qr_expires_on"):
+				updates["qr_expires_on"] = self.qr_expires_on
+			if updates:
+				frappe.db.set_value("Visitor Entry", self.name, updates, update_modified=False)
+				for key, value in updates.items():
+					self.set(key, value)
+
+	def on_update(self):
+		"""Auto-notify host + creator on create and status / host changes."""
+		try:
+			from visitor_management.services.visitor_notifications import notify_visitor_lifecycle
+
+			notify_visitor_lifecycle(self, previous=self.get_doc_before_save())
+		except Exception:
+			frappe.log_error(title="VMS auto notification failed")
 
 	def stamp_status_audit(self):
 		fieldname = STATUS_AUDIT_FIELDS.get(self.status)
@@ -66,16 +87,20 @@ class VisitorEntry(Document):
 			self.id_proof_photo_preview = self.id_proof_photo
 
 	def validate_otp(self):
+		"""Derive `otp_verified` server-side; never trust it from the client."""
 		if frappe.flags.in_import or frappe.flags.in_install:
 			return
 
-		# Bypass for test OTP 12345 / 123456 or logged-in Desk users
-		if (self.otp and str(self.otp).strip() in ("12345", "123456")) or frappe.session.user != "Guest":
+		# Staff logged into the Desk are vouching for the visitor in person.
+		if frappe.session.user != "Guest":
 			self.otp_verified = 1
 			return
 
+		from visitor_management.react_api.otp import is_mobile_verified
+
+		self.otp_verified = 1 if is_mobile_verified(self.mobile, "visitor_registration") else 0
 		if not self.otp_verified:
-			frappe.throw(_("Please verify the mobile OTP before saving."))
+			frappe.throw(_("Please verify the mobile number with an OTP before saving."))
 
 	def normalize_legacy_status(self):
 		if self.status == "Awaiting":
@@ -122,21 +147,11 @@ def _pass_url(name: str) -> str:
 
 
 def _assign_gate_pass(doc: VisitorEntry) -> None:
-	"""Auto-create gate pass URL + expiry on check-in."""
+	"""Assign gate pass URL + QR expiry (created on insert; refreshed on check-in)."""
 	if doc.meta.has_field("pass_url"):
 		doc.pass_url = _pass_url(doc.name)
 	if doc.meta.has_field("qr_expires_on"):
 		doc.qr_expires_on = add_to_date(now_datetime(), hours=24, as_datetime=True)
-
-
-@frappe.whitelist()
-def send_otp(mobile):
-	return otp_service.generate_and_send_otp(mobile, purpose="visitor_registration")
-
-
-@frappe.whitelist()
-def verify_otp(mobile, otp):
-	return otp_service.verify_otp(mobile, otp, purpose="visitor_registration")
 
 
 @frappe.whitelist()
@@ -155,12 +170,16 @@ def approve(visitor_entry: str | None = None, remarks: str | None = None, floor:
 	doc.status = "Approved"
 	doc.approved_on = now_datetime()
 	doc._append_remarks(remarks, _("Approved by {0}").format(actor))
+	# Ensure gate pass exists (also auto-created on insert for new entries)
+	if not doc.get("pass_url"):
+		_assign_gate_pass(doc)
 	doc.save(ignore_permissions=True)
 
 	return {
 		"name": doc.name,
 		"status": doc.status,
 		"floor": doc.floor,
+		"pass_url": doc.get("pass_url"),
 		"message": _("Visitor approved."),
 	}
 
@@ -290,10 +309,12 @@ def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> d
 
 @frappe.whitelist()
 def generate_pass(visitor_entry: str | None = None, force: int | None = None) -> dict:
-	"""Generate gate pass URL + QR code."""
+	"""Ensure gate pass URL + QR code exist (idempotent; use force=1 to refresh expiry)."""
 	doc = _get_entry(visitor_entry)
-	_assign_gate_pass(doc)
-	doc.save(ignore_permissions=True)
+	force_refresh = int(force or 0) == 1
+	if force_refresh or not doc.get("pass_url"):
+		_assign_gate_pass(doc)
+		doc.save(ignore_permissions=True)
 	return {
 		"name": doc.name,
 		"pass_url": doc.pass_url,

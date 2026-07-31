@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, get_url, now_datetime
 
-from visitor_management.services.otp_service import is_mobile_verified, normalize_mobile, validate_mobile
+from visitor_management.react_api.otp import is_mobile_verified, normalize_mobile, validate_mobile
 from visitor_management.visitor_management.doctype.visitor_entry import visitor_entry as ve
 
 
@@ -56,15 +56,11 @@ def send_pass_to_mobile(visitor_entry: str | None = None, mobile: str | None = N
 	pass_info = ve.generate_pass(visitor_entry)
 	pass_url = pass_info.get("pass_url") or get_url(f"/vms/pass/{doc.name}")
 
-	try:
-		from visitor_management.services.otp_service import send_sms
-		send_sms(target_mobile, f"Your Gate Pass link for Precious Alloys: {pass_url}")
-	except Exception:
-		pass
-
+	# No SMS: MSG91 is wired for the OTP widget only. The pass is shared by URL.
 	return {
 		"success": True,
-		"message": f"Gate pass sent to {target_mobile}",
+		"sms_sent": False,
+		"message": _("Gate pass ready. Share the link with {0}.").format(target_mobile),
 		"mobile": target_mobile,
 		"pass_url": pass_url,
 	}

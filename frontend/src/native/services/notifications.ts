@@ -6,9 +6,46 @@ export type PushTokenHandler = (token: string) => void;
 export type PushMessageHandler = (notification: PushNotificationSchema) => void;
 
 const URGENT_CHANNEL_ID = "gatepass_urgent";
+const NOTIFY_ICON = "/assets/visitor_management/frontend/icons/icon-192.png";
 
 let pushInitialized = false;
 let urgentChannelReady = false;
+
+async function showBrowserNotification(title: string, body: string, tag: string): Promise<boolean> {
+  if (!("Notification" in window)) return false;
+
+  let permission = Notification.permission;
+  if (permission === "default") {
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== "granted") return false;
+
+  const options = {
+    body,
+    tag,
+    requireInteraction: true,
+    icon: NOTIFY_ICON,
+    badge: NOTIFY_ICON,
+    vibrate: [280, 120, 280, 120, 420],
+  } as NotificationOptions & { vibrate?: number[] };
+
+  if ("serviceWorker" in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, options);
+      return true;
+    } catch {
+      /* fall back to window Notification */
+    }
+  }
+
+  const notification = new Notification(title, options);
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+  return true;
+}
 
 export async function ensureUrgentNotificationChannel(): Promise<void> {
   if (!isNativePlatform() || urgentChannelReady) return;
@@ -21,10 +58,10 @@ export async function ensureUrgentNotificationChannel(): Promise<void> {
       importance: 5,
       vibration: true,
       visibility: 1,
+      sound: "default",
     });
     urgentChannelReady = true;
   } catch {
-    /* channel may already exist on Android native side */
     urgentChannelReady = true;
   }
 }
@@ -59,6 +96,13 @@ export async function initPushNotifications(
   }
 }
 
+/** Warm up PWA notification permission + service worker on host devices. */
+export async function initWebHostNotifications(): Promise<void> {
+  if (isNativePlatform() || !("Notification" in window)) return;
+  if (Notification.permission !== "default") return;
+  /* Permission is requested via NotificationEnableBanner — avoid blocking login. */
+}
+
 export async function scheduleLocalNotification(options: {
   id: number;
   title: string;
@@ -66,9 +110,7 @@ export async function scheduleLocalNotification(options: {
   scheduleAt?: Date;
 }): Promise<void> {
   if (!isNativePlatform()) {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(options.title, { body: options.body });
-    }
+    await showBrowserNotification(options.title, options.body, `vms-local-${options.id}`);
     return;
   }
 
@@ -85,6 +127,7 @@ export async function scheduleLocalNotification(options: {
         channelId: "gatepass_default",
         smallIcon: "ic_stat_icon_config_sample",
         iconColor: "#0A3D91",
+        sound: "default",
       },
     ],
   });
@@ -98,19 +141,10 @@ export async function scheduleUrgentHostAlert(options: {
   reminderCount: number;
 }): Promise<void> {
   const title = options.reminderCount > 0 ? `${options.title} (reminder)` : options.title;
+  const tag = `vms-host-alert-${options.visitorEntry}`;
 
   if (!isNativePlatform()) {
-    if ("Notification" in window && Notification.permission === "granted") {
-      const notification = new Notification(title, {
-        body: options.body,
-        tag: `vms-host-alert-${options.visitorEntry}`,
-        requireInteraction: true,
-      });
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-    }
+    await showBrowserNotification(title, options.body, tag);
     return;
   }
 
@@ -128,6 +162,7 @@ export async function scheduleUrgentHostAlert(options: {
         channelId: URGENT_CHANNEL_ID,
         smallIcon: "ic_stat_icon_config_sample",
         iconColor: "#0A3D91",
+        sound: "default",
         ongoing: options.reminderCount === 0,
         autoCancel: true,
         extra: {
@@ -164,4 +199,9 @@ export async function requestNotificationPermission(): Promise<boolean> {
   if (Notification.permission === "denied") return false;
   const perm = await Notification.requestPermission();
   return perm === "granted";
+}
+
+export function notificationPermissionState(): NotificationPermission | "unsupported" {
+  if (!("Notification" in window)) return "unsupported";
+  return Notification.permission;
 }

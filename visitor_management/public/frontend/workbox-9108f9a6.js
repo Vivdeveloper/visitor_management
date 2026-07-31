@@ -3246,12 +3246,19 @@ define(['exports'], (function (exports) { 'use strict';
       https://opensource.org/licenses/MIT.
     */
     /**
-     * An implementation of a [cache-first](https://developer.chrome.com/docs/workbox/caching-strategies-overview/#cache-first-falling-back-to-network)
+     * An implementation of a
+     * [stale-while-revalidate](https://developer.chrome.com/docs/workbox/caching-strategies-overview/#stale-while-revalidate)
      * request strategy.
      *
-     * A cache first strategy is useful for assets that have been revisioned,
-     * such as URLs like `/styles/example.a8f5f1.css`, since they
-     * can be cached for long periods of time.
+     * Resources are requested from both the cache and the network in parallel.
+     * The strategy will respond with the cached version if available, otherwise
+     * wait for the network response. The cache is updated with the network response
+     * with each successful request.
+     *
+     * By default, this strategy will cache responses with a 200 status code as
+     * well as [opaque responses](https://developer.chrome.com/docs/workbox/caching-resources-during-runtime/#opaque-responses).
+     * Opaque responses are cross-origin requests where the response doesn't
+     * support [CORS](https://enable-cors.org/).
      *
      * If the network request fails, and there is no cache match, this will throw
      * a `WorkboxError` exception.
@@ -3259,7 +3266,28 @@ define(['exports'], (function (exports) { 'use strict';
      * @extends workbox-strategies.Strategy
      * @memberof workbox-strategies
      */
-    class CacheFirst extends Strategy {
+    class StaleWhileRevalidate extends Strategy {
+      /**
+       * @param {Object} [options]
+       * @param {string} [options.cacheName] Cache name to store and retrieve
+       * requests. Defaults to cache names provided by
+       * {@link workbox-core.cacheNames}.
+       * @param {Array<Object>} [options.plugins] [Plugins]{@link https://developers.google.com/web/tools/workbox/guides/using-plugins}
+       * to use in conjunction with this caching strategy.
+       * @param {Object} [options.fetchOptions] Values passed along to the
+       * [`init`](https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/fetch#Parameters)
+       * of [non-navigation](https://github.com/GoogleChrome/workbox/issues/1796)
+       * `fetch()` requests made by this strategy.
+       * @param {Object} [options.matchOptions] [`CacheQueryOptions`](https://w3c.github.io/ServiceWorker/#dictdef-cachequeryoptions)
+       */
+      constructor(options = {}) {
+        super(options);
+        // If this instance contains no plugins with a 'cacheWillUpdate' callback,
+        // prepend the `cacheOkAndOpaquePlugin` plugin to the plugins list.
+        if (!this.plugins.some(p => 'cacheWillUpdate' in p)) {
+          this.plugins.unshift(cacheOkAndOpaquePlugin);
+        }
+      }
       /**
        * @private
        * @param {Request|string} request A request to run this strategy for.
@@ -3273,33 +3301,33 @@ define(['exports'], (function (exports) { 'use strict';
           finalAssertExports.isInstance(request, Request, {
             moduleName: 'workbox-strategies',
             className: this.constructor.name,
-            funcName: 'makeRequest',
+            funcName: 'handle',
             paramName: 'request'
           });
         }
+        const fetchAndCachePromise = handler.fetchAndCachePut(request).catch(() => {
+          // Swallow this error because a 'no-response' error will be thrown in
+          // main handler return flow. This will be in the `waitUntil()` flow.
+        });
+        void handler.waitUntil(fetchAndCachePromise);
         let response = await handler.cacheMatch(request);
-        let error = undefined;
-        if (!response) {
+        let error;
+        if (response) {
           {
-            logs.push(`No response found in the '${this.cacheName}' cache. ` + `Will respond with a network request.`);
+            logs.push(`Found a cached response in the '${this.cacheName}'` + ` cache. Will update with the network response in the background.`);
+          }
+        } else {
+          {
+            logs.push(`No response found in the '${this.cacheName}' cache. ` + `Will wait for the network response.`);
           }
           try {
-            response = await handler.fetchAndCachePut(request);
+            // NOTE(philipwalton): Really annoying that we have to type cast here.
+            // https://github.com/microsoft/TypeScript/issues/20006
+            response = await fetchAndCachePromise;
           } catch (err) {
             if (err instanceof Error) {
               error = err;
             }
-          }
-          {
-            if (response) {
-              logs.push(`Got response from network.`);
-            } else {
-              logs.push(`Unable to get a response from the network.`);
-            }
-          }
-        } else {
-          {
-            logs.push(`Found a cached response in the '${this.cacheName}' cache.`);
           }
         }
         {
@@ -4455,9 +4483,9 @@ define(['exports'], (function (exports) { 'use strict';
       });
     }
 
-    exports.CacheFirst = CacheFirst;
     exports.ExpirationPlugin = ExpirationPlugin;
     exports.NetworkFirst = NetworkFirst;
+    exports.StaleWhileRevalidate = StaleWhileRevalidate;
     exports.cleanupOutdatedCaches = cleanupOutdatedCaches;
     exports.precacheAndRoute = precacheAndRoute;
     exports.registerRoute = registerRoute;

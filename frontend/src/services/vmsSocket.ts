@@ -29,6 +29,14 @@ export function resolveSocketHost(): string {
 
 let socket: Socket | null = null;
 
+export function connectVmsSocket(): Socket | null {
+  const sock = getVmsSocket();
+  if (sock && !sock.connected) {
+    sock.connect();
+  }
+  return sock;
+}
+
 export function getVmsSocket(): Socket | null {
   if (socket) return socket;
 

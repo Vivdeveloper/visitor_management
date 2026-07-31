@@ -75,7 +75,12 @@ export default defineConfig(({ command, mode }) => {
 								{
 									urlPattern: ({ url }) =>
 										url.pathname.startsWith("/assets/visitor_management/frontend/"),
-									handler: "CacheFirst",
+									// StaleWhileRevalidate, not CacheFirst: the shell still loads
+									// instantly from cache, but every load also refetches in the
+									// background, so a deploy lands on the next visit. CacheFirst
+									// pinned clients to a stale bundle until the entry expired,
+									// which stranded them on old API calls after a release.
+									handler: "StaleWhileRevalidate",
 									options: {
 										cacheName: "vms-shell",
 										expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 30 },

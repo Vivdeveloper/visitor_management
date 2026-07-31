@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import {
-  authApi,
   frappeGetList,
   meetingApi,
+  otpApi,
   passApi,
   securityApi,
   visitorApi,
@@ -21,6 +21,7 @@ import {
   type VisitorLang,
   vt,
 } from "@/i18n/visitorJourney";
+import * as msg91Widget from "@/services/msg91Widget";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { usePageChrome } from "@/context/PageChromeContext";
 import {
@@ -65,7 +66,7 @@ type VisitorDoc = {
   middle_name?: string;
 };
 
-const OTP_LEN = 6;
+const OTP_LEN_DEFAULT = 6;
 
 function normalizeMobile(raw: string): string {
   return raw.replace(/[\s\-()+]/g, "");
@@ -116,8 +117,8 @@ export function MobileCheckInPage() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devOtp, setDevOtp] = useState<string | null>(null);
-  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
+  const [otpLen, setOtpLen] = useState(OTP_LEN_DEFAULT);
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN_DEFAULT).fill(""));
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpSuccess, setOtpSuccess] = useState(false);
   const [returningVisitor, setReturningVisitor] = useState(false);
@@ -291,7 +292,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       next[index] = digit;
       return next;
     });
-    if (digit && index < OTP_LEN - 1) {
+    if (digit && index < otpLen - 1) {
       otpRefs.current[index + 1]?.focus();
     }
   }
@@ -303,10 +304,10 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   }
 
   function onOtpPaste(text: string) {
-    const digits = text.replace(/\D/g, "").slice(0, OTP_LEN).split("");
+    const digits = text.replace(/\D/g, "").slice(0, otpLen).split("");
     if (!digits.length) return;
-    setOtpDigits(Array(OTP_LEN).fill("").map((_, i) => digits[i] || ""));
-    const focusAt = Math.min(digits.length, OTP_LEN - 1);
+    setOtpDigits(Array(otpLen).fill("").map((_, i) => digits[i] || ""));
+    const focusAt = Math.min(digits.length, otpLen - 1);
     otpRefs.current[focusAt]?.focus();
   }
 
@@ -368,7 +369,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   async function onContinueMobile(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setDevOtp(null);
     setReturningVisitor(false);
     setBusy(true);
     try {
@@ -384,13 +384,11 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         return;
       }
 
-      const res = await authApi.sendOtp(mobile, "visitor_registration");
-      if (res.otp) {
-        setDevOtp(res.otp);
-        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
-      } else {
-        setOtpDigits(Array(OTP_LEN).fill(""));
-      }
+      await msg91Widget.sendOtp(mobile);
+      // The widget reports its own OTP length; adopt it instead of assuming 6.
+      const len = msg91Widget.getWidgetInfo().otpLength;
+      setOtpLen(len);
+      setOtpDigits(Array(len).fill(""));
       setResendIn(30);
       setStep("otp");
     } catch (err: unknown) {
@@ -405,12 +403,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     setBusy(true);
     try {
-      const mobile = validateMobile(form.mobile, lang);
-      const res = await authApi.sendOtp(mobile, "visitor_registration");
-      if (res.otp) {
-        setDevOtp(res.otp);
-        setOtpDigits(res.otp.split("").slice(0, OTP_LEN));
-      }
+      validateMobile(form.mobile, lang);
+      await msg91Widget.retryOtp();
       setResendIn(30);
     } catch (err: unknown) {
       setError(extractError(err, lang));
@@ -422,13 +416,16 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   async function onVerifyOtp(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (otpValue.length !== OTP_LEN) {
-      setError(`Enter the ${OTP_LEN}-digit OTP`);
+    if (otpValue.length !== otpLen) {
+      setError(`Enter the ${otpLen}-digit OTP`);
       return;
     }
     setBusy(true);
     try {
-      await authApi.verifyOtp(form.mobile, otpValue, "visitor_registration");
+      // MSG91 checks the code, then the server validates the returned token —
+      // only that second call actually marks the mobile verified.
+      const accessToken = await msg91Widget.verifyOtp(otpValue);
+      await otpApi.verify(accessToken, "visitor_registration");
       setOtpVerified(true);
       setOtpSuccess(true);
       setReturningVisitor(false);
@@ -685,46 +682,26 @@ function normalizePhotoToVertical(file: File): Promise<File> {
           </div>
 
           <div className="vm-otp-grid-row" onPaste={(e) => onOtpPaste(e.clipboardData.getData("text"))}>
-            {otpDigits.slice(0, 3).map((d, i) => (
-              <input
-                key={i}
-                ref={(el) => {
-                  otpRefs.current[i] = el;
-                }}
-                className={`vm-otp-box-dark${d ? " is-filled" : ""}${
-                  otpDigits.findIndex((digit) => !digit) === i ? " is-focused" : ""
-                }`}
-                inputMode="numeric"
-                autoComplete={i === 0 ? "one-time-code" : "off"}
-                maxLength={1}
-                value={d}
-                aria-label={`OTP digit ${i + 1}`}
-                onChange={(e) => setOtpAt(i, e.target.value)}
-                onKeyDown={(e) => onOtpKeyDown(i, e.key)}
-              />
-            ))}
-            <span className="vm-otp-dash">—</span>
-            {otpDigits.slice(3, 6).map((d, i) => {
-              const idx = i + 3;
-              return (
+            {otpDigits.map((d, i) => (
+              <Fragment key={i}>
+                {i === Math.ceil(otpLen / 2) ? <span className="vm-otp-dash">—</span> : null}
                 <input
-                  key={idx}
                   ref={(el) => {
-                    otpRefs.current[idx] = el;
+                    otpRefs.current[i] = el;
                   }}
                   className={`vm-otp-box-dark${d ? " is-filled" : ""}${
-                    otpDigits.findIndex((digit) => !digit) === idx ? " is-focused" : ""
+                    otpDigits.findIndex((digit) => !digit) === i ? " is-focused" : ""
                   }`}
                   inputMode="numeric"
-                  autoComplete="off"
+                  autoComplete={i === 0 ? "one-time-code" : "off"}
                   maxLength={1}
                   value={d}
-                  aria-label={`OTP digit ${idx + 1}`}
-                  onChange={(e) => setOtpAt(idx, e.target.value)}
-                  onKeyDown={(e) => onOtpKeyDown(idx, e.key)}
+                  aria-label={`OTP digit ${i + 1}`}
+                  onChange={(e) => setOtpAt(i, e.target.value)}
+                  onKeyDown={(e) => onOtpKeyDown(i, e.key)}
                 />
-              );
-            })}
+              </Fragment>
+            ))}
           </div>
 
           <p className="vm-resend-timer-text">
@@ -739,7 +716,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             )}
           </p>
 
-          {devOtp ? <p className="dev-otp">Dev OTP: {devOtp}</p> : null}
 
           {otpSuccess ? (
             <div className="vm-otp-success-badge" role="status">
@@ -752,8 +728,8 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
           <button
             type="submit"
-            className={`vj-btn vm-verify-submit-btn${otpValue.length === OTP_LEN ? " is-active" : " is-disabled"}`}
-            disabled={busy || otpValue.length !== OTP_LEN || otpSuccess}
+            className={`vj-btn vm-verify-submit-btn${otpValue.length === otpLen ? " is-active" : " is-disabled"}`}
+            disabled={busy || otpValue.length !== otpLen || otpSuccess}
           >
             {busy ? vt(lang, "verifying") : otpSuccess ? "Verified ✓" : vt(lang, "verify")}
           </button>

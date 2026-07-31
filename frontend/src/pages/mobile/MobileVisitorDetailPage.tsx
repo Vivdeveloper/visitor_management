@@ -127,9 +127,9 @@ export function MobileVisitorDetailPage() {
       {!loading && visitor ? (
         <main className="vm-main-body vm-detail-stack">
           <div className="vm-overview-card vm-detail-hero">
+            <p className="vm-detail-kicker">{visitor.name}</p>
             <div className="vm-detail-hero-grid">
               <div className="vm-detail-hero-photo-col">
-                <p className="vm-detail-kicker">{visitor.name}</p>
                 <ClickablePhotoPreview
                   src={visitor.photo}
                   name={displayName}
@@ -138,10 +138,10 @@ export function MobileVisitorDetailPage() {
                   className="vm-photo-preview vm-detail-photo-frame"
                   onPreview={setPreviewSrc}
                 />
-                <span className="vm-status-pill">{status || "—"}</span>
               </div>
               <div className="vm-detail-hero-copy">
                 <h1 className="vm-page-title">{displayName}</h1>
+                <span className="vm-status-pill">{status || "—"}</span>
               </div>
             </div>
           </div>

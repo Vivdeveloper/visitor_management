@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (workbox) { 'use strict';
+define(['/assets/visitor_management/frontend/workbox-9108f9a6'], (function (workbox) { 'use strict';
 
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -106,10 +106,10 @@ define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (work
     "revision": "bd2e4c361078dc91a0c8e0b946814bc0"
   }, {
     "url": "/assets/visitor_management/frontend/vms-asset-index.css",
-    "revision": "0cca9e8f5077be0d6bca0501dbdda968"
+    "revision": "a6f20f611810c2f42cdf9d8b98c954ad"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "1ba0d78c5c6a43ee055060830f8eb1fc"
+    "revision": "1ac8e1dbc8f3b02f8feff93aa57655c3"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"
@@ -169,7 +169,7 @@ define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (work
   }), 'GET');
   workbox.registerRoute(({
     url
-  }) => url.pathname.startsWith("/assets/visitor_management/frontend/"), new workbox.CacheFirst({
+  }) => url.pathname.startsWith("/assets/visitor_management/frontend/"), new workbox.StaleWhileRevalidate({
     "cacheName": "vms-shell",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 64,
@@ -178,3 +178,42 @@ define(['/assets/visitor_management/frontend/workbox-60fee754'], (function (work
   }), 'GET');
 
 }));
+
+
+// GatePass Web Push (VAPID) — appended by copy-pwa
+self.addEventListener("push", (event) => {
+	let data = { title: "GatePass", body: "Visitor approval needed.", url: "/vms/approvals" };
+	try {
+		if (event.data) Object.assign(data, JSON.parse(event.data.text()));
+	} catch {
+		/* defaults */
+	}
+	event.waitUntil(
+		self.registration.showNotification(data.title, {
+			body: data.body,
+			icon: data.icon || "/assets/visitor_management/frontend/icons/icon-192.png",
+			badge: data.badge || "/assets/visitor_management/frontend/icons/icon-192.png",
+			tag: data.tag || "vms-host-alert",
+			renotify: true,
+			requireInteraction: true,
+			data: { url: data.url },
+			vibrate: [280, 120, 280, 120, 420],
+		}),
+	);
+});
+
+self.addEventListener("notificationclick", (event) => {
+	event.notification.close();
+	const target = event.notification.data?.url || "/vms/approvals";
+	event.waitUntil(
+		clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+			for (const client of windowClients) {
+				if (client.url.includes("/vms") && "focus" in client) {
+					client.navigate(target);
+					return client.focus();
+				}
+			}
+			if (clients.openWindow) return clients.openWindow(target);
+		}),
+	);
+});

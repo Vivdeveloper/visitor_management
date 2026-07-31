@@ -83,11 +83,24 @@ function extractApiError(err: unknown): string {
   return "Something went wrong";
 }
 
+export type OtpWidgetConfig = {
+  enabled: boolean;
+  widget_id?: string;
+  token_auth?: string;
+};
+
+export const otpApi = {
+  getWidgetConfig: () => callMethod<OtpWidgetConfig>("otp.get_widget_config"),
+  /** Validates an MSG91 widget access token server-side. The verified mobile
+   *  comes from MSG91, so none is sent from here. Does not change the session. */
+  verify: (accessToken: string, purpose = "visitor_registration") =>
+    callMethod<{ verified: boolean; mobile: string; purpose: string }>("otp.verify", {
+      access_token: accessToken,
+      purpose,
+    }),
+};
+
 export const authApi = {
-  sendOtp: (mobile: string, purpose = "login") =>
-    callMethod<AuthProfile>("auth.send_otp", { mobile, purpose }),
-  verifyOtp: (mobile: string, otp: string, purpose = "login") =>
-    callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose }),
   loginWithPassword: (usr: string, pwd: string) =>
     callMethod<AuthProfile>("auth.login_with_password", { usr, pwd }),
   me: () => callMethod<AuthProfile>("auth.me"),

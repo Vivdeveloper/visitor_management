@@ -5,7 +5,7 @@ from __future__ import annotations
 import frappe
 from frappe.utils import cstr
 
-from visitor_management.services.otp_service import normalize_mobile
+from visitor_management.react_api.otp import normalize_mobile
 
 
 STAFF_ROLES = (

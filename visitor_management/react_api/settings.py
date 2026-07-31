@@ -11,7 +11,6 @@ def get_settings() -> dict:
 	return {
 		"app_name": "Visitor Management",
 		"default_visitor_status": "Pending Approval",
-		"otp_ttl_sec": 300,
 	}
 
 

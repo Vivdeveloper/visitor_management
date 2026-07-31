@@ -10,7 +10,6 @@
   "mobile",
   "column_break_contact",
   "status",
-  "otp",
   "otp_verified",
   "email",
   "photo",
@@ -78,12 +77,6 @@
   {
    "fieldname": "column_break_contact",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "otp",
-   "fieldtype": "Data",
-   "label": "OTP",
-   "no_copy": 1
   },
   {
    "default": "0",
