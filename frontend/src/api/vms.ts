@@ -1,4 +1,10 @@
 import { apiClient } from "@/api/client";
+import * as msg91Otp from "@/services/msg91Otp";
+
+/**
+ * Module-level map to store pending MSG91 Widget reqIds per mobile number.
+ */
+const _pendingOtpReqIds = new Map<string, string>();
 
 const METHOD = "visitor_management.react_api";
 
@@ -98,10 +104,58 @@ function extractApiError(err: unknown): string {
 }
 
 export const authApi = {
-  sendOtp: (mobile: string, purpose = "login") =>
-    callMethod<AuthProfile>("auth.send_otp", { mobile, purpose }),
-  verifyOtp: (mobile: string, otp: string, purpose = "login") =>
-    callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose }),
+  /**
+   * Send OTP to mobile.
+   * If MSG91 Widget is configured (VITE_MSG91_WIDGET_ID), calls MSG91 directly
+   * from the browser using the browser-safe Widget Token.
+   * Otherwise falls back to Frappe backend proxy.
+   */
+  sendOtp: async (mobile: string, purpose = "login"): Promise<AuthProfile> => {
+    if (msg91Otp.isWidgetConfigured()) {
+      try {
+        const { reqId } = await msg91Otp.sendOtp(mobile);
+        _pendingOtpReqIds.set(mobile, reqId);
+        return {
+          success: true,
+          mobile,
+          purpose,
+          message: "OTP sent via MSG91",
+          expires_in: 300,
+        } as AuthProfile;
+      } catch (err: unknown) {
+        throw new Error(err instanceof Error ? err.message : "Failed to send OTP");
+      }
+    }
+    return callMethod<AuthProfile>("auth.send_otp", { mobile, purpose });
+  },
+
+  /**
+   * Verify OTP entered by user.
+   * If MSG91 Widget is configured, verifies directly with MSG91 from browser,
+   * then exchanges returned JWT access-token for Frappe session via auth.verify_widget_token.
+   */
+  verifyOtp: async (mobile: string, otp: string, purpose = "login"): Promise<AuthProfile> => {
+    if (msg91Otp.isWidgetConfigured()) {
+      const reqId = _pendingOtpReqIds.get(mobile);
+      if (!reqId) {
+        throw new Error("No active OTP request found. Please request a new OTP.");
+      }
+      let accessToken: string;
+      try {
+        accessToken = await msg91Otp.verifyOtp(reqId, otp);
+      } catch (err: unknown) {
+        throw new Error(err instanceof Error ? err.message : "OTP verification failed");
+      }
+      _pendingOtpReqIds.delete(mobile);
+      return callMethod<AuthProfile>("auth.verify_widget_token", {
+        access_token: accessToken,
+        mobile,
+        purpose,
+      });
+    }
+    return callMethod<AuthProfile>("auth.verify_otp", { mobile, otp, purpose });
+  },
+
   loginWithPassword: async (usr: string, pwd: string) => {
     const res = await callMethod<AuthProfile>("auth.login_with_password", { usr, pwd });
     if (res && res.success === false) {
