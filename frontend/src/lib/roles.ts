@@ -4,40 +4,25 @@ export type VmsMode = "host" | "security" | "visitor" | "guest";
 
 export type CapabilityKey = keyof VmsCapabilities;
 
-/** Roles allowed to Accept / Reject on Pending queue. */
-const APPROVE_ROLES = new Set(["PA GatePass Approval", "System Manager"]);
-
-/** Roles that unlock the VMS PWA (plus System Manager). */
-const VMS_APP_ROLES = new Set(["PA Security Guard User", "PA GatePass Approval", "System Manager"]);
-
 function visitorEntryPerms(user: AuthProfile | null): DocPermFlags {
   return user?.permissions?.["Visitor Entry"] || {};
 }
 
-function userRoleSet(user: AuthProfile | null): Set<string> {
-  return new Set([...(user?.roles || []), ...(user?.vms_roles || [])]);
-}
-
-/** Desk user may open the VMS PWA (assigned PA roles / System Manager / VE DocPerm). */
+/** Desk user may open the VMS PWA when Visitor Entry DocPerm grants any access. */
 export function hasVmsAppAccess(user: AuthProfile | null): boolean {
   if (!user) return false;
   if (user.session_type === "visitor" || (!user.authenticated && user.verified)) return true;
   if (!user.authenticated) return false;
-  const roles = userRoleSet(user);
-  if ([...roles].some((r) => VMS_APP_ROLES.has(r))) return true;
   const ve = visitorEntryPerms(user);
   return Boolean(ve.read || ve.write || ve.create || ve.report);
 }
 
 /**
  * Overall visitor queues (all hosts).
- * System Manager + PA Security Guard User / gate create — hosts see only their assignments.
+ * Gate desk = Visitor Entry create in Role Permission Manager; hosts are scoped.
  */
 export function canViewAllVisitorQueues(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
-  const roles = userRoleSet(user);
-  if (roles.has("System Manager")) return true;
-  if (roles.has("PA Security Guard User")) return true;
   return Boolean(visitorEntryPerms(user).create);
 }
 
@@ -49,31 +34,26 @@ export function visitorScopeFilters(user: AuthProfile | null): Array<[string, st
   return [["person_to_meet", "=", uid]];
 }
 
-/** Accept / Reject — only PA GatePass Approval and System Manager. */
+/** Accept / Reject — server `can_approve` from Role Permission Manager (write, not gate create). */
 export function canApproveReject(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
-  if (user.capabilities && "approve" in user.capabilities) {
-    return Boolean(user.capabilities.approve);
-  }
-  return [...userRoleSet(user)].some((r) => APPROVE_ROLES.has(r));
+  if (typeof user.can_approve === "boolean") return user.can_approve;
+  const ve = visitorEntryPerms(user);
+  return Boolean(ve.write && !ve.create);
 }
 
 /**
- * Call Host + Notify (bell) — gate desk only.
- * Host / PA GatePass Approval must never see these (they are the host).
+ * Call Host + Notify (bell) — gate desk only (Visitor Entry create).
+ * Host mode (read/write without create) must never see these.
  */
 export function canCallNotifyHost(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
-  // Approver / host mode (read/write without create) → never
   if (resolveMode(user) === "host") return false;
-  const roles = userRoleSet(user);
-  if (roles.has("PA Security Guard User") || roles.has("System Manager")) return true;
-  return Boolean(visitorEntryPerms(user).create || user.capabilities?.check_in);
+  return Boolean(visitorEntryPerms(user).create);
 }
 
 /**
- * UI access from Frappe Role Permission Manager (DocType DocPerm) only.
- * Prefer server `capabilities`; fall back to Visitor Entry permission flags.
+ * UI access from Frappe Role Permission Manager (Visitor Entry DocPerm) only.
  */
 export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boolean {
   if (!user) return false;
@@ -84,13 +64,6 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
 
   if (user.authenticated && !hasVmsAppAccess(user)) {
     return false;
-  }
-
-  const caps = user.capabilities;
-  if (caps && key in caps) {
-    // Server always sends profile:true — still require VMS access for desk users.
-    if (key === "profile") return hasVmsAppAccess(user) && Boolean(caps.profile);
-    return Boolean(caps[key]);
   }
 
   const ve = visitorEntryPerms(user);
@@ -108,7 +81,6 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
     case "reports":
       return Boolean(ve.report || ve.read);
     case "checkout":
-      // Gate: create + write in Role Permission Manager
       return Boolean(ve.write && ve.create);
     case "scan":
       return Boolean(ve.write || ve.create);
@@ -142,7 +114,7 @@ export function canPerformCheckout(user: AuthProfile | null): boolean {
   return hasCapability(user, "checkout");
 }
 
-/** Transfer — both security guard and host/approver on the Pending queue. */
+/** Transfer — gate create or host/approver on the Pending queue. */
 export function canTransferVisitor(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
   return canApproveReject(user) || canCallNotifyHost(user) || hasCapability(user, "approvals");

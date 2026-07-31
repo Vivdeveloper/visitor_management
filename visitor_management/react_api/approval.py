@@ -73,15 +73,15 @@ def notify_host(visitor_entry: str | None = None, message: str | None = None) ->
 
 @frappe.whitelist()
 def list_for_host(status: str | None = None) -> list:
+	from visitor_management.auth.permissions import must_scope_visitor_entry_to_host
+
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Login required"))
 
 	filters: dict = {}
-	# Full list: System Manager or Role Permission Manager create (gate/security).
-	# Hosts / PA GatePass Approval (write without create) see only their queue.
-	roles = set(frappe.get_roles(user) or [])
-	if "System Manager" not in roles and not frappe.has_permission("Visitor Entry", "create"):
+	# Role Permission Manager: no create → host queue only (person_to_meet).
+	if must_scope_visitor_entry_to_host(user):
 		filters["person_to_meet"] = user
 	if status:
 		filters["status"] = status

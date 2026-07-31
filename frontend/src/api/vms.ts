@@ -17,7 +17,7 @@ export type DocPermFlags = {
   print?: boolean;
 };
 
-/** UI screens/actions derived from DocPerm (see auth.session.get_capabilities). */
+/** UI screens keyed from Visitor Entry DocPerm in `lib/roles.ts` (client-side only). */
 export type VmsCapabilities = {
   dashboard?: boolean;
   approvals?: boolean;
@@ -30,7 +30,7 @@ export type VmsCapabilities = {
   history?: boolean;
   profile?: boolean;
   notifications?: boolean;
-  /** Accept / Reject — PA GatePass Approval or System Manager only. */
+  /** Accept / Reject — from server `can_approve` (not a DocPerm field). */
   approve?: boolean;
 };
 
@@ -49,7 +49,8 @@ export type AuthProfile = {
   vms_roles?: string[];
   /** Role Permission Manager metadata keyed by DocType name. */
   permissions?: Record<string, DocPermFlags>;
-  capabilities?: VmsCapabilities;
+  /** Accept/Reject — Role Permission Manager write (not gate create); from server. */
+  can_approve?: boolean;
   csrf_token?: string;
   message?: string;
   otp?: string;
@@ -319,7 +320,8 @@ export const visitorApi = {
   create: (payload: Record<string, unknown>) => callMethod("visitor.create_visitor", payload),
   /**
    * Extended list via core Frappe client (fields must exist on Visitor Entry DocType).
-   * Pass host-scope filters from `visitorScopeFilters(user)` for PA GatePass Approval users.
+   * Pass host-scope filters from `visitorScopeFilters(user)` for host users
+   * (Visitor Entry without create DocPerm).
    */
   listDetailed: (limit = 100, filters?: Record<string, unknown> | unknown[]) =>
     frappeGetList<VisitorListRow>({

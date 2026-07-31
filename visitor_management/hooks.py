@@ -128,15 +128,16 @@ after_migrate = "visitor_management.install.after_migrate"
 
 # Permissions
 # -----------
-# Permissions evaluated in scripted ways
+# Visitor Entry only — Role Permission Manager DocPerm.
+# Host (no create) lists scoped to person_to_meet. Not User Permission.
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Visitor Entry": "visitor_management.auth.permissions.visitor_entry_permission_query_conditions",
+}
+
+has_permission = {
+	"Visitor Entry": "visitor_management.auth.permissions.visitor_entry_has_permission",
+}
 
 # Document Events
 # ---------------
