@@ -26,12 +26,14 @@ import { MobileAnalyticsPage } from "@/pages/mobile/MobileAnalyticsPage";
 import { MobileMeetingsPage } from "@/pages/mobile/MobileMeetingsPage";
 import { MobileNotificationsPage } from "@/pages/mobile/MobileNotificationsPage";
 import { MobileVisitorDetailPage } from "@/pages/mobile/MobileVisitorDetailPage";
+import { MobileAccessDeniedPage } from "@/pages/mobile/MobileAccessDeniedPage";
 import { useAuth } from "@/context/AuthContext";
 import { APP_BASE_PATH } from "@/config/env";
 import { isLikelyNativeWebView, shouldUseHashRouter } from "@/native/platform";
 import {
   firstAllowedPath,
   hasCapability,
+  hasVmsAppAccess,
   type CapabilityKey,
 } from "@/lib/roles";
 
@@ -43,6 +45,27 @@ function RequirePwaAuth() {
   if (!isAuthenticated && !user?.verified) {
     return <Navigate to="/login" replace />;
   }
+  return <Outlet />;
+}
+
+/** Desk users without PA / VMS roles cannot use the app. */
+function RequireVmsAccess() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="login-page">Loading…</div>;
+  }
+
+  const isVisitorSession =
+    user?.session_type === "visitor" || (Boolean(user?.verified) && !user?.authenticated);
+
+  if (user?.authenticated && !hasVmsAppAccess(user) && !isVisitorSession) {
+    if (location.pathname !== "/access-denied") {
+      return <Navigate to="/access-denied" replace />;
+    }
+  }
+
   return <Outlet />;
 }
 
@@ -90,56 +113,59 @@ const routeElements = createRoutesFromElements(
     <Route path="/pass/:token" element={<PublicPassPage />} />
 
     <Route element={<RequirePwaAuth />}>
-      <Route element={<MobileLayout />}>
-        <Route path="/" element={<HomeOrRedirect />} />
+      <Route path="/access-denied" element={<MobileAccessDeniedPage />} />
+      <Route element={<RequireVmsAccess />}>
+        <Route element={<MobileLayout />}>
+          <Route path="/" element={<HomeOrRedirect />} />
 
-        <Route element={<RequireCapability capability="check_in" />}>
-          <Route path="/check-in" element={<MobileCheckInPage />} />
-          <Route path="/pre-register" element={<MobilePreRegisterPage />} />
+          <Route element={<RequireCapability capability="check_in" />}>
+            <Route path="/check-in" element={<MobileCheckInPage />} />
+            <Route path="/pre-register" element={<MobilePreRegisterPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="scan" />}>
+            <Route path="/scan" element={<MobileScanPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="inside" />}>
+            <Route path="/inside" element={<MobileInsidePage />} />
+            <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="history" />}>
+            <Route path="/history" element={<MobileHistoryPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="approvals" />}>
+            <Route path="/approvals" element={<MobileApprovalsPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="reports" />}>
+            <Route path="/analytics" element={<MobileAnalyticsPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="meetings" />}>
+            <Route path="/meetings" element={<MobileMeetingsPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="checkout" />}>
+            <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
+            <Route path="/checkout" element={<MobileCheckoutPage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="profile" />}>
+            <Route path="/my-pass" element={<MobilePassPage />} />
+            <Route path="/pass" element={<MobilePassPage />} />
+            <Route path="/profile" element={<MobileProfilePage />} />
+          </Route>
+
+          <Route element={<RequireCapability capability="notifications" />}>
+            <Route path="/notifications" element={<MobileNotificationsPage />} />
+          </Route>
+
+          <Route path="/m" element={<Navigate to="/" replace />} />
+          <Route path="/m/*" element={<Navigate to="/" replace />} />
         </Route>
-
-        <Route element={<RequireCapability capability="scan" />}>
-          <Route path="/scan" element={<MobileScanPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="inside" />}>
-          <Route path="/inside" element={<MobileInsidePage />} />
-          <Route path="/visitor/:name" element={<MobileVisitorDetailPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="history" />}>
-          <Route path="/history" element={<MobileHistoryPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="approvals" />}>
-          <Route path="/approvals" element={<MobileApprovalsPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="reports" />}>
-          <Route path="/analytics" element={<MobileAnalyticsPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="meetings" />}>
-          <Route path="/meetings" element={<MobileMeetingsPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="checkout" />}>
-          <Route path="/checkout/:name" element={<MobileCheckoutPage />} />
-          <Route path="/checkout" element={<MobileCheckoutPage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="profile" />}>
-          <Route path="/my-pass" element={<MobilePassPage />} />
-          <Route path="/pass" element={<MobilePassPage />} />
-          <Route path="/profile" element={<MobileProfilePage />} />
-        </Route>
-
-        <Route element={<RequireCapability capability="notifications" />}>
-          <Route path="/notifications" element={<MobileNotificationsPage />} />
-        </Route>
-
-        <Route path="/m" element={<Navigate to="/" replace />} />
-        <Route path="/m/*" element={<Navigate to="/" replace />} />
       </Route>
     </Route>
 

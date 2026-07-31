@@ -21,7 +21,14 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { formatNowTime } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
-import { canApproveReject, canPerformCheckout } from "@/lib/roles";
+import {
+  canApproveReject,
+  canCallNotifyHost,
+  canPerformCheckout,
+  canTransferVisitor,
+  resolveMode,
+  visitorScopeFilters,
+} from "@/lib/roles";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
@@ -87,7 +94,11 @@ export function MobileApprovalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
+  const mode = resolveMode(user);
   const canDecide = canApproveReject(user);
+  // Call Host / Notify are gate-desk only — host is the person being called.
+  const canHostOps = mode === "security" && canCallNotifyHost(user);
+  const canTransfer = canTransferVisitor(user);
 
   usePageChrome({
     title: "Pending",
@@ -117,7 +128,7 @@ export function MobileApprovalsPage() {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(200);
+      const list = await visitorApi.listDetailed(200, visitorScopeFilters(user));
       const newList = list || [];
 
       for (const v of newList) {
@@ -144,7 +155,7 @@ export function MobileApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusMapRef]);
+  }, [statusMapRef, user]);
 
   useEffect(() => {
     void load();
@@ -469,13 +480,12 @@ export function MobileApprovalsPage() {
               key={item.name}
               item={item}
               busy={busy === item.name}
-              approveBlocked={!viewOnlyAll && !canDecide}
               onOpen={viewOnlyAll ? undefined : () => navigate(`/visitor/${encodeURIComponent(item.name)}`)}
               onApprove={viewOnlyAll || !canDecide ? undefined : (v) => handleApprove(v)}
               onReject={viewOnlyAll || !canDecide ? undefined : () => handleReject(item)}
-              onNotifyHost={viewOnlyAll ? undefined : () => handleNotifyHost(item)}
-              onTransfer={viewOnlyAll ? undefined : (v) => setTransferVisitor(v)}
-              onCallHost={viewOnlyAll ? undefined : (v) => void handleCallHost(v)}
+              onNotifyHost={viewOnlyAll || !canHostOps ? undefined : () => handleNotifyHost(item)}
+              onTransfer={viewOnlyAll || !canTransfer ? undefined : (v) => setTransferVisitor(v)}
+              onCallHost={viewOnlyAll || !canHostOps ? undefined : (v) => void handleCallHost(v)}
               onGenerateGatePass={
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
               }
@@ -506,7 +516,16 @@ export function MobileApprovalsPage() {
         open={!!rejectVisitor}
         busy={!!rejectVisitor && busy === rejectVisitor.name}
         onClose={() => setRejectVisitor(null)}
-        onDone={() => {
+        onDone={(visitor, remarks) => {
+          const name = visitor.full_name || visitor.name;
+          setToast({
+            id: Date.now().toString(),
+            title: "Visitor rejected",
+            message: remarks
+              ? `${name} was rejected. Reason: ${remarks}`
+              : `${name} was rejected.`,
+            time: formatNowTime(),
+          });
           void load();
         }}
       />

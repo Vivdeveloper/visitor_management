@@ -39,7 +39,20 @@ def get_security_users() -> list[str]:
 	return get_users_with_doctype_permission("Visitor Entry", "create")
 
 
-def _status_copy(status: str, visitor_name: str) -> tuple[str, str, str, bool]:
+def _extract_reject_reason(remarks: str | None) -> str | None:
+	if not remarks:
+		return None
+	lines = [line.strip() for line in str(remarks).splitlines() if line.strip()]
+	for line in reversed(lines):
+		lower = line.lower()
+		if lower.startswith("rejected by") and ":" in line:
+			reason = line.split(":", 1)[1].strip()
+			if reason:
+				return reason
+	return None
+
+
+def _status_copy(status: str, visitor_name: str, remarks: str | None = None) -> tuple[str, str, str, bool]:
 	"""Return (event, title, body, ring_host)."""
 	if status == "Pending Approval":
 		return (
@@ -56,10 +69,16 @@ def _status_copy(status: str, visitor_name: str) -> tuple[str, str, str, bool]:
 			False,
 		)
 	if status == "Rejected":
+		reason = _extract_reject_reason(remarks)
+		body = (
+			_("{0} has been rejected. Reason: {1}").format(visitor_name, reason)
+			if reason
+			else _("{0} has been rejected.").format(visitor_name)
+		)
 		return (
 			"rejected",
 			_("Visitor rejected"),
-			_("{0} has been rejected.").format(visitor_name),
+			body,
 			False,
 		)
 	if status == "Checked In":
@@ -103,6 +122,8 @@ def _push_url_for(event: str) -> str:
 		return "/vms/approvals"
 	if event in ("checked_in", "meeting_done"):
 		return "/vms/inside"
+	if event == "rejected":
+		return "/vms/inside?status=rejected"
 	if event == "security_checkout_required":
 		return "/vms/inside"
 	return "/vms/"
@@ -223,7 +244,9 @@ def notify_host_and_creator(
 
 	visitor_name = doc.full_name or doc.name
 	status = doc.status or "Pending Approval"
-	auto_event, auto_title, auto_body, auto_ring = _status_copy(status, visitor_name)
+	auto_event, auto_title, auto_body, auto_ring = _status_copy(
+		status, visitor_name, doc.get("approval_remarks")
+	)
 
 	event = event or auto_event
 	title = title or auto_title
@@ -248,6 +271,12 @@ def notify_host_and_creator(
 	for user in (host_user, creator):
 		if user and user not in recipients:
 			recipients.append(user)
+
+	# Gate desk should also see rejection alerts in the notification bar.
+	if status == "Rejected":
+		for user in get_security_users():
+			if user and user not in recipients:
+				recipients.append(user)
 
 	frappe.flags.in_vms_notify = True
 	try:

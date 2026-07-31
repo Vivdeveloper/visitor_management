@@ -5,6 +5,8 @@ import { extractError, formatTime, initials } from "@/lib/format";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { VisitorStageTimeline } from "@/components/visitors/VisitorStageTimeline";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { useAuth } from "@/context/AuthContext";
+import { visitorScopeFilters } from "@/lib/roles";
 
 function toInputDate(d: Date) {
   const y = d.getFullYear();
@@ -101,6 +103,7 @@ function cardTheme(status?: string) {
 export function MobileMeetingsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
 
   usePageChrome({
     title: "Meetings",
@@ -136,7 +139,7 @@ export function MobileMeetingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(200);
+      const list = await visitorApi.listDetailed(200, visitorScopeFilters(user));
       setRows(list || []);
     } catch (err: unknown) {
       setError(extractError(err, "Could not load schedule"));
@@ -144,7 +147,7 @@ export function MobileMeetingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();

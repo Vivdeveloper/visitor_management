@@ -103,15 +103,20 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
   }
 
   return (
-    <div className="vm-confirm-modal-root" role="dialog" aria-modal="true" aria-labelledby="vm-view-gate-pass-title">
-      <button type="button" className="vm-confirm-modal-backdrop" onClick={onClose} aria-label="Close" />
+    <div
+      className="vm-confirm-modal-root vm-gate-pass-modal-root"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vm-view-gate-pass-title"
+    >
+      <button type="button" className="vm-confirm-modal-backdrop vm-no-print" onClick={onClose} aria-label="Close" />
 
       <div className="vm-confirm-modal-card vm-view-gate-pass-card">
-        <button type="button" className="vm-confirm-modal-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="vm-confirm-modal-close vm-no-print" onClick={onClose} aria-label="Close">
           ✕
         </button>
 
-        <div className="vm-confirm-modal-top">
+        <div className="vm-confirm-modal-top vm-no-print">
           <h2 id="vm-view-gate-pass-title" className="vm-confirm-modal-title">
             View Gate Pass
           </h2>
@@ -120,8 +125,8 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
           </p>
         </div>
 
-        {loading ? <p className="vm-empty-hint">Loading gate pass…</p> : null}
-        {error ? <p className="login-error">{error}</p> : null}
+        {loading ? <p className="vm-empty-hint vm-no-print">Loading gate pass…</p> : null}
+        {error ? <p className="login-error vm-no-print">{error}</p> : null}
 
         {!loading && !error && passUrl ? (
           <VisitorGatePassCard
@@ -145,7 +150,7 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
           />
         ) : null}
 
-        <div className="vm-view-gate-pass-footer">
+        <div className="vm-view-gate-pass-footer vm-no-print">
           {onSendToMobile && passUrl ? (
             <button
               type="button"

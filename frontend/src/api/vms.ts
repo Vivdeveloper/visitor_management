@@ -281,6 +281,8 @@ export type VisitorListRow = {
   photo?: string;
   pass_url?: string;
   qr_expires_on?: string;
+  /** Host/security remarks — includes reject reason lines. */
+  approval_remarks?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -315,8 +317,11 @@ export const visitorApi = {
   update: (name: string, payload: Record<string, unknown>) =>
     callMethod("visitor.update_visitor", { name, ...payload }),
   create: (payload: Record<string, unknown>) => callMethod("visitor.create_visitor", payload),
-  /** Extended list via core Frappe client (fields must exist on Visitor Entry DocType). */
-  listDetailed: (limit = 100) =>
+  /**
+   * Extended list via core Frappe client (fields must exist on Visitor Entry DocType).
+   * Pass host-scope filters from `visitorScopeFilters(user)` for PA GatePass Approval users.
+   */
+  listDetailed: (limit = 100, filters?: Record<string, unknown> | unknown[]) =>
     frappeGetList<VisitorListRow>({
       doctype: "Visitor Entry",
       fields: [
@@ -341,7 +346,9 @@ export const visitorApi = {
         "photo",
         "pass_url",
         "qr_expires_on",
+        "approval_remarks",
       ],
+      filters,
       order_by: "modified desc",
       limit_page_length: limit,
     }),

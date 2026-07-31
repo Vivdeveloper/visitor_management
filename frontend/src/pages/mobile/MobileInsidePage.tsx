@@ -8,7 +8,7 @@ import type { StatusFilterOption } from "@/components/ui/SlidingStatusFilter";
 import { VisitorListRowCard } from "@/components/visitors/VisitorListRowCard";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { useAuth } from "@/context/AuthContext";
-import { canPerformCheckout } from "@/lib/roles";
+import { canPerformCheckout, visitorScopeFilters } from "@/lib/roles";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 
@@ -75,7 +75,7 @@ export function MobileInsidePage() {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(100);
+      const list = await visitorApi.listDetailed(100, visitorScopeFilters(user));
       setRows(list || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not load visitors");
@@ -83,7 +83,7 @@ export function MobileInsidePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void loadVisitors();

@@ -4,6 +4,7 @@ import { authApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { extractError } from "@/lib/format";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { firstAllowedPath, hasVmsAppAccess } from "@/lib/roles";
 
 /** PWA login — ERPNext username/email + password only. */
 export function MobileLoginPage() {
@@ -17,8 +18,12 @@ export function MobileLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!loading && (isAuthenticated || user?.verified)) {
-    return <Navigate to="/" replace />;
+  if (!loading && (isAuthenticated || user?.verified) && hasVmsAppAccess(user)) {
+    return <Navigate to={firstAllowedPath(user)} replace />;
+  }
+
+  if (!loading && isAuthenticated && user && !hasVmsAppAccess(user)) {
+    return <Navigate to="/access-denied" replace />;
   }
 
   async function onPasswordLogin(e: FormEvent) {
@@ -32,12 +37,25 @@ export function MobileLoginPage() {
     setBusy(true);
     try {
       const res = await authApi.loginWithPassword(username.trim(), password);
-      setProfile({
+      const profile = {
         ...res,
         verified: true,
         authenticated: true,
-      });
-      navigate("/", { replace: true });
+      };
+      if (!hasVmsAppAccess(profile)) {
+        try {
+          await authApi.logout();
+        } catch {
+          /* ignore */
+        }
+        setProfile(null);
+        setError(
+          "No Visitor Management access. Ask an administrator to assign PA Security Guard User or PA GatePass Approval.",
+        );
+        return;
+      }
+      setProfile(profile);
+      navigate(firstAllowedPath(profile), { replace: true });
     } catch (err: unknown) {
       setError(extractError(err, "Invalid ERPNext username or password"));
     } finally {

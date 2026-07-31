@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { dashboardApi, visitorApi } from "@/api/vms";
+import { dashboardApi, notificationApi, visitorApi } from "@/api/vms";
 import { useAuth } from "@/context/AuthContext";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
@@ -10,7 +10,7 @@ import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPr
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
-import { hasCapability } from "@/lib/roles";
+import { hasCapability, visitorScopeFilters } from "@/lib/roles";
 
 interface HeaderBarProps {
   title?: string;
@@ -56,11 +56,15 @@ export function HeaderBar({
     }
     try {
       // Same source as Pending tab / Notifications page — avoid empty dashboard queue misses.
-      const list = await visitorApi.listDetailed(200);
+      const [list, alerts] = await Promise.all([
+        visitorApi.listDetailed(200, visitorScopeFilters(user)),
+        notificationApi.list(40).catch(() => []),
+      ]);
       const pending = (list || []).filter(
         (row) => row.status === "Pending Approval" || row.status === "Pending",
-      );
-      setPendingCount(pending.length);
+      ).length;
+      const unreadAlerts = (alerts || []).filter((row) => !row.read).length;
+      setPendingCount(pending + unreadAlerts);
     } catch {
       try {
         const list = await dashboardApi.getPendingApprovals();
@@ -69,7 +73,7 @@ export function HeaderBar({
         setPendingCount(0);
       }
     }
-  }, [authLoading, isAuthenticated, canSeeNotifications]);
+  }, [authLoading, isAuthenticated, canSeeNotifications, user]);
 
   useEffect(() => {
     void loadPendingCount();

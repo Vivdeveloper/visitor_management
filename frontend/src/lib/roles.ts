@@ -7,8 +7,46 @@ export type CapabilityKey = keyof VmsCapabilities;
 /** Roles allowed to Accept / Reject on Pending queue. */
 const APPROVE_ROLES = new Set(["PA GatePass Approval", "System Manager"]);
 
+/** Roles that unlock the VMS PWA (plus System Manager). */
+const VMS_APP_ROLES = new Set(["PA Security Guard User", "PA GatePass Approval", "System Manager"]);
+
 function visitorEntryPerms(user: AuthProfile | null): DocPermFlags {
   return user?.permissions?.["Visitor Entry"] || {};
+}
+
+function userRoleSet(user: AuthProfile | null): Set<string> {
+  return new Set([...(user?.roles || []), ...(user?.vms_roles || [])]);
+}
+
+/** Desk user may open the VMS PWA (assigned PA roles / System Manager / VE DocPerm). */
+export function hasVmsAppAccess(user: AuthProfile | null): boolean {
+  if (!user) return false;
+  if (user.session_type === "visitor" || (!user.authenticated && user.verified)) return true;
+  if (!user.authenticated) return false;
+  const roles = userRoleSet(user);
+  if ([...roles].some((r) => VMS_APP_ROLES.has(r))) return true;
+  const ve = visitorEntryPerms(user);
+  return Boolean(ve.read || ve.write || ve.create || ve.report);
+}
+
+/**
+ * Overall visitor queues (all hosts).
+ * System Manager + PA Security Guard User / gate create — hosts see only their assignments.
+ */
+export function canViewAllVisitorQueues(user: AuthProfile | null): boolean {
+  if (!user?.authenticated) return false;
+  const roles = userRoleSet(user);
+  if (roles.has("System Manager")) return true;
+  if (roles.has("PA Security Guard User")) return true;
+  return Boolean(visitorEntryPerms(user).create);
+}
+
+/** Frappe get_list filters so hosts only see person_to_meet = self. */
+export function visitorScopeFilters(user: AuthProfile | null): Array<[string, string, string]> | undefined {
+  if (!user?.authenticated || canViewAllVisitorQueues(user)) return undefined;
+  const uid = (user.user || user.email || "").trim();
+  if (!uid) return undefined;
+  return [["person_to_meet", "=", uid]];
 }
 
 /** Accept / Reject — only PA GatePass Approval and System Manager. */
@@ -17,8 +55,20 @@ export function canApproveReject(user: AuthProfile | null): boolean {
   if (user.capabilities && "approve" in user.capabilities) {
     return Boolean(user.capabilities.approve);
   }
-  const roles = new Set([...(user.roles || []), ...(user.vms_roles || [])]);
-  return [...roles].some((r) => APPROVE_ROLES.has(r));
+  return [...userRoleSet(user)].some((r) => APPROVE_ROLES.has(r));
+}
+
+/**
+ * Call Host + Notify (bell) — gate desk only.
+ * Host / PA GatePass Approval must never see these (they are the host).
+ */
+export function canCallNotifyHost(user: AuthProfile | null): boolean {
+  if (!user?.authenticated) return false;
+  // Approver / host mode (read/write without create) → never
+  if (resolveMode(user) === "host") return false;
+  const roles = userRoleSet(user);
+  if (roles.has("PA Security Guard User") || roles.has("System Manager")) return true;
+  return Boolean(visitorEntryPerms(user).create || user.capabilities?.check_in);
 }
 
 /**
@@ -32,8 +82,14 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
     return key === "check_in" || key === "profile";
   }
 
+  if (user.authenticated && !hasVmsAppAccess(user)) {
+    return false;
+  }
+
   const caps = user.capabilities;
   if (caps && key in caps) {
+    // Server always sends profile:true — still require VMS access for desk users.
+    if (key === "profile") return hasVmsAppAccess(user) && Boolean(caps.profile);
     return Boolean(caps[key]);
   }
 
@@ -59,7 +115,7 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
     case "approve":
       return canApproveReject(user);
     case "profile":
-      return true;
+      return hasVmsAppAccess(user);
     default: {
       const _exhaustive: never = key;
       return _exhaustive;
@@ -84,6 +140,12 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
 
 export function canPerformCheckout(user: AuthProfile | null): boolean {
   return hasCapability(user, "checkout");
+}
+
+/** Transfer — both security guard and host/approver on the Pending queue. */
+export function canTransferVisitor(user: AuthProfile | null): boolean {
+  if (!user?.authenticated) return false;
+  return canApproveReject(user) || canCallNotifyHost(user) || hasCapability(user, "approvals");
 }
 
 export type MobileTab = {
@@ -112,6 +174,7 @@ export function mobileTabsFor(user: AuthProfile | null): MobileTab[] {
 }
 
 export function firstAllowedPath(user: AuthProfile | null): string {
+  if (user?.authenticated && !hasVmsAppAccess(user)) return "/access-denied";
   const tabs = mobileTabsFor(user);
   if (tabs.length) return tabs[0].to;
   if (hasCapability(user, "profile")) return "/profile";

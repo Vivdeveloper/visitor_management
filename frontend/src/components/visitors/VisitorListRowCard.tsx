@@ -1,5 +1,6 @@
 import type { VisitorListRow } from "@/api/vms";
 import { formatTime } from "@/lib/format";
+import { extractRejectionReason } from "@/lib/rejectionReason";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { formatVisitorHostLine } from "@/lib/visitorDisplay";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
@@ -85,6 +86,8 @@ export function VisitorListRowCard({
   const name = (item.full_name || item.name || "—").trim();
   const company = (item.visitor_company || "").trim();
   const hostLine = formatVisitorHostLine(item.person_to_meet_name, item.floor);
+  const rejectionReason =
+    item.status === "Rejected" ? extractRejectionReason(item.approval_remarks) : null;
 
   return (
     <div className="vm-visitor-list-item">
@@ -116,6 +119,11 @@ export function VisitorListRowCard({
           <p className="vm-visitor-list-host">
             Host: <span>{hostLine}</span>
           </p>
+          {rejectionReason ? (
+            <p className="vm-visitor-list-reject-reason" title={rejectionReason}>
+              Reason: <span>{rejectionReason}</span>
+            </p>
+          ) : null}
         </div>
 
         <div className="vm-visitor-list-side">

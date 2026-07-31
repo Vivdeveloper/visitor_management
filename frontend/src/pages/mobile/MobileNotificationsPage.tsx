@@ -8,10 +8,12 @@ import {
 } from "@/api/vms";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { formatTime } from "@/lib/format";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
+import { visitorScopeFilters } from "@/lib/roles";
 
 function isPendingStatus(status?: string): boolean {
   return status === "Pending Approval" || status === "Pending";
@@ -20,6 +22,10 @@ function isPendingStatus(status?: string): boolean {
 function alertRoute(item: InAppNotification): string {
   if (item.document_type === "Visitor Entry" && item.document_name) {
     const subject = (item.subject || "").toLowerCase();
+    const body = (item.email_content || "").toLowerCase();
+    if (subject.includes("reject") || body.includes("rejected")) {
+      return "/inside?status=rejected";
+    }
     if (subject.includes("checkout") || subject.includes("meeting")) return "/inside";
     return "/approvals";
   }
@@ -28,6 +34,7 @@ function alertRoute(item: InAppNotification): string {
 
 export function MobileNotificationsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [pending, setPending] = useState<VisitorListRow[]>([]);
   const [alerts, setAlerts] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +53,7 @@ export function MobileNotificationsPage() {
     setLoading(true);
     try {
       const [visitors, logs] = await Promise.all([
-        visitorApi.listDetailed(200).catch(() => [] as VisitorListRow[]),
+        visitorApi.listDetailed(200, visitorScopeFilters(user)).catch(() => [] as VisitorListRow[]),
         notificationApi.list(40).catch(() => [] as InAppNotification[]),
       ]);
       setPending((visitors || []).filter((row) => isPendingStatus(row.status)));
@@ -57,7 +64,7 @@ export function MobileNotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();

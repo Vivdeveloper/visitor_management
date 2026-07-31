@@ -14,6 +14,8 @@ import { RecentVisitorsList, type RecentVisitorItem } from "@/components/dashboa
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { ut } from "@/i18n/uiChrome";
+import { useAuth } from "@/context/AuthContext";
+import { visitorScopeFilters } from "@/lib/roles";
 
 function statusLabel(status?: string) {
   if (!status) return "—";
@@ -40,6 +42,7 @@ function formatClock(now: Date) {
 
 export function MobileHomePage() {
   const { lang } = useAppLanguage();
+  const { user } = useAuth();
 
   usePageChrome({
     title: "Precious Alloys",
@@ -61,7 +64,7 @@ export function MobileHomePage() {
     try {
       const [kpi, detailed] = await Promise.all([
         dashboardApi.getKpis(),
-        visitorApi.listDetailed(200),
+        visitorApi.listDetailed(200, visitorScopeFilters(user)),
       ]);
       setKpis(kpi || {});
       setRecentRows(detailed || []);
@@ -72,7 +75,7 @@ export function MobileHomePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();

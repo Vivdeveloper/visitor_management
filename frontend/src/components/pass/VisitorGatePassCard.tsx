@@ -70,6 +70,11 @@ export function VisitorGatePassCard({
 
   return (
     <div className="vm-gate-pass-card-root" id="vms-gate-pass-print">
+      <div className="vm-gate-pass-print-banner vm-print-only" aria-hidden>
+        <strong>Precious Alloy Components Pvt. Ltd.</strong>
+        <span>Visitor Gate Pass</span>
+      </div>
+
       {/* Header Row: Logo & Status Badge */}
       <div className="vm-gate-pass-header-row">
         <BrandLogo variant="icon" className="vm-gate-pass-logo" />
@@ -149,7 +154,7 @@ export function VisitorGatePassCard({
           <span className="corner c-tr" />
           <span className="corner c-bl" />
           <span className="corner c-br" />
-          <img src={qrSrc} alt="Visitor Pass QR" width={160} height={160} className="vm-gate-pass-qr-img" />
+          <img src={qrSrc} alt="Visitor Pass QR" width={200} height={200} className="vm-gate-pass-qr-img" />
         </div>
 
         <div className="vm-gate-pass-qr-meta">
@@ -166,8 +171,8 @@ export function VisitorGatePassCard({
         </div>
       </div>
 
-      {/* Action Buttons Row */}
-      <div className="vm-gate-pass-actions-grid">
+      {/* Action Buttons — screen only, never printed */}
+      <div className="vm-gate-pass-actions-grid vm-no-print">
         <button type="button" className="vm-pass-act-btn is-share" onClick={handleShare}>
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="18" cy="5" r="3" />

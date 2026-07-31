@@ -78,11 +78,15 @@ def list_for_host(status: str | None = None) -> list:
 		frappe.throw(_("Login required"))
 
 	filters: dict = {}
-	# Full list only if Role Permission Manager grants create (gate/admin).
-	# Approvers (write without create) see only their host queue.
-	if not frappe.has_permission("Visitor Entry", "create"):
+	# Full list: System Manager or Role Permission Manager create (gate/security).
+	# Hosts / PA GatePass Approval (write without create) see only their queue.
+	roles = set(frappe.get_roles(user) or [])
+	if "System Manager" not in roles and not frappe.has_permission("Visitor Entry", "create"):
 		filters["person_to_meet"] = user
-	filters["status"] = status or "Pending Approval"
+	if status:
+		filters["status"] = status
+	else:
+		filters["status"] = "Pending Approval"
 
 	return frappe.get_all(
 		"Visitor Entry",

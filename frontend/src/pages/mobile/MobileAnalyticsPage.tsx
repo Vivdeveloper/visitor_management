@@ -11,7 +11,7 @@ import { CheckoutPendingReport } from "@/components/reports/CheckoutPendingRepor
 import { StageCountsReport } from "@/components/reports/StageCountsReport";
 import { extractError, formatDate } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
-import { canPerformCheckout } from "@/lib/roles";
+import { canPerformCheckout, visitorScopeFilters } from "@/lib/roles";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
@@ -62,7 +62,7 @@ export function MobileAnalyticsPage() {
     try {
       const [kpi, detailed] = await Promise.all([
         dashboardApi.getKpis({ from_date: date, to_date: date }),
-        visitorApi.listDetailed(200),
+        visitorApi.listDetailed(200, visitorScopeFilters(user)),
       ]);
       setKpis(kpi || {});
       setRows(detailed || []);
@@ -71,7 +71,7 @@ export function MobileAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load(selectedDate);

@@ -7,7 +7,7 @@ type Props = {
   open: boolean;
   busy?: boolean;
   onClose: () => void;
-  onDone: (visitor: VisitorListRow) => void;
+  onDone: (visitor: VisitorListRow, remarks: string) => void;
 };
 
 export function ApprovalRejectModal({ visitor, open, busy = false, onClose, onDone }: Props) {
@@ -37,7 +37,7 @@ export function ApprovalRejectModal({ visitor, open, busy = false, onClose, onDo
     setError(null);
     try {
       await approvalApi.reject(visitor.name, remarks.trim());
-      onDone(visitor);
+      onDone(visitor, remarks.trim());
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Reject failed");
