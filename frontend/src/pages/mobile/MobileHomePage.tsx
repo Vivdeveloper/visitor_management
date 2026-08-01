@@ -5,7 +5,7 @@ import {
   type DashboardKpis as DashboardKpiData,
   type VisitorListRow,
 } from "@/api/vms";
-import { formatTime } from "@/lib/format";
+import { formatCount, formatTime } from "@/lib/format";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { usePageChrome } from "@/context/PageChromeContext";
@@ -13,31 +13,24 @@ import { VisitorStatusDashboard } from "@/components/dashboard/VisitorStatusDash
 import { RecentVisitorsList, type RecentVisitorItem } from "@/components/dashboard/RecentVisitorsList";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
-import { ut } from "@/i18n/uiChrome";
+import { translateVisitorStatus, ut } from "@/i18n/uiChrome";
+import type { VisitorLang } from "@/i18n/visitorJourney";
 import { useAuth } from "@/context/AuthContext";
 import { visitorScopeFilters } from "@/lib/roles";
+import { localizePersonName } from "@/lib/transliterate";
 
-function statusLabel(status?: string) {
-  if (!status) return "—";
-  if (status === "Checked In") return "Checked-in";
-  if (status === "Checked Out") return "Checked-out";
-  if (status === "Pending Approval") return "Pending";
-  return status;
-}
-
-function toRecent(rows: VisitorListRow[]): RecentVisitorItem[] {
+function toRecent(rows: VisitorListRow[], lang: VisitorLang): RecentVisitorItem[] {
   return rows.slice(0, 5).map((r) => ({
     name: r.name,
-    full_name: r.full_name || r.name,
-    purpose: r.visit_purpose_type || r.person_to_meet_name || "—",
-    time: formatTime(getCurrentStageTimestamp(r)) || "—",
-    status: statusLabel(r.status),
+    full_name: localizePersonName(r.full_name || r.name, lang),
+    purpose: r.visit_purpose_type
+      ? localizePersonName(r.visit_purpose_type, lang)
+      : localizePersonName(r.person_to_meet_name || "—", lang),
+    time: formatTime(getCurrentStageTimestamp(r), lang) || "—",
+    status: translateVisitorStatus(lang, r.status, { short: true }),
+    statusRaw: r.status,
     photo: r.photo,
   }));
-}
-
-function formatClock(now: Date) {
-  return formatTime(now);
 }
 
 export function MobileHomePage() {
@@ -45,8 +38,8 @@ export function MobileHomePage() {
   const { user } = useAuth();
 
   usePageChrome({
-    title: "Precious Alloys",
-    subtitle: "MAIN GATE DESK",
+    title: ut(lang, "brand_title"),
+    subtitle: ut(lang, "main_gate_desk"),
     showBack: false,
     showNotification: true,
     showProfile: true,
@@ -92,7 +85,7 @@ export function MobileHomePage() {
     return () => window.clearInterval(id);
   }, []);
 
-  const recentVisitors = useMemo(() => toRecent(recentRows), [recentRows]);
+  const recentVisitors = useMemo(() => toRecent(recentRows, lang), [recentRows, lang]);
 
   const totalVisitors = Number(kpis.total ?? 0);
 
@@ -100,7 +93,7 @@ export function MobileHomePage() {
     <div className="vm-home-page">
 
       <div className="vm-home-top-block">
-        <section className="vm-gate-ops-header" aria-label="Live gate desk">
+        <section className="vm-gate-ops-header" aria-label={ut(lang, "live_gate_desk")}>
         <div className="vm-gate-ops-top">
           <div className="vm-gate-ops-live">
             <span className="vm-live-dot" aria-hidden />
@@ -124,11 +117,13 @@ export function MobileHomePage() {
         <div className="vm-gate-ops-meta">
           <div className="vm-gate-ops-meta-item">
             <span className="vm-gate-ops-meta-label">{ut(lang, "current_time")}</span>
-            <strong className="vm-gate-ops-meta-value">{formatClock(now)}</strong>
+            <strong className="vm-gate-ops-meta-value">{formatTime(now, lang)}</strong>
           </div>
           <div className="vm-gate-ops-meta-item">
             <span className="vm-gate-ops-meta-label">{ut(lang, "todays_visitors")}</span>
-            <strong className="vm-gate-ops-meta-value">{loading ? "—" : totalVisitors}</strong>
+            <strong className="vm-gate-ops-meta-value">
+              {loading ? "—" : formatCount(totalVisitors, lang)}
+            </strong>
           </div>
         </div>
       </section>
@@ -141,8 +136,8 @@ export function MobileHomePage() {
           kpis={kpis}
           rows={recentRows}
           loading={loading}
-          title="Status overview"
-          subtitle="Today's visitor counts by stage"
+          title={ut(lang, "status_overview")}
+          subtitle={ut(lang, "status_overview_sub")}
         />
 
         <RecentVisitorsList visitors={recentVisitors} loading={loading} />

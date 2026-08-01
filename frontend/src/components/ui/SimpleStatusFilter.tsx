@@ -1,4 +1,6 @@
 import type { StatusFilterOption } from "@/components/ui/SlidingStatusFilter";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { formatCount } from "@/lib/format";
 
 type SimpleStatusFilterProps = {
   options: StatusFilterOption[];
@@ -13,11 +15,13 @@ function FilterButton({
   opt,
   active,
   onChange,
+  countLabel,
   className = "",
 }: {
   opt: StatusFilterOption;
   active: boolean;
   onChange: (id: string) => void;
+  countLabel?: string;
   className?: string;
 }) {
   return (
@@ -29,8 +33,8 @@ function FilterButton({
       onClick={() => onChange(opt.id)}
     >
       <span className="vm-guard-filter-label">{opt.label}</span>
-      {typeof opt.count === "number" ? (
-        <span className="vm-guard-filter-count">{opt.count}</span>
+      {countLabel != null ? (
+        <span className="vm-guard-filter-count">{countLabel}</span>
       ) : null}
     </button>
   );
@@ -43,6 +47,7 @@ export function SimpleStatusFilter({
   className = "",
   pinAllFilter = false,
 }: SimpleStatusFilterProps) {
+  const { lang } = useAppLanguage();
   const allOption = pinAllFilter ? options.find((opt) => opt.id === "all") : undefined;
   const gridOptions = pinAllFilter ? options.filter((opt) => opt.id !== "all") : options;
 
@@ -53,13 +58,20 @@ export function SimpleStatusFilter({
           opt={allOption}
           active={value === allOption.id}
           onChange={onChange}
+          countLabel={typeof allOption.count === "number" ? formatCount(allOption.count, lang) : undefined}
           className="is-all-row"
         />
       ) : null}
 
       <div className={`vm-guard-filter${pinAllFilter ? " vm-guard-filter-grid" : ""}`.trim()}>
         {gridOptions.map((opt) => (
-          <FilterButton key={opt.id} opt={opt} active={value === opt.id} onChange={onChange} />
+          <FilterButton
+            key={opt.id}
+            opt={opt}
+            active={value === opt.id}
+            onChange={onChange}
+            countLabel={typeof opt.count === "number" ? formatCount(opt.count, lang) : undefined}
+          />
         ))}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { formatDateTime } from "@/lib/format";
+import type { VisitorLang } from "@/i18n/visitorJourney";
 
 export type VisitStageTimestamps = {
   status?: string;
@@ -44,9 +45,13 @@ export function getVisitStatusStages(item: VisitStageTimestamps): VisitStageRow[
   return stages;
 }
 
-export function formatStageTimestamp(value?: string | null, compact = false) {
+export function formatStageTimestamp(
+  value?: string | null,
+  compact = false,
+  lang: VisitorLang = "en",
+) {
   if (!value) return "—";
-  return formatDateTime(value, compact) || "—";
+  return formatDateTime(value, compact, lang) || "—";
 }
 
 /** Best timestamp for the visitor's current status (list rows, card header). */

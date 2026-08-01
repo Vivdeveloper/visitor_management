@@ -1,4 +1,6 @@
 import { formatStageTimestamp, getVisitStatusStages, type VisitStageTimestamps } from "@/lib/visitStages";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { translateVisitStage } from "@/i18n/uiChrome";
 
 type VisitorStageTimelineProps = {
   visitor: VisitStageTimestamps;
@@ -8,16 +10,13 @@ type VisitorStageTimelineProps = {
   className?: string;
 };
 
-function compactStageLabel(label: string) {
-  return label.replace(/ Time$/, "");
-}
-
 export function VisitorStageTimeline({
   visitor,
   compact = false,
   filledOnly = compact,
   className = "",
 }: VisitorStageTimelineProps) {
+  const { lang } = useAppLanguage();
   const stages = getVisitStatusStages(visitor).filter((stage) => !filledOnly || Boolean(stage.at));
 
   if (!stages.length) return null;
@@ -29,9 +28,9 @@ export function VisitorStageTimeline({
       {stages.map((stage) => (
         <div key={stage.key} className="vm-visit-stage-row is-done">
           <span className="vm-visit-stage-label">
-            {compact ? compactStageLabel(stage.label) : stage.label}
+            {translateVisitStage(lang, stage.key, stage.label)}
           </span>
-          <span className="vm-visit-stage-time">{formatStageTimestamp(stage.at, compact)}</span>
+          <span className="vm-visit-stage-time">{formatStageTimestamp(stage.at, compact, lang)}</span>
         </div>
       ))}
     </div>

@@ -1,10 +1,14 @@
 import { useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
-import { formatTime, resolveFileUrl } from "@/lib/format";
+import { formatCount, formatTime, resolveFileUrl } from "@/lib/format";
+import { intlLocale, localizeDigits } from "@/lib/localize";
 import { formatVisitorCardTitle } from "@/lib/visitorDisplay";
+import { localizeFloorLabel, localizePersonName } from "@/lib/transliterate";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { translateVisitorStatus, ut } from "@/i18n/uiChrome";
 
 type Props = {
   item: VisitorListRow;
@@ -33,14 +37,6 @@ function statusTone(status?: string) {
   return "is-awaiting";
 }
 
-function statusLabel(status?: string) {
-  if (!status) return "—";
-  if (status === "Pending Approval") return "Pending";
-  if (status === "Meeting Done") return "Meeting Done";
-  if (status === "Approved") return "Approved";
-  return status;
-}
-
 export function PendingDecisionCard({
   item,
   busy = false,
@@ -56,37 +52,44 @@ export function PendingDecisionCard({
   onMeetingDone,
   onCheckOut,
 }: Props) {
+  const { lang } = useAppLanguage();
   const [photoPreviewSrc, setPhotoPreviewSrc] = useState<string | null>(null);
 
-  const visitorName = item.full_name || item.name;
+  const visitorName = localizePersonName(item.full_name || item.name, lang);
   const cardTitle = formatVisitorCardTitle(visitorName, item.visitor_company);
-  const hostName = item.person_to_meet_name || "—";
-  const purpose = item.visit_purpose_type || "—";
+  const hostName = localizePersonName(item.person_to_meet_name || "—", lang);
+  const purpose = item.visit_purpose_type
+    ? localizePersonName(item.visit_purpose_type, lang)
+    : "—";
   const rawTimestamp = getCurrentStageTimestamp(item);
   const dateLabel = (() => {
     if (!rawTimestamp) return "";
     const d = new Date(rawTimestamp);
     if (isNaN(d.getTime())) return "";
-    return d.toLocaleDateString([], { day: "2-digit", month: "short" });
+    return localizeDigits(
+      d.toLocaleDateString(intlLocale(lang), { day: "2-digit", month: "short" }),
+      lang,
+    );
   })();
-  const timeLabel = formatTime(rawTimestamp) || "—";
+  const timeLabel = formatTime(rawTimestamp, lang) || "—";
   const dateTimeLabel = dateLabel ? `${dateLabel} • ${timeLabel}` : timeLabel;
-  const displayStatus = statusLabel(item.status);
+  const displayStatus = translateVisitorStatus(lang, item.status, { short: true });
   const tone = statusTone(item.status);
 
   const isPending = item.status === "Pending Approval" || item.status === "Pending";
   const isApproved = item.status === "Approved";
   const isMeetingDone = item.status === "Meeting Done";
   const showInsideActions = !!(onMeetingDone || onCheckOut);
-  // Keep Accept/Reject visible for pending; block clicks when role is not approver.
   const showPendingPrimaryActions = isPending && (!!onReject || !!onApprove || approveBlocked);
   const showPendingSecondaryActions = isPending && (!!onTransfer || !!onCallHost || !!onNotifyHost);
   const decideDisabled = busy || approveBlocked;
   const decideTitle = approveBlocked
     ? "Only PA GatePass Approval or System Manager can Accept or Reject"
     : undefined;
-  const gridThirdLabel = "FLOOR";
-  const gridThirdValue = item.floor || "—";
+  const visitorCount = item.number_of_visitors ? Number(item.number_of_visitors) : 1;
+  const floorDisplay = item.floor
+    ? localizeFloorLabel(item.floor, lang) || localizeDigits(String(item.floor), lang)
+    : "—";
 
   return (
     <>
@@ -122,8 +125,12 @@ export function PendingDecisionCard({
                 {cardTitle}
               </span>
               {item.floor ? (
-                <span className="vm-pending-floor-pill" title={`Floor ${item.floor}`}>
-                  Floor {item.floor}
+                <span
+                  className="vm-pending-floor-pill"
+                  title={ut(lang, "floor_n", { n: String(item.floor) })}
+                >
+                  {localizeFloorLabel(item.floor, lang) ||
+                    ut(lang, "floor_n", { n: localizeDigits(String(item.floor), lang) })}
                 </span>
               ) : null}
             </div>
@@ -134,7 +141,8 @@ export function PendingDecisionCard({
                 <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
               </svg>
               <span className="vm-pending-redesign-host-text">
-                Host: <span className="vm-pending-redesign-host-name">{hostName}</span>
+                {ut(lang, "host_prefix")}{" "}
+                <span className="vm-pending-redesign-host-name">{hostName}</span>
               </span>
             </div>
           </div>
@@ -162,9 +170,9 @@ export function PendingDecisionCard({
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
-              <span>VISITORS</span>
+              <span>{ut(lang, "label_visitors")}</span>
             </div>
-            <span className="vm-pending-redesign-val">{item.number_of_visitors ? String(item.number_of_visitors) : "1"}</span>
+            <span className="vm-pending-redesign-val">{formatCount(visitorCount, lang)}</span>
           </div>
 
           <div className="vm-pending-redesign-col">
@@ -173,7 +181,7 @@ export function PendingDecisionCard({
                 <rect x="2" y="7" width="20" height="14" rx="2" />
                 <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
               </svg>
-              <span>PURPOSE</span>
+              <span>{ut(lang, "label_purpose")}</span>
             </div>
             <span className="vm-pending-redesign-val">{purpose}</span>
           </div>
@@ -184,9 +192,9 @@ export function PendingDecisionCard({
                 <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
                 <path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01" />
               </svg>
-              <span>{gridThirdLabel}</span>
+              <span>{ut(lang, "label_floor")}</span>
             </div>
-            <span className="vm-pending-redesign-val">{gridThirdValue}</span>
+            <span className="vm-pending-redesign-val">{floorDisplay}</span>
           </div>
         </div>
 
@@ -202,7 +210,7 @@ export function PendingDecisionCard({
                 if (decideDisabled || !onReject) return;
                 onReject(item);
               }}
-              aria-label={`Reject ${visitorName}`}
+              aria-label={`${ut(lang, "action_reject")} ${visitorName}`}
             >
               <span className="vm-redesign-act-icon" aria-hidden>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -210,7 +218,7 @@ export function PendingDecisionCard({
                   <path d="m15 9-6 6M9 9l6 6" />
                 </svg>
               </span>
-              <span>Reject</span>
+              <span>{ut(lang, "action_reject")}</span>
             </button>
 
             <button
@@ -223,7 +231,7 @@ export function PendingDecisionCard({
                 if (decideDisabled || !onApprove) return;
                 onApprove(item);
               }}
-              aria-label={`Accept ${visitorName}`}
+              aria-label={`${ut(lang, "action_accept")} ${visitorName}`}
             >
               <span className="vm-redesign-act-icon" aria-hidden>
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -231,7 +239,7 @@ export function PendingDecisionCard({
                   <path d="m9 12 2 2 4-4" />
                 </svg>
               </span>
-              <span>Accept</span>
+              <span>{ut(lang, "action_accept")}</span>
             </button>
           </div>
         ) : null}
@@ -247,14 +255,14 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onTransfer(item);
                 }}
-                aria-label={`Transfer ${visitorName}`}
+                aria-label={`${ut(lang, "action_transfer")} ${visitorName}`}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7" />
                   </svg>
                 </span>
-                <span>Transfer</span>
+                <span>{ut(lang, "action_transfer")}</span>
               </button>
             ) : null}
 
@@ -267,14 +275,14 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onCallHost(item);
                 }}
-                aria-label={`Call host for ${visitorName}`}
+                aria-label={`${ut(lang, "action_call_host")} ${visitorName}`}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
                   </svg>
                 </span>
-                <span>Call Host</span>
+                <span>{ut(lang, "action_call_host")}</span>
               </button>
             ) : null}
 
@@ -287,7 +295,7 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onNotifyHost(item);
                 }}
-                aria-label={`Notify host for ${visitorName}`}
+                aria-label={`${ut(lang, "action_notify")} ${visitorName}`}
                 title="Push notification to host"
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
@@ -296,7 +304,7 @@ export function PendingDecisionCard({
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                   </svg>
                 </span>
-                <span>Notify</span>
+                <span>{ut(lang, "action_notify")}</span>
               </button>
             ) : null}
           </div>
@@ -313,7 +321,7 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onGenerateGatePass(item);
                 }}
-                aria-label={`View gate pass for ${visitorName}`}
+                aria-label={`${ut(lang, "action_view_gate_pass")} ${visitorName}`}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
@@ -322,7 +330,7 @@ export function PendingDecisionCard({
                     <circle cx="16.5" cy="9.5" r="1.5" />
                   </svg>
                 </span>
-                <span>View Gate Pass</span>
+                <span>{ut(lang, "action_view_gate_pass")}</span>
               </button>
             ) : null}
 
@@ -335,7 +343,7 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onCheckIn(item);
                 }}
-                aria-label={`Check in ${visitorName}`}
+                aria-label={`${ut(lang, "action_check_in")} ${visitorName}`}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -343,7 +351,7 @@ export function PendingDecisionCard({
                     <path d="m9 12 2 2 4-4" />
                   </svg>
                 </span>
-                <span>Check In</span>
+                <span>{ut(lang, "action_check_in")}</span>
               </button>
             ) : null}
           </div>
@@ -363,12 +371,8 @@ export function PendingDecisionCard({
                   if (isMeetingDone || !onMeetingDone) return;
                   onMeetingDone(item);
                 }}
-                aria-label={
-                  isMeetingDone
-                    ? `Meeting already completed for ${visitorName}`
-                    : `Mark meeting done for ${visitorName}`
-                }
-                title={isMeetingDone ? "Meeting already completed" : "Mark meeting done"}
+                aria-label={`${ut(lang, "action_meeting_done")} ${visitorName}`}
+                title={ut(lang, "action_meeting_done")}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -376,7 +380,7 @@ export function PendingDecisionCard({
                     <polyline points="22 4 12 14.01 9 11.01" />
                   </svg>
                 </span>
-                <span>Meeting Done</span>
+                <span>{ut(lang, "action_meeting_done")}</span>
               </button>
             ) : null}
 
@@ -389,7 +393,7 @@ export function PendingDecisionCard({
                   e.stopPropagation();
                   onCheckOut(item);
                 }}
-                aria-label={`Check out ${visitorName}`}
+                aria-label={`${ut(lang, "action_check_out")} ${visitorName}`}
               >
                 <span className="vm-redesign-act-icon" aria-hidden>
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -398,7 +402,7 @@ export function PendingDecisionCard({
                     <line x1="21" y1="12" x2="9" y2="12" />
                   </svg>
                 </span>
-                <span>Check Out</span>
+                <span>{ut(lang, "action_check_out")}</span>
               </button>
             ) : null}
           </div>

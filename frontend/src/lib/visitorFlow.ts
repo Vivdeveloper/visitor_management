@@ -65,6 +65,50 @@ export function filterRowsByDate(rows: VisitorListRow[], iso: string) {
   });
 }
 
+/** Best timestamp for range / calendar filtering on Live Visitors. */
+export function visitorActivityStamp(row: VisitorListRow): Date | null {
+  const raw =
+    row.checked_in_on ||
+    row.check_in ||
+    row.approved_on ||
+    row.creation ||
+    row.modified ||
+    null;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Filter visitors by Overall / Last 7 days / optional calendar ISO date (YYYY-MM-DD).
+ * Selected date takes precedence (whole calendar day).
+ */
+export function filterRowsByLiveRange(
+  rows: VisitorListRow[],
+  mode: "overall" | "last_7_days",
+  selectedDateIso?: string | null,
+) {
+  if (selectedDateIso && /^\d{4}-\d{2}-\d{2}$/.test(selectedDateIso.trim())) {
+    const dayIso = selectedDateIso.trim();
+    return rows.filter((row) => {
+      const stamp = visitorActivityStamp(row);
+      if (!stamp) return false;
+      return toFlowInputDate(stamp) === dayIso;
+    });
+  }
+
+  if (mode === "overall") return rows;
+
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - 6); // today inclusive → 7 days
+  return rows.filter((row) => {
+    const stamp = visitorActivityStamp(row);
+    if (!stamp) return false;
+    return stamp.getTime() >= cutoff.getTime();
+  });
+}
+
 export function computeAvgVisitMinutes(rows: VisitorListRow[], iso: string): number | null {
   const durations: number[] = [];
   for (const row of rows) {
