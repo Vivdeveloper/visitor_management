@@ -50,7 +50,7 @@ export function MobileLoginPage() {
         }
         setProfile(null);
         setError(
-          "No Visitor Management access. Ask an administrator to assign PA Security Guard User or PA GatePass Approval.",
+          "No Visitor Management access. Ask an administrator to grant Visitor Entry permissions in Role Permission Manager.",
         );
         return;
       }

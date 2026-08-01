@@ -84,7 +84,7 @@ export function PendingDecisionCard({
   const showPendingSecondaryActions = isPending && (!!onTransfer || !!onCallHost || !!onNotifyHost);
   const decideDisabled = busy || approveBlocked;
   const decideTitle = approveBlocked
-    ? "Only PA GatePass Approval or System Manager can Accept or Reject"
+    ? "You do not have permission to Accept or Reject"
     : undefined;
   const visitorCount = item.number_of_visitors ? Number(item.number_of_visitors) : 1;
   const floorDisplay = item.floor

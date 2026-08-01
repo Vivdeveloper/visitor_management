@@ -1,6 +1,12 @@
-"""DocType-wise permission helpers — Role Permission Manager (DocPerm) only.
+"""Visitor Entry permissions — Frappe Role Permission Manager (DocPerm) only.
 
-No hardcoded role names. Assign access in Role Permission Manager per DocType.
+Configure access in Desk → Role Permission Manager for each DocType.
+Do not use User Permission for host scoping (would affect linked DocTypes).
+
+Visitor Entry DocPerm conventions (RPM):
+  - create (+ write/read) → gate / security — all queues, Call Host, check-in
+  - write + read (no create) → host / approver — Accept/Reject, person_to_meet scope
+  - read → view lists / dashboard
 """
 
 from __future__ import annotations
@@ -17,29 +23,58 @@ VMS_DOCTYPES = (
 
 PERM_FLAGS = ("read", "write", "create", "delete", "report", "export", "print")
 
-# Accept / Reject only — assigned in Role Permission Manager + User roles.
-APPROVE_ROLES = frozenset({"PA GatePass Approval", "System Manager"})
+VISITOR_ENTRY = "Visitor Entry"
 
 
-def user_can_approve(user: str | None = None) -> bool:
-	"""True if user may Accept/Reject visitor entries."""
+def _user_roles(user: str) -> set[str]:
+	return set(frappe.get_roles(user) or [])
+
+
+def _docperm_roles(doctype: str, ptype: str | None = None) -> set[str]:
+	return set(get_docperm_roles(doctype, ptype))
+
+
+def user_has_visitor_entry_perm(ptype: str, user: str | None = None) -> bool:
+	"""True if user's roles include DocPerm `{ptype}` on Visitor Entry (RPM)."""
 	user = user or frappe.session.user
 	if not user or user == "Guest":
 		return False
-	return bool(APPROVE_ROLES.intersection(frappe.get_roles(user) or []))
+	return bool(_user_roles(user) & _docperm_roles(VISITOR_ENTRY, ptype))
+
+
+def user_can_approve(user: str | None = None) -> bool:
+	"""Accept/Reject from Role Permission Manager.
+
+	Rule: write on Visitor Entry, and not gate create — unless System Manager
+	(Frappe built-in full access; always has create DocPerm).
+	"""
+	user = user or frappe.session.user
+	if not user or user == "Guest":
+		return False
+
+	roles = _user_roles(user)
+	if not (roles & _docperm_roles(VISITOR_ENTRY, "write")):
+		return False
+
+	create_roles = _docperm_roles(VISITOR_ENTRY, "create")
+	gate_create = (roles & create_roles) - {"System Manager"}
+	if gate_create and "System Manager" not in roles:
+		return False
+
+	return True
 
 
 def require_approve_role(user: str | None = None) -> None:
 	if user_can_approve(user):
 		return
 	frappe.throw(
-		frappe._("Only PA GatePass Approval or System Manager can Accept or Reject."),
+		frappe._("Not permitted to Accept or Reject. Need Write on Visitor Entry (Role Permission Manager)."),
 		frappe.PermissionError,
 	)
 
 
 def get_doctype_permissions(user: str | None = None) -> dict[str, dict[str, bool]]:
-	"""Same flags Desk uses — driven by Role Permission Manager for each DocType."""
+	"""DocPerm flags from Role Permission Manager — same as Desk."""
 	user = user or frappe.session.user
 	out: dict[str, dict[str, bool]] = {}
 	if not user or user == "Guest":
@@ -52,36 +87,6 @@ def get_doctype_permissions(user: str | None = None) -> dict[str, dict[str, bool
 			flag: bool(frappe.has_permission(doctype, flag, user=user)) for flag in PERM_FLAGS
 		}
 	return out
-
-
-def get_capabilities(permissions: dict | None, roles: list[str] | None = None) -> dict[str, bool]:
-	"""Map Visitor Entry DocPerm flags → React screens.
-
-	Accept/Reject is limited to PA GatePass Approval and System Manager.
-	"""
-	ve = (permissions or {}).get("Visitor Entry") or {}
-	can_read = bool(ve.get("read"))
-	can_write = bool(ve.get("write"))
-	can_create = bool(ve.get("create"))
-	can_report = bool(ve.get("report") or can_read)
-	role_set = set(roles or [])
-	can_approve = bool(role_set & APPROVE_ROLES)
-
-	return {
-		"dashboard": can_read,
-		"approvals": can_read or can_write,
-		"check_in": can_create,
-		"inside": can_read,
-		"reports": can_report,
-		# Gate checkout = write + create (approver write-only does not get checkout)
-		"checkout": can_write and can_create,
-		"scan": can_write or can_create,
-		"meetings": can_read,
-		"history": can_read,
-		"profile": True,
-		"notifications": can_read,
-		"approve": can_approve,
-	}
 
 
 def get_docperm_roles(doctype: str, ptype: str | None = None) -> list[str]:
@@ -126,3 +131,44 @@ def require_permission(doctype: str, ptype: str = "read", throw: bool = True) ->
 			frappe.PermissionError,
 		)
 	return ok
+
+
+def must_scope_visitor_entry_to_host(user: str | None = None) -> bool:
+	"""Host/approver (no create DocPerm) → only person_to_meet = self.
+
+	Gate/create DocPerm (and System Manager via create) see all rows.
+	Visitor Entry hooks only — not User Permission.
+	"""
+	user = user or frappe.session.user
+	if not user or user in ("Guest", "Administrator"):
+		return False
+
+	roles = _user_roles(user)
+	if roles & _docperm_roles(VISITOR_ENTRY, "create"):
+		return False
+
+	# Any other Visitor Entry DocPerm (read/write/…) → host scope
+	return bool(roles & _docperm_roles(VISITOR_ENTRY))
+
+
+def visitor_entry_permission_query_conditions(user: str | None = None) -> str:
+	"""Desk / get_list: host DocPerm users see only person_to_meet = self."""
+	user = user or frappe.session.user
+	if not must_scope_visitor_entry_to_host(user):
+		return ""
+	return "`tabVisitor Entry`.person_to_meet = {user}".format(user=frappe.db.escape(user))
+
+
+def visitor_entry_has_permission(doc, user: str | None = None, permission_type: str | None = None):
+	"""Form / get_doc: deny rows not assigned to this host.
+
+	Returns None to fall back to Role Permission Manager DocPerm when allowed.
+	"""
+	if not doc:
+		return None
+	user = user or frappe.session.user
+	if not must_scope_visitor_entry_to_host(user):
+		return None
+	if doc.get("person_to_meet") == user:
+		return None
+	return False

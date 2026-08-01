@@ -6,8 +6,8 @@ import frappe
 from frappe.utils import cstr
 
 from visitor_management.auth.permissions import (
-	get_capabilities,
 	get_doctype_permissions,
+	user_can_approve,
 	vms_roles_for_user,
 )
 from visitor_management.react_api.otp import normalize_mobile
@@ -74,7 +74,7 @@ def get_profile(user: str | None = None) -> dict:
 			"user": "Guest",
 			"roles": [],
 			"permissions": {},
-			"capabilities": get_capabilities({}, []),
+			"can_approve": False,
 		}
 
 	row = frappe.db.get_value(
@@ -86,7 +86,6 @@ def get_profile(user: str | None = None) -> dict:
 
 	roles = frappe.get_roles(user) or []
 	permissions = get_doctype_permissions(user)
-	capabilities = get_capabilities(permissions, roles)
 
 	return {
 		"authenticated": True,
@@ -100,6 +99,6 @@ def get_profile(user: str | None = None) -> dict:
 		"roles": roles,
 		"vms_roles": vms_roles_for_user(roles),
 		"permissions": permissions,
-		"capabilities": capabilities,
+		"can_approve": user_can_approve(user),
 		"csrf_token": cstr(frappe.sessions.get_csrf_token()),
 	}
