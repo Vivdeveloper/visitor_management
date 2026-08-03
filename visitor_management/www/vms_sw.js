@@ -106,10 +106,10 @@ define(['/assets/visitor_management/frontend/workbox-50bb6711'], (function (work
     "revision": "a1758eb7280ba47f82d6d333580e1e8b"
   }, {
     "url": "/assets/visitor_management/frontend/vms-asset-index.css",
-    "revision": "d54817e4c6037a39019b343a05b82074"
+    "revision": "28174e713835c5a938c0ae65b4dad271"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "4b31ddcaf57e01069caa40b5d95180e8"
+    "revision": "72895a32291923598eaea7df99ee76b2"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

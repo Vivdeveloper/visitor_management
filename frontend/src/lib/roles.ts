@@ -43,6 +43,14 @@ export function canApproveReject(user: AuthProfile | null): boolean {
 }
 
 /**
+ * Meeting Done — host / PA GatePass Approval only (same DocPerm rule as Accept/Reject).
+ * Security (create) must not see this action.
+ */
+export function canMarkMeetingDone(user: AuthProfile | null): boolean {
+  return canApproveReject(user);
+}
+
+/**
  * Call Host + Notify (bell) — gate desk only (Visitor Entry create).
  * Host mode (read/write without create) must never see these.
  */

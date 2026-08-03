@@ -1,10 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export type SearchSelectOption = {
   value: string;
   label: string;
   sublabel?: string;
 };
+
+type MenuPlacement = "auto" | "top" | "bottom";
 
 type SearchSelectProps = {
   id?: string;
@@ -22,6 +24,8 @@ type SearchSelectProps = {
   emptyLabel?: string;
   className?: string;
   maxVisible?: number;
+  /** Prefer opening upward near the bottom dock / short viewports. */
+  menuPlacement?: MenuPlacement;
   "aria-label"?: string;
 };
 
@@ -49,12 +53,16 @@ export function SearchSelect({
   emptyLabel,
   className = "",
   maxVisible = 8,
+  menuPlacement = "auto",
   "aria-label": ariaLabel,
 }: SearchSelectProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [resolvedPlacement, setResolvedPlacement] = useState<"top" | "bottom">(
+    menuPlacement === "top" ? "top" : "bottom",
+  );
 
   const selected = useMemo(
     () => options.find((option) => option.value === value) ?? null,
@@ -69,6 +77,22 @@ export function SearchSelect({
       return haystack.includes(q);
     });
   }, [options, query]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (menuPlacement === "top" || menuPlacement === "bottom") {
+      setResolvedPlacement(menuPlacement);
+      return;
+    }
+    const root = rootRef.current;
+    if (!root) return;
+    const rect = root.getBoundingClientRect();
+    const menuEstimate = 280;
+    const dockClearance = 96;
+    const spaceBelow = window.innerHeight - rect.bottom - dockClearance;
+    const spaceAbove = rect.top - 16;
+    setResolvedPlacement(spaceBelow < menuEstimate && spaceAbove > spaceBelow ? "top" : "bottom");
+  }, [open, menuPlacement, filtered.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +129,10 @@ export function SearchSelect({
   const showPlaceholderStyle = !loading && !selected && (!value || (allowEmpty && !value));
 
   return (
-    <div className={`vm-search-select${className ? ` ${className}` : ""}`} ref={rootRef}>
+    <div
+      className={`vm-search-select${open ? " is-open" : ""}${className ? ` ${className}` : ""}`}
+      ref={rootRef}
+    >
       {required ? (
         <input
           tabIndex={-1}
@@ -145,7 +172,12 @@ export function SearchSelect({
       </button>
 
       {open ? (
-        <div className="vm-search-select-menu" role="listbox" id={listId} aria-label={ariaLabel || placeholder}>
+        <div
+          className={`vm-search-select-menu is-${resolvedPlacement}`}
+          role="listbox"
+          id={listId}
+          aria-label={ariaLabel || placeholder}
+        >
           <input
             className="vm-input-field vm-search-select-search"
             value={query}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { settingsApi, type VisitorListRow } from "@/api/vms";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { buildFloorOptions } from "@/lib/floorOptions";
@@ -85,7 +86,7 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
     }
   }
 
-  return (
+  return createPortal(
     <div className="vm-confirm-modal-root" role="dialog" aria-modal="true" aria-labelledby="vm-approval-floor-title">
       <button type="button" className="vm-confirm-modal-backdrop" onClick={onClose} aria-label="Close" />
 
@@ -140,6 +141,7 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
             disabled={isBusy || loadingFloors || floors.length === 0}
             required
             allowEmpty
+            menuPlacement="top"
             aria-label="Floor"
           />
           {error ? <p className="login-error vm-sheet-error">{error}</p> : null}
@@ -159,6 +161,7 @@ export function ApprovalFloorModal({ visitor, open, busy = false, onClose, onCon
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

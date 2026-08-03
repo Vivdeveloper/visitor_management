@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { approvalApi, settingsApi, type VisitorListRow } from "@/api/vms";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { initials } from "@/lib/format";
@@ -85,7 +86,7 @@ export function ApprovalTransferModal({ visitor, open, busy = false, onClose, on
     }
   }
 
-  return (
+  return createPortal(
     <div className="vm-confirm-modal-root" role="dialog" aria-modal="true" aria-labelledby="vm-approval-transfer-title">
       <button type="button" className="vm-confirm-modal-backdrop" onClick={onClose} aria-label="Close" />
 
@@ -138,6 +139,7 @@ export function ApprovalTransferModal({ visitor, open, busy = false, onClose, on
             required
             allowEmpty
             disabled={isBusy}
+            menuPlacement="top"
             aria-label="Transfer to"
           />
           <label className="vm-sheet-label" htmlFor="approval-transfer-remarks">
@@ -169,6 +171,7 @@ export function ApprovalTransferModal({ visitor, open, busy = false, onClose, on
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

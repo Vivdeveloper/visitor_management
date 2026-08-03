@@ -105,7 +105,13 @@ function extractApiError(err: unknown): string {
     }
     if (data?.exception) {
       const line = String(data.exception).split("\n").pop() || data.exception;
-      return line.replace(/^.*Error:\s*/i, "").trim() || line;
+      const cleaned = line.replace(/^.*Error:\s*/i, "").trim();
+      if (cleaned && cleaned !== "frappe.exceptions.PermissionError" && !/^frappe\.exceptions\./.test(cleaned)) {
+        return cleaned;
+      }
+    }
+    if (data?.exc_type === "PermissionError" || /PermissionError/.test(String(data?.exception || ""))) {
+      return "Permission denied. Security needs Create on Visitor Entry, and Select/Read on Visit Purpose Type, ID Proof Type, and Vehicle Type.";
     }
     if (ax.response?.status === 417) {
       return "Server rejected the request (invalid field or value). Refresh and try again.";
@@ -127,6 +133,9 @@ function extractApiError(err: unknown): string {
   if (err instanceof Error) {
     if (err.message === "Network Error") {
       return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
+    if (err.message === "frappe.exceptions.PermissionError") {
+      return "Permission denied. Security needs Create on Visitor Entry, and Select/Read on Visit Purpose Type, ID Proof Type, and Vehicle Type.";
     }
     return err.message;
   }

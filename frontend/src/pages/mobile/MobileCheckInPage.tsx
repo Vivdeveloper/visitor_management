@@ -98,7 +98,12 @@ function validateMobile(raw: string, lang: VisitorLang): string {
 }
 
 function extractError(err: unknown, lang: VisitorLang): string {
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    if (err.message === "frappe.exceptions.PermissionError") {
+      return "Permission denied. Security needs Create on Visitor Entry, and Select/Read on Visit Purpose Type, ID Proof Type, and Vehicle Type.";
+    }
+    return err.message;
+  }
   return vt(lang, "err_generic");
 }
 
@@ -604,13 +609,13 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const mobile = validateMobile(form.mobile, lang);
       let photo: string;
       if (photoFile) {
-        photo = await uploadPublicFile(photoFile);
+        photo = await uploadPublicFile(photoFile, mobile);
       } else {
         photo = (photoPreview || "").replace(/^\//, "");
       }
       let id_proof_photo: string | undefined;
       if (idProofFile) {
-        id_proof_photo = await uploadPublicFile(idProofFile);
+        id_proof_photo = await uploadPublicFile(idProofFile, mobile);
       }
 
       const remarks = visitorCount > 1 ? formatAdditionalGuestsRemarks(additionalGuests) : undefined;

@@ -25,6 +25,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   canApproveReject,
   canCallNotifyHost,
+  canMarkMeetingDone,
   canPerformCheckout,
   canTransferVisitor,
   resolveMode,
@@ -99,6 +100,7 @@ export function MobileApprovalsPage() {
   const showCheckout = canPerformCheckout(user);
   const mode = resolveMode(user);
   const canDecide = canApproveReject(user);
+  const canMeetingDone = canMarkMeetingDone(user);
   // Call Host / Notify are gate-desk only — host is the person being called.
   const canHostOps = mode === "security" && canCallNotifyHost(user);
   const canTransfer = canTransferVisitor(user);
@@ -500,7 +502,7 @@ export function MobileApprovalsPage() {
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
               }
               onMeetingDone={
-                viewOnlyAll
+                viewOnlyAll || !canMeetingDone
                   ? undefined
                   : item.status === "Checked In"
                     ? (v) => void handleMeetingDone(v)

@@ -1,55 +1,18 @@
-import { apiClient } from "@/api/client";
-
-const FILLABLE_FIELD_TYPES = new Set(["Data", "Link", "Select", "Int", "Float"]);
-const VISIT_CONTEXT_START_FIELD = "visit_purpose_type";
-const EXCLUDED_PROFILE_FIELDS = new Set(["mobile", "otp", "otp_verified", "full_name", "status", "naming_series"]);
-
 const FALLBACK_PROFILE_FIELDS = ["first_name", "middle_name", "last_name", "email", "gender"] as const;
 
 let cachedProfileFields: string[] | null = null;
 
-type DocTypeFieldMeta = {
-  fieldname: string;
-  fieldtype: string;
-  read_only?: number;
-};
-
-type DocTypeMeta = {
-  fields?: DocTypeFieldMeta[];
-  field_order?: string[];
-};
-
-/** Identity fields from Visitor Entry metadata (editable fields before visit context). */
+/**
+ * Identity fields used when pre-filling a returning visitor.
+ *
+ * Do not call `/api/resource/DocType/...` here — gate/security roles usually
+ * cannot Read the DocType document (403 in console). Fallback fields match
+ * the Visitor Entry profile section before visit-context fields.
+ */
 export async function getReturningVisitorProfileFields(): Promise<string[]> {
   if (cachedProfileFields) return cachedProfileFields;
-
-  try {
-    const { data } = await apiClient.get<{ data: DocTypeMeta }>("/api/resource/DocType/Visitor%20Entry", {
-      params: { fields: JSON.stringify(["fields", "field_order"]) },
-    });
-
-    const doc = data.data;
-    const fieldOrder = doc.field_order || [];
-    const fieldMeta = new Map((doc.fields || []).map((field) => [field.fieldname, field]));
-
-    const profileFields: string[] = [];
-    for (const fieldname of fieldOrder) {
-      if (fieldname === VISIT_CONTEXT_START_FIELD) break;
-
-      const meta = fieldMeta.get(fieldname);
-      if (!meta || meta.read_only) continue;
-      if (!FILLABLE_FIELD_TYPES.has(meta.fieldtype)) continue;
-      if (EXCLUDED_PROFILE_FIELDS.has(fieldname)) continue;
-
-      profileFields.push(fieldname);
-    }
-
-    cachedProfileFields = profileFields.length ? profileFields : [...FALLBACK_PROFILE_FIELDS];
-    return cachedProfileFields;
-  } catch {
-    cachedProfileFields = [...FALLBACK_PROFILE_FIELDS];
-    return cachedProfileFields;
-  }
+  cachedProfileFields = [...FALLBACK_PROFILE_FIELDS];
+  return cachedProfileFields;
 }
 
 export function applyReturningProfileFields<T extends Record<string, string>>(

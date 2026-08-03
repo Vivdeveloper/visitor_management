@@ -21,7 +21,14 @@ def get_masters() -> dict:
 		if not frappe.db.exists("DocType", doctype):
 			return []
 		filters = {"is_active": 1} if frappe.db.has_column(doctype, "is_active") else {}
-		return frappe.get_all(doctype, filters=filters, fields=fields, order_by=order_by, limit_page_length=500)
+		return frappe.get_all(
+			doctype,
+			filters=filters,
+			fields=fields,
+			order_by=order_by,
+			limit_page_length=500,
+			ignore_permissions=True,
+		)
 
 	return {
 		"organizations": active_list("Organization", ["name", "organization_name", "organization_code"]),

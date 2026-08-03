@@ -8505,6 +8505,16 @@ body {
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
 }
 
+.vm-search-select-menu.is-top {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
+  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.vm-search-select.is-open {
+  z-index: 50;
+}
+
 .vm-search-select-search {
   min-height: 44px;
 }
@@ -15766,11 +15776,28 @@ body.barcode-scanner-active {
 
 .vm-confirm-modal-card .vm-search-select-menu {
   z-index: 120;
+  max-height: min(42vh, 280px);
+}
+
+.vm-confirm-modal-card .vm-search-select-list {
+  max-height: min(32vh, 200px);
+}
+
+/* Keep dock from covering modal dropdowns while a confirm dialog is open */
+body:has(.vm-confirm-modal-root) .vm-dock,
+body:has(.vm-confirm-modal-root) .vm-floating-nav {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .vm-checkin-floor-card {
   max-width: 420px;
   overflow: visible;
+}
+
+.vm-checkin-floor-card .vm-search-select {
+  z-index: 5;
 }
 
 .vm-checkin-floor-form {

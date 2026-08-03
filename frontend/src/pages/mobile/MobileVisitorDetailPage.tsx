@@ -122,7 +122,8 @@ export function MobileVisitorDetailPage() {
   }, [routeName]);
 
   const status = visitor?.status || "";
-  const canCheckout = showCheckout && (status === "Checked In" || status === "Meeting Done");
+  // Gate checkout is for security after host marks Meeting Done.
+  const canCheckout = showCheckout && status === "Meeting Done";
   const displayName = visitor?.full_name || visitor?.name || "";
 
   return (
