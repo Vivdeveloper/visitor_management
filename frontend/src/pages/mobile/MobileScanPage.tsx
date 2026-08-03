@@ -1,11 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { securityApi } from "@/api/vms";
+import { useAuth } from "@/context/AuthContext";
 import { extractError, initials } from "@/lib/format";
+import { canPerformCheckout } from "@/lib/roles";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { usePageChrome } from "@/context/PageChromeContext";
 
 export function MobileScanPage() {
+  const { user } = useAuth();
+  const showCheckout = canPerformCheckout(user);
+
   usePageChrome({
     title: "Scan QR",
     subtitle: "Gate verification",
@@ -135,9 +140,11 @@ export function MobileScanPage() {
             <button type="button" className="ad-pass-btn" disabled={busy} onClick={() => void checkIn()}>
               Check in
             </button>
-            <button type="button" className="ad-pass-btn solid" disabled={busy} onClick={() => void checkOut()}>
-              Check out
-            </button>
+            {showCheckout ? (
+              <button type="button" className="ad-pass-btn solid" disabled={busy} onClick={() => void checkOut()}>
+                Check out
+              </button>
+            ) : null}
           </div>
           {entryName ? (
             <Link className="ad-link" style={{ marginTop: 10, color: "var(--vms-pass-meta)" }} to={`/pass/${encodeURIComponent(entryName)}`}>

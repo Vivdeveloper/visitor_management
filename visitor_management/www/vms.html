@@ -66,6 +66,37 @@
 				developer_mode: {{ vms_developer_mode }},
 			};
 
+			/* Bust stuck PWA cache when built assets change (local_visitor_site_app etc.). */
+			(function () {
+				var key = "vms_asset_v";
+				var next = String(window.vmsAssetV || "");
+				var prev = "";
+				try {
+					prev = localStorage.getItem(key) || "";
+				} catch (e) {}
+				if (!next || prev === next) return;
+				try {
+					localStorage.setItem(key, next);
+				} catch (e) {}
+				if (!prev) return;
+				var done = Promise.resolve();
+				if ("serviceWorker" in navigator) {
+					done = navigator.serviceWorker.getRegistrations().then(function (regs) {
+						return Promise.all(regs.map(function (r) { return r.unregister(); }));
+					});
+				}
+				if (window.caches && caches.keys) {
+					done = done.then(function () {
+						return caches.keys().then(function (keys) {
+							return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+						});
+					});
+				}
+				done.finally(function () {
+					window.location.reload();
+				});
+			})();
+
 			/* Capacitor WebView: patch DOM + clear boot markup before React loads. */
 			(function () {
 				function isCapNative() {

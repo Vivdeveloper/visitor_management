@@ -3,13 +3,11 @@ import { useBlocker, useNavigate } from "react-router-dom";
 import { uploadPublicFile } from "@/api/upload";
 import * as msg91Otp from "@/services/msg91Otp";
 import {
-  frappeGetList,
   meetingApi,
   otpApi,
   passApi,
   securityApi,
   visitorApi,
-  type VisitorListRow,
 } from "@/api/vms";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { VisitorDetailsForm } from "@/components/checkin/VisitorDetailsForm";
@@ -18,6 +16,7 @@ import { CheckInSuccessCard } from "@/components/checkin/CheckInSuccessCard";
 import { MeetingInProgressCard } from "@/components/checkin/MeetingInProgressCard";
 import { CheckoutConfirmationCard } from "@/components/checkin/CheckoutConfirmationCard";
 import { DiscardEntryModal } from "@/components/checkin/DiscardEntryModal";
+import { ResumeEntryModal } from "@/components/checkin/ResumeEntryModal";
 import { AdditionalGuestsModal } from "@/components/checkin/AdditionalGuestsModal";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import {
@@ -28,14 +27,18 @@ import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { registerBackHandler, getSpaDepth } from "@/native/backNavigation";
-import {
-  applyReturningProfileFields,
-  getReturningVisitorProfileFields,
-  VISIT_FIELDS_TO_CLEAR,
-} from "@/lib/returningVisitorFields";
 import { resolveVisitPurposeType, VISIT_PURPOSE_OTHER_VALUE } from "@/lib/visitPurpose";
 import { formatTime } from "@/lib/format";
 import { canPerformCheckout } from "@/lib/roles";
+import {
+  clearCheckInDraft,
+  dataUrlToFile,
+  draftHasProgress,
+  emptyCheckInForm,
+  fileToDataUrl,
+  loadCheckInDraft,
+  saveCheckInDraft,
+} from "@/lib/checkInDraft";
 import {
   formatAdditionalGuestsRemarks,
   normalizeAdditionalGuests,
@@ -60,6 +63,7 @@ type VisitorDoc = {
   last_name?: string;
   mobile?: string;
   status?: string;
+  company?: string;
   visitor_company?: string;
   person_to_meet?: string;
   person_to_meet_name?: string;
@@ -113,54 +117,91 @@ export function MobileCheckInPage() {
   const navigate = useNavigate();
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const allowLeaveRef = useRef(false);
+  const [boot] = useState(() => {
+    const draft = loadCheckInDraft();
+    return { draft, resume: draftHasProgress(draft) };
+  });
+  const draftReadyRef = useRef(!boot.resume);
   const { lang, setLang } = useAppLanguage();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
-  const [step, setStep] = useState<JourneyStep>("mobile");
+  const [step, setStep] = useState<JourneyStep>(() =>
+    boot.resume && boot.draft ? boot.draft.step : "mobile",
+  );
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LEN).fill(""));
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(() =>
+    Boolean(boot.resume && boot.draft?.otpVerified),
+  );
   const [otpSuccess, setOtpSuccess] = useState(false);
-  const [returningVisitor, setReturningVisitor] = useState(false);
-  const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>([]);
+  const [additionalGuests, setAdditionalGuests] = useState<AdditionalGuest[]>(() =>
+    boot.resume && boot.draft ? boot.draft.additionalGuests : [],
+  );
   const [additionalGuestsOpen, setAdditionalGuestsOpen] = useState(false);
   const [resendIn, setResendIn] = useState(0);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [idProofFile, setIdProofFile] = useState<File | null>(null);
-  const [idProofPreview, setIdProofPreview] = useState<string | null>(null);
-  const [visitorName, setVisitorName] = useState<string | null>(null);
-  const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
-  const [passUrl, setPassUrl] = useState<string | null>(null);
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
-  const profileFieldsRef = useRef<string[]>(["first_name", "middle_name", "last_name", "email", "gender"]);
-
-  const [form, setForm] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    mobile: "",
-    email: "",
-    gender: "",
-    visitor_company: "",
-    visitor_location: "",
-    person_to_meet: "",
-    visit_purpose_type: "",
-    visit_purpose_other: "",
-    number_of_visitors: "1",
-    id_proof_type: "",
-    vehicle_type: "",
-    vehicle_number: "",
+  const [photoFile, setPhotoFile] = useState<File | null>(() => {
+    if (!boot.resume || !boot.draft?.photoDataUrl) return null;
+    return dataUrlToFile(boot.draft.photoDataUrl, "visitor-photo.jpg");
   });
+  const [photoPreview, setPhotoPreview] = useState<string | null>(() =>
+    boot.resume ? boot.draft?.photoDataUrl || null : null,
+  );
+  const [idProofFile, setIdProofFile] = useState<File | null>(() => {
+    if (!boot.resume || !boot.draft?.idProofDataUrl) return null;
+    return dataUrlToFile(boot.draft.idProofDataUrl, "id-proof.jpg");
+  });
+  const [idProofPreview, setIdProofPreview] = useState<string | null>(() =>
+    boot.resume ? boot.draft?.idProofDataUrl || null : null,
+  );
+  const [visitorName, setVisitorName] = useState<string | null>(() =>
+    boot.resume ? boot.draft?.visitorName || null : null,
+  );
+  const [visitor, setVisitor] = useState<VisitorDoc | null>(null);
+  const [passUrl, setPassUrl] = useState<string | null>(() =>
+    boot.resume ? boot.draft?.passUrl || null : null,
+  );
+  const [submittedAt, setSubmittedAt] = useState<string | null>(() =>
+    boot.resume ? boot.draft?.submittedAt || null : null,
+  );
+  const [resumePromptOpen, setResumePromptOpen] = useState(boot.resume);
+
+  const [form, setForm] = useState(() =>
+    boot.resume && boot.draft ? { ...boot.draft.form } : emptyCheckInForm(),
+  );
+
+  const resetEntry = useCallback(() => {
+    clearCheckInDraft();
+    setStep("mobile");
+    setBusy(false);
+    setError(null);
+    setOtpDigits(Array(OTP_LEN).fill(""));
+    setOtpVerified(false);
+    setOtpSuccess(false);
+    setAdditionalGuests([]);
+    setAdditionalGuestsOpen(false);
+    setResendIn(0);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setIdProofFile(null);
+    setIdProofPreview(null);
+    setVisitorName(null);
+    setVisitor(null);
+    setPassUrl(null);
+    setSubmittedAt(null);
+    setForm(emptyCheckInForm());
+    draftReadyRef.current = true;
+  }, []);
 
   const leaveTo = useCallback((path: string) => {
+    clearCheckInDraft();
     allowLeaveRef.current = true;
     navigate(path, { replace: true });
   }, [navigate]);
 
   const leaveCheckIn = useCallback(() => {
+    clearCheckInDraft();
     allowLeaveRef.current = true;
     if (getSpaDepth() > 0) {
       navigate(-1);
@@ -251,6 +292,56 @@ export function MobileCheckInPage() {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasEntryProgress]);
+
+  useEffect(() => {
+    if (resumePromptOpen || !draftReadyRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        if (!hasEntryProgress && step === "mobile") {
+          clearCheckInDraft();
+          return;
+        }
+
+        let photoDataUrl = photoPreview?.startsWith("data:") ? photoPreview : null;
+        let idProofDataUrl = idProofPreview?.startsWith("data:") ? idProofPreview : null;
+        try {
+          if (!photoDataUrl && photoFile) photoDataUrl = await fileToDataUrl(photoFile);
+          if (!idProofDataUrl && idProofFile) idProofDataUrl = await fileToDataUrl(idProofFile);
+        } catch {
+          /* keep last known data urls */
+        }
+
+        saveCheckInDraft({
+          step,
+          form,
+          otpVerified,
+          additionalGuests,
+          photoDataUrl,
+          idProofDataUrl,
+          visitorName,
+          passUrl,
+          submittedAt,
+        });
+      })();
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    step,
+    form,
+    otpVerified,
+    additionalGuests,
+    photoFile,
+    photoPreview,
+    idProofFile,
+    idProofPreview,
+    visitorName,
+    passUrl,
+    submittedAt,
+    resumePromptOpen,
+    hasEntryProgress,
+  ]);
 
 function normalizePhotoToVertical(file: File): Promise<File> {
   return new Promise((resolve) => {
@@ -357,12 +448,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
   const otpValue = otpDigits.join("");
 
   useEffect(() => {
-    void getReturningVisitorProfileFields().then((fields) => {
-      profileFieldsRef.current = fields;
-    });
-  }, []);
-
-  useEffect(() => {
     if (resendIn <= 0) return;
     const t = window.setTimeout(() => setResendIn((n) => n - 1), 1000);
     return () => window.clearTimeout(t);
@@ -432,77 +517,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     otpRefs.current[focusAt]?.focus();
   }
 
-  async function lookupReturningVisitor(mobile: string): Promise<VisitorListRow | null> {
-    const candidates = [mobile, `91${mobile}`, `+91${mobile}`];
-    try {
-      for (const value of candidates) {
-        const rows = await frappeGetList<VisitorListRow>({
-          doctype: "Visitor Entry",
-          fields: [
-            "name",
-            "full_name",
-            "first_name",
-            "middle_name",
-            "last_name",
-            "mobile",
-            "email",
-            "gender",
-            "visitor_company",
-            "visitor_location",
-            "person_to_meet",
-            "person_to_meet_name",
-            "visit_purpose_type",
-            "id_proof_type",
-            "floor",
-            "vehicle_type",
-            "vehicle_number",
-            "photo",
-            "status",
-            "modified",
-          ],
-          filters: { mobile: value },
-          order_by: "modified desc",
-          limit_page_length: 1,
-        });
-        if (rows[0]) return rows[0];
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
-  function applyReturningVisitor(row: VisitorListRow & Record<string, unknown>) {
-    setForm((prev) => {
-      const cleared = { ...prev };
-      for (const field of VISIT_FIELDS_TO_CLEAR) {
-        cleared[field] = field === "number_of_visitors" ? "1" : "";
-      }
-      return applyReturningProfileFields(cleared, row, profileFieldsRef.current);
-    });
-
-    setPhotoPreview(null);
-    setPhotoFile(null);
-    setIdProofPreview(null);
-    setIdProofFile(null);
-  }
-
   async function onContinueMobile(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setOtpVerified(false);
     setOtpSuccess(false);
-    setReturningVisitor(false);
     setBusy(true);
     try {
       const mobile = validateMobile(form.mobile, lang);
       setField("mobile", mobile);
-
-      const existing = await lookupReturningVisitor(mobile);
-      if (existing) {
-        applyReturningVisitor(existing as VisitorListRow & Record<string, unknown>);
-        setReturningVisitor(true);
-      }
 
       await msg91Otp.sendOtp(mobile);
       setOtpDigits(Array(OTP_LEN).fill(""));
@@ -709,6 +732,16 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     setError(null);
     try {
       await ensurePass();
+      if (visitorName) {
+        const pass = (await passApi.get(visitorName)) as {
+          pass_url?: string;
+          company?: string;
+        };
+        if (pass.pass_url) setPassUrl(pass.pass_url);
+        if (pass.company) {
+          setVisitor((prev) => ({ ...(prev || {}), company: pass.company }));
+        }
+      }
       setStep("pass");
     } catch (err: unknown) {
       setError(extractError(err, lang));
@@ -776,7 +809,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     [form.first_name, form.middle_name, form.last_name].filter(Boolean).join(" ") ||
     "Visitor";
   const hostName = visitor?.person_to_meet_name || visitor?.person_to_meet || form.person_to_meet || "—";
-  const company = visitor?.visitor_company || form.visitor_company || "—";
+  const company = visitor?.company || "—";
   const photoUrl = visitor?.photo || photoPreview;
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
   const meetingDone = visitor?.status === "Meeting Done";
@@ -835,11 +868,6 @@ function normalizePhotoToVertical(file: File): Promise<File> {
 
           <div className="vm-verify-top">
             <h1 className="vj-h2 vm-code-title">{vt(lang, "code_title")}</h1>
-            {returningVisitor ? (
-              <p className="vm-returning-otp-hint" role="status">
-                {vt(lang, "returning_otp_hint")}
-              </p>
-            ) : null}
           </div>
 
           <div className="vm-otp-grid-row" onPaste={(e) => onOtpPaste(e.clipboardData.getData("text"))}>
@@ -931,16 +959,9 @@ function normalizePhotoToVertical(file: File): Promise<File> {
             <h1 className="vj-h2" style={{ margin: 0, fontSize: "1.2rem" }}>Purpose</h1>
           </header>
 
-          {returningVisitor ? (
-            <div className="vm-returning-banner" role="status">
-              {vt(lang, "returning_found")}
-            </div>
-          ) : null}
-
           <main className="vm-main-body vm-form-surface">
             <VisitorDetailsForm
               lang={lang}
-              returningVisitor={returningVisitor}
               values={{
                 first_name: form.first_name,
                 middle_name: form.middle_name,
@@ -1220,12 +1241,25 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         onSave={handleAdditionalGuestsSave}
       />
 
+      <ResumeEntryModal
+        open={resumePromptOpen}
+        onContinue={() => {
+          draftReadyRef.current = true;
+          setResumePromptOpen(false);
+        }}
+        onStartNew={() => {
+          resetEntry();
+          setResumePromptOpen(false);
+        }}
+      />
+
       <DiscardEntryModal
         open={blocker.state === "blocked"}
         onStay={() => {
           if (blocker.state === "blocked") blocker.reset();
         }}
         onLeave={() => {
+          clearCheckInDraft();
           allowLeaveRef.current = true;
           if (blocker.state === "blocked") blocker.proceed();
         }}

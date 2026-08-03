@@ -22,13 +22,30 @@ STATUS_AUDIT_FIELDS = {
 
 class VisitorEntry(Document):
 	def validate(self):
+		self.set_company_from_defaults()
+		self.autocorrect_names()
 		self.set_full_name()
 		self.set_image_previews()
 		self.validate_otp()
 		self.normalize_legacy_status()
 		self.stamp_status_audit()
 
+	def set_company_from_defaults(self):
+		"""Fetch Company from Global Defaults when empty."""
+		if self.get("company"):
+			return
+		company = frappe.db.get_single_value("Global Defaults", "default_company")
+		if company:
+			self.company = company
+
+	def autocorrect_names(self):
+		"""vivEk → Vivek (and same for middle / last name)."""
+		from visitor_management.utils.name_case import autocorrect_name_fields
+
+		autocorrect_name_fields(self)
+
 	def before_insert(self):
+		self.set_company_from_defaults()
 		if not self.status or self.status == "Awaiting":
 			self.status = "Pending Approval"
 
@@ -235,6 +252,24 @@ def reject(visitor_entry: str | None = None, remarks: str | None = None) -> dict
 
 
 @frappe.whitelist()
+def cancel_visit(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+	"""Gate cancel for Pending / Approved entries (before check-in)."""
+	doc = _get_entry(visitor_entry)
+	actor = doc._ensure_gate_operator()
+	if doc.status not in ("Pending Approval", "Pending", "Approved"):
+		frappe.throw(
+			_("Cancel is only allowed before check-in. Current status: {0}").format(doc.status)
+		)
+
+	doc.status = "Cancelled"
+	if doc.meta.has_field("cancelled_on"):
+		doc.cancelled_on = now_datetime()
+	doc._append_remarks(remarks, _("Cancelled by {0}").format(actor))
+	doc.save(ignore_permissions=True)
+	return {"name": doc.name, "status": doc.status, "message": _("Visit cancelled.")}
+
+
+@frappe.whitelist()
 def transfer(
 	visitor_entry: str | None = None,
 	transfer_to_user: str | None = None,
@@ -285,11 +320,16 @@ def complete_meeting(visitor_entry: str | None = None, remarks: str | None = Non
 
 @frappe.whitelist()
 def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Checked In / Meeting Done → Checked Out (Exit). Meeting Done is optional."""
+	"""Gate checkout from any active visit stage → Checked Out.
+
+	Security (PA Security Guard) may exit a visitor from Pending, Approved,
+	Checked In, or Meeting Done. Terminal statuses cannot be checked out again.
+	"""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
-	if doc.status not in ("Checked In", "Meeting Done"):
-		frappe.throw(_("Checkout allowed after Check In. Current status: {0}").format(doc.status))
+	terminal = ("Checked Out", "Rejected", "Cancelled")
+	if doc.status in terminal:
+		frappe.throw(_("Visitor is already {0}.").format(doc.status))
 
 	now = now_datetime()
 	doc.status = "Checked Out"

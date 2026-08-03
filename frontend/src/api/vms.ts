@@ -283,6 +283,7 @@ export type VisitorListRow = {
   transfer_to_user?: string;
   creation?: string;
   visitor_company?: string;
+  company?: string;
   visitor_location?: string;
   id_proof_type?: string;
   vehicle_type?: string;
@@ -353,6 +354,8 @@ export const visitorApi = {
         "transfer_to_user",
         "creation",
         "visitor_company",
+        "company",
+        "visitor_location",
         "number_of_visitors",
         "photo",
         "pass_url",
@@ -371,6 +374,8 @@ export const approvalApi = {
     callMethod("approval.approve", { visitor_entry, remarks, floor }),
   reject: (visitor_entry: string, remarks?: string) =>
     callMethod("approval.reject", { visitor_entry, remarks }),
+  cancel: (visitor_entry: string, remarks?: string) =>
+    callMethod("approval.cancel", { visitor_entry, remarks }),
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
   notifyHost: (visitor_entry: string, message?: string) =>
@@ -386,6 +391,7 @@ export type PublicPassInfo = {
   visitor_entry?: string;
   full_name?: string;
   photo?: string;
+  company?: string;
   visitor_company?: string;
   person_to_meet_name?: string;
   host_name?: string;
@@ -409,6 +415,9 @@ export type MyPassRow = {
   qr_expires_on?: string;
   person_to_meet_name?: string;
   host_name?: string;
+  company?: string;
+  visitor_company?: string;
+  floor?: string;
 };
 
 export const passApi = {

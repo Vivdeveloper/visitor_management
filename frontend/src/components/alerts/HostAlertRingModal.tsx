@@ -46,7 +46,7 @@ export function HostAlertRingModal({ alert, onReview }: Props) {
         </p>
 
         <button type="button" className="vm-host-ring-cta" onClick={onReview}>
-          {isSecurity ? "Open Inside Queue" : "Review & Approve"}
+          {isSecurity ? "Open Approvals" : "Allow / Review"}
         </button>
       </div>
     </div>

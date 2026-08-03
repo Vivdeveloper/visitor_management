@@ -89,7 +89,8 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
     case "reports":
       return Boolean(ve.report || ve.read);
     case "checkout":
-      return Boolean(ve.write && ve.create);
+      // PA Security Guard (create) only — never host / PA GatePass Approval.
+      return Boolean(ve.create && ve.write);
     case "scan":
       return Boolean(ve.write || ve.create);
     case "approve":
@@ -101,6 +102,16 @@ export function hasCapability(user: AuthProfile | null, key: CapabilityKey): boo
       return _exhaustive;
     }
   }
+}
+
+/** Gate desk role — only this role may see Check Out UI. */
+export const PA_SECURITY_GUARD_ROLE = "PA Security Guard User";
+/** Host / approver role — must never see Check Out. */
+export const PA_GATEPASS_APPROVAL_ROLE = "PA GatePass Approval";
+
+function userRoles(user: AuthProfile | null): string[] {
+  if (!user) return [];
+  return user.roles?.length ? user.roles : user.vms_roles || [];
 }
 
 /** Mode from DocPerm flags — create = gate desk; read/write = host/approver. */
@@ -118,7 +129,19 @@ export function resolveMode(user: AuthProfile | null): VmsMode {
   return "guest";
 }
 
+/**
+ * Gate Check Out button — PA Security Guard only.
+ * PA GatePass Approval / host must never see Check Out on any page.
+ */
 export function canPerformCheckout(user: AuthProfile | null): boolean {
+  if (!user?.authenticated) return false;
+  const roles = userRoles(user);
+  if (roles.includes(PA_GATEPASS_APPROVAL_ROLE) && !roles.includes(PA_SECURITY_GUARD_ROLE)) {
+    return false;
+  }
+  // Host mode (write without create) never checkouts.
+  if (resolveMode(user) !== "security") return false;
+  if (canApproveReject(user) && !visitorEntryPerms(user).create) return false;
   return hasCapability(user, "checkout");
 }
 

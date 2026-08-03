@@ -24,6 +24,13 @@ def reject(visitor_entry: str | None = None, remarks: str | None = None) -> dict
 
 
 @frappe.whitelist()
+def cancel(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+	if not visitor_entry:
+		frappe.throw(_("Visitor Entry is required"))
+	return {"success": True, **ve.cancel_visit(visitor_entry, remarks=remarks)}
+
+
+@frappe.whitelist()
 def transfer(
 	visitor_entry: str | None = None,
 	transfer_to_user: str | None = None,
@@ -98,6 +105,8 @@ def list_for_host(status: str | None = None) -> list:
 			"status",
 			"photo",
 			"visitor_company",
+			"company",
+			"visitor_location",
 			"person_to_meet",
 			"person_to_meet_name",
 			"floor",
