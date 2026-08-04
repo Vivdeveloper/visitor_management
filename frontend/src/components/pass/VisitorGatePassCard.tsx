@@ -4,7 +4,10 @@ import { APP_BASE_PATH } from "@/config/env";
 interface VisitorGatePassCardProps {
   passCode?: string;
   visitorName?: string;
+  /** Host / site company — shown above the pass body. */
   company?: string;
+  /** Visitor's own company — shown in the details table. */
+  visitorCompany?: string;
   hostName?: string;
   department?: string;
   floor?: string;
@@ -17,7 +20,6 @@ interface VisitorGatePassCardProps {
   qrPayload?: string;
   busy?: boolean;
   onDownload?: () => void;
-  onShare?: () => void;
   onExit?: () => void;
 }
 
@@ -32,6 +34,7 @@ export function VisitorGatePassCard({
   passCode = "VE01-00044",
   visitorName = "nikhil",
   company = "—",
+  visitorCompany = "—",
   hostName = "Administrator",
   floor = "—",
   status = "Approved",
@@ -40,7 +43,6 @@ export function VisitorGatePassCard({
   photoUrl,
   qrPayload,
   onDownload,
-  onShare,
 }: VisitorGatePassCardProps) {
   const scanTarget =
     qrPayload ||
@@ -49,18 +51,7 @@ export function VisitorGatePassCard({
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(absolute)}`;
   const photo = resolveUrl(photoUrl || undefined);
   const companyLabel = (company || "").trim() || "—";
-
-  function handleShare() {
-    if (onShare) {
-      onShare();
-      return;
-    }
-    if (navigator.share) {
-      void navigator.share({ title: `Gate Pass - ${visitorName}`, url: absolute });
-    } else {
-      void navigator.clipboard?.writeText(absolute);
-    }
-  }
+  const visitorCompanyLabel = (visitorCompany || "").trim() || "—";
 
   function handlePrint() {
     if (onDownload) {
@@ -77,6 +68,10 @@ export function VisitorGatePassCard({
         <strong>Precious Alloy Components Pvt. Ltd.</strong>
         <span>Visitor Gate Pass</span>
       </div>
+
+      {companyLabel !== "—" ? (
+        <p className="vm-gate-pass-company-banner">{companyLabel}</p>
+      ) : null}
 
       {/* Header Row: Logo & Status Badge */}
       <div className="vm-gate-pass-header-row">
@@ -122,12 +117,7 @@ export function VisitorGatePassCard({
             </svg>
             COMPANY
           </span>
-          <strong className="vm-gate-pass-detail-val vm-gate-pass-company-val">
-            <span>{companyLabel}</span>
-            {companyLabel !== "—" ? (
-              <BrandLogo variant="icon" className="vm-gate-pass-company-logo" alt="Precious Alloys" />
-            ) : null}
-          </strong>
+          <strong className="vm-gate-pass-detail-val">{visitorCompanyLabel}</strong>
         </div>
 
         <div className="vm-gate-pass-detail-row">
@@ -192,17 +182,6 @@ export function VisitorGatePassCard({
 
       {/* Action Buttons — screen only, never printed */}
       <div className="vm-gate-pass-actions-grid vm-no-print">
-        <button type="button" className="vm-pass-act-btn is-share" onClick={handleShare}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <circle cx="18" cy="5" r="3" />
-            <circle cx="6" cy="12" r="3" />
-            <circle cx="18" cy="19" r="3" />
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-          </svg>
-          <span>Share</span>
-        </button>
-
         <button type="button" className="vm-pass-act-btn is-print" onClick={handlePrint}>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <polyline points="6 9 6 2 18 2 18 9" />

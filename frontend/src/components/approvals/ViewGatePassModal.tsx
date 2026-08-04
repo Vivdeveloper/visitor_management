@@ -25,7 +25,6 @@ type Props = {
   visitor: VisitorListRow | null;
   open: boolean;
   onClose: () => void;
-  onSendToMobile?: (visitor: VisitorListRow) => Promise<void> | void;
 };
 
 async function fetchDefaultCompany(): Promise<string> {
@@ -45,12 +44,11 @@ async function fetchDefaultCompany(): Promise<string> {
  * Pass URL / QR must come from Python (`visitor_pass.get_pass` → `ve.generate_pass`).
  * React never invents pass_url.
  */
-export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Props) {
+export function ViewGatePassModal({ visitor, open, onClose }: Props) {
   const [pass, setPass] = useState<PassPayload | null>(null);
   const [defaultCompany, setDefaultCompany] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [busySend, setBusySend] = useState(false);
 
   useEffect(() => {
     if (!open || !visitor) {
@@ -98,6 +96,8 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
   const floor = pass?.floor || visitor.floor || "—";
   const company =
     (pass?.company || visitor.company || defaultCompany || "").trim() || "—";
+  const visitorCompany =
+    (pass?.visitor_company || visitor.visitor_company || "").trim() || "—";
   const passUrl = pass?.pass_url;
   const validUntil = pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : undefined;
   const gateReady = status === "Checked In" || status === "Meeting Done";
@@ -108,16 +108,6 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
       : status
         ? `Pass status: ${status}`
         : undefined;
-
-  async function handleSend() {
-    if (!visitor || !onSendToMobile) return;
-    setBusySend(true);
-    try {
-      await onSendToMobile(visitor);
-    } finally {
-      setBusySend(false);
-    }
-  }
 
   return (
     <div
@@ -153,6 +143,7 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
             passCode={passCode}
             visitorName={visitorName}
             company={company}
+            visitorCompany={visitorCompany}
             hostName={hostName}
             floor={floor}
             status={status}
@@ -160,28 +151,11 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
             validUntil={validUntil}
             photoUrl={pass?.photo || visitor.photo}
             qrPayload={passUrl}
-            onShare={() => {
-              if (navigator.share) {
-                void navigator.share({ title: `Gate Pass - ${visitorName}`, url: passUrl });
-              } else {
-                void navigator.clipboard?.writeText(passUrl);
-              }
-            }}
             onDownload={() => window.print()}
           />
         ) : null}
 
         <div className="vm-view-gate-pass-footer vm-no-print">
-          {onSendToMobile && passUrl ? (
-            <button
-              type="button"
-              className="vm-confirm-act-btn is-secondary"
-              disabled={busySend || loading}
-              onClick={() => void handleSend()}
-            >
-              {busySend ? "Sending…" : "Send to visitor"}
-            </button>
-          ) : null}
           <button type="button" className="vm-confirm-act-btn is-primary" onClick={onClose}>
             Close
           </button>

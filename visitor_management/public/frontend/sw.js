@@ -112,10 +112,10 @@ define(['./workbox-50bb6711'], (function (workbox) { 'use strict';
     "revision": "c4ca906123f2dea7f7cd6fcc4755e3c9"
   }, {
     "url": "vms-asset-index.css",
-    "revision": "8954d8a38695734f7f69a2c290c71a55"
+    "revision": "25b733f5bf91dde2188e9bb8d7212169"
   }, {
     "url": "vms-app.js",
-    "revision": "11e8f02f94cb1f876d04fc1254e06ef0"
+    "revision": "968d40c806fcd732f3dc543db6534274"
   }, {
     "url": "vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

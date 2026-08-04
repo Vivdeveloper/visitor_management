@@ -63,7 +63,6 @@ export function VisitorDetailsForm({
   const [loading, setLoading] = useState(true);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewAlt, setPreviewAlt] = useState("Photo preview");
-  const [voiceTarget, setVoiceTarget] = useState<VoiceTargetField>("first_name");
 
   useEffect(() => {
     let cancelled = false;

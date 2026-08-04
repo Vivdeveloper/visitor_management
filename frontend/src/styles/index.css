@@ -15109,6 +15109,20 @@ button.vm-photo-preview.is-clickable:active {
   line-height: 1.2;
 }
 
+.vm-gate-pass-company-banner {
+  margin: 0 0 0.55rem;
+  padding: 0.35rem 0.65rem;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0a3d91;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+}
+
 .vm-gate-pass-notice-pill {
   display: inline-flex;
   align-items: center;
@@ -15262,7 +15276,7 @@ button.vm-photo-preview.is-clickable:active {
 
 .vm-gate-pass-actions-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
 }
 

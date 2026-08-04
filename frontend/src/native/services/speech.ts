@@ -121,20 +121,26 @@ async function startNativeListen(options: SpeechListenOptions): Promise<SpeechLi
     }
   };
 
-  await SpeechRecognition.addListener("partialResults", (event) => {
+  await SpeechRecognition.addListener("partialResults", (event: {
+    matches?: string[];
+    accumulatedText?: string;
+  }) => {
     const text = event.matches?.[0] || event.accumulatedText || "";
     if (!text.trim()) return;
     lastText = text;
     options.onPartial?.(normalizeSpokenName(text));
   });
 
-  await SpeechRecognition.addListener("listeningState", (event) => {
+  await SpeechRecognition.addListener("listeningState", (event: {
+    status?: string;
+    state?: string;
+  }) => {
     if (event.status === "stopped" || event.state === "stopped") {
       void finish();
     }
   });
 
-  await SpeechRecognition.addListener("error", (event) => {
+  await SpeechRecognition.addListener("error", (event: { message?: string }) => {
     if (!stopped) {
       options.onError?.(event.message || "Could not capture voice input");
       void finish();

@@ -61,6 +61,7 @@ export function MobilePassPage() {
             passCode={featured.name}
             visitorName={featured.full_name || "Visitor"}
             company={featured.company || "—"}
+            visitorCompany={featured.visitor_company || "—"}
             hostName={featured.person_to_meet_name || featured.host_name || "—"}
             floor={featured.floor || "—"}
             status={featured.status || "Approved"}

@@ -810,6 +810,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
     "Visitor";
   const hostName = visitor?.person_to_meet_name || visitor?.person_to_meet || form.person_to_meet || "—";
   const company = visitor?.company || "—";
+  const visitorCompany = visitor?.visitor_company || form.visitor_company || "—";
   const photoUrl = visitor?.photo || photoPreview;
   const checkInLabel = formatTime(visitor?.checked_in_on || visitor?.check_in || submittedAt || undefined);
   const meetingDone = visitor?.status === "Meeting Done";
@@ -1096,6 +1097,7 @@ function normalizePhotoToVertical(file: File): Promise<File> {
               passCode={visitorName ? `GP-${visitorName}` : "GP-—"}
               visitorName={displayName}
               company={company}
+              visitorCompany={visitorCompany}
               hostName={hostName}
               department={visitor?.floor || "—"}
               validUntil={visitor?.qr_expires_on ? formatTime(visitor.qr_expires_on) : vt(lang, "end_of_day")}

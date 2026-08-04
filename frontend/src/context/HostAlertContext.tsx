@@ -17,8 +17,8 @@ import {
   needsBackgroundPushSetup,
   shouldShowNotificationPermissionModal,
 } from "@/components/alerts/NotificationPermissionModal";
-import { visitorApi } from "@/api/vms";
-import { resolveMode, visitorScopeFilters } from "@/lib/roles";
+import { visitorApi, type AuthProfile } from "@/api/vms";
+import { canApproveReject, resolveMode, visitorScopeFilters } from "@/lib/roles";
 import {
   type ActiveHostAlert,
   type HostAlertPayload,
@@ -46,14 +46,46 @@ type HostAlertContextValue = {
 
 const HostAlertContext = createContext<HostAlertContextValue | null>(null);
 
+const HOST_ALERT_EVENTS = new Set(["host_notified", "created", "transferred"]);
+
+function currentUserIds(user: AuthProfile | null): string[] {
+  if (!user) return [];
+  const ids = [user.user, user.email]
+    .map((v) => (typeof v === "string" ? v.trim().toLowerCase() : ""))
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/** True when this login should receive the host ring for a pending visitor. */
+function isHostAlertRecipient(user: AuthProfile | null): boolean {
+  if (!user?.authenticated) return false;
+  const mode = resolveMode(user);
+  if (mode === "visitor" || mode === "guest") return false;
+  // Assigned hosts (write/read) always; also gate users who can approve.
+  return mode === "host" || canApproveReject(user) || mode === "security";
+}
+
+function payloadTargetsCurrentHost(payload: HostAlertPayload, user: AuthProfile | null): boolean {
+  const ids = currentUserIds(user);
+  if (!ids.length) return false;
+  const hostUser = (payload.host_user || "").trim().toLowerCase();
+  // Targeted alert: only the assigned host.
+  if (hostUser) return ids.includes(hostUser);
+  // Untargeted broadcast (legacy) — show to host-mode users only.
+  return resolveMode(user) === "host" || canApproveReject(user);
+}
+
 export function HostAlertProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const mode = resolveMode(user);
+  const receivesHostAlerts = isHostAlertRecipient(user);
   const [alerts, setAlerts] = useState<Record<string, ActiveHostAlert>>({});
   const [notifyPerm, setNotifyPerm] = useState(notificationPermissionState());
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const catchUpUserRef = useRef<string | null>(null);
+  const alertsRef = useRef(alerts);
+  alertsRef.current = alerts;
 
   const activeAlert = useMemo(() => {
     const list = Object.values(alerts);
@@ -143,29 +175,77 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const tryHostAlertFromPayload = useCallback(
+    (payload: HostAlertPayload | null | undefined) => {
+      if (!receivesHostAlerts || !payload) return;
+      if (!payloadTargetsCurrentHost(payload, user)) return;
+      const event = payload.event || "";
+      const isHostRing =
+        HOST_ALERT_EVENTS.has(event) ||
+        payload.alert_variant === "host" ||
+        !event; /* dedicated vms_host_alert channel */
+      if (!isHostRing) return;
+      registerAlert(payload);
+    },
+    [receivesHostAlerts, registerAlert, user],
+  );
+
+  const catchUpPendingHostAlert = useCallback(
+    async (force = false) => {
+      const uid = user?.user;
+      if (!uid || !receivesHostAlerts) return;
+      if (!force && catchUpUserRef.current === uid && Object.keys(alertsRef.current).length) {
+        return;
+      }
+      catchUpUserRef.current = uid;
+
+      try {
+        const list = await visitorApi.listDetailed(50, visitorScopeFilters(user));
+        const ids = currentUserIds(user);
+        const pending = list.filter((row) => {
+          const statusOk = row.status === "Pending Approval" || row.status === "Pending";
+          if (!statusOk) return false;
+          // Only ring the assigned host (person_to_meet), never the whole gate desk.
+          const meet = (row.person_to_meet || "").trim().toLowerCase();
+          return Boolean(meet && ids.includes(meet));
+        });
+        const newest = pending[0];
+        if (!newest?.name) return;
+        if (alertsRef.current[newest.name]) return;
+        registerAlert({
+          visitor_entry: newest.name,
+          visitor_name: newest.full_name || newest.name,
+          host: newest.person_to_meet_name || newest.person_to_meet,
+          host_user: uid,
+          message: `${newest.full_name || "Visitor"} is waiting for your approval at the gate.`,
+          event: "host_notified",
+          alert_variant: "host",
+        });
+      } catch {
+        /* ignore catch-up failures */
+      }
+    },
+    [receivesHostAlerts, registerAlert, user],
+  );
+
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_host_alert",
     (payload) => {
-      if (mode !== "host") return;
-      const currentUser = user?.user;
-      if (!currentUser) return;
-      if (payload?.host_user && payload.host_user !== currentUser) return;
+      if (!receivesHostAlerts || !payload) return;
+      if (!payloadTargetsCurrentHost(payload, user)) return;
       registerAlert(payload);
     },
-    Boolean(user?.user) && mode === "host",
+    Boolean(user?.user) && receivesHostAlerts,
   );
 
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_visitor_update",
     (payload) => {
-      if (mode !== "host") return;
-      if (payload?.event !== "host_notified") return;
-      const currentUser = user?.user;
-      if (!currentUser) return;
-      if (payload?.host_user && payload.host_user !== currentUser) return;
-      registerAlert(payload);
+      if (!receivesHostAlerts) return;
+      if (payload?.event && !HOST_ALERT_EVENTS.has(payload.event)) return;
+      tryHostAlertFromPayload(payload);
     },
-    Boolean(user?.user) && mode === "host",
+    Boolean(user?.user) && receivesHostAlerts,
   );
 
   useVmsRealtimeEvent<HostAlertPayload>(
@@ -188,16 +268,18 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     Boolean(user?.user) && mode === "security",
   );
 
-  useVmsRealtimeEvent<{ visitor_entry?: string; event?: string }>(
+  useVmsRealtimeEvent<HostAlertPayload>(
     "vms_visitor_update",
     (payload) => {
       const visitorEntry = payload?.visitor_entry;
       const event = payload?.event;
       if (!visitorEntry) return;
-      if (event === "approved" || event === "rejected" || event === "transferred" || event === "checked_in") {
+      if (event === "approved" || event === "rejected" || event === "checked_in" || event === "checked_out") {
         clearAlert(visitorEntry);
+        return;
       }
-      if (event === "checked_out") {
+      // Previous host dismisses; new host is rung by the HOST_ALERT_EVENTS listener.
+      if (event === "transferred" && !payloadTargetsCurrentHost(payload, user)) {
         clearAlert(visitorEntry);
       }
     },
@@ -206,43 +288,22 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
 
   /** If host missed the realtime ring (offline), show Allow popup for pending entries on login. */
   useEffect(() => {
-    const uid = user?.user;
-    if (!uid) {
+    if (!user?.user) {
       catchUpUserRef.current = null;
       return;
     }
-    if (mode !== "host") return;
-    if (catchUpUserRef.current === uid) return;
-    catchUpUserRef.current = uid;
+    if (!receivesHostAlerts) return;
 
     let cancelled = false;
     void (async () => {
-      try {
-        const list = await visitorApi.listDetailed(50, visitorScopeFilters(user));
-        if (cancelled) return;
-        const pending = list.filter(
-          (row) => row.status === "Pending Approval" || row.status === "Pending",
-        );
-        const newest = pending[0];
-        if (!newest?.name) return;
-        registerAlert({
-          visitor_entry: newest.name,
-          visitor_name: newest.full_name || newest.name,
-          host: newest.person_to_meet_name || newest.person_to_meet,
-          host_user: uid,
-          message: `${newest.full_name || "Visitor"} is waiting for your approval at the gate.`,
-          event: "host_notified",
-          alert_variant: "host",
-        });
-      } catch {
-        /* ignore catch-up failures */
-      }
+      if (cancelled) return;
+      await catchUpPendingHostAlert(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user, mode, registerAlert]);
+  }, [user?.user, receivesHostAlerts, catchUpPendingHostAlert]);
 
   useEffect(() => {
     if (!user?.user) {
@@ -256,7 +317,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void (async () => {
-        if (!(mode === "host" || mode === "security")) {
+        if (!(mode === "host" || mode === "security" || canApproveReject(user))) {
           if (!cancelled) setPermissionModalOpen(false);
           return;
         }
@@ -277,7 +338,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [user?.user, mode, notifyPerm]);
+  }, [user, mode, notifyPerm]);
 
   useEffect(() => {
     if (!user?.user) return;
@@ -289,13 +350,16 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     document.addEventListener("keydown", primeFeedback, { once: true });
 
     const onVisible = () => {
-      if (document.visibilityState === "visible") connectVmsSocket();
+      if (document.visibilityState === "visible") {
+        connectVmsSocket();
+        void catchUpPendingHostAlert(false);
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
 
     const sock = getVmsSocket();
     const onConnect = () => {
-      /* socket ready for host alerts */
+      void catchUpPendingHostAlert(false);
     };
     sock?.on("connect", onConnect);
 
@@ -305,7 +369,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
       sock?.off("connect", onConnect);
     };
-  }, [user?.user]);
+  }, [user?.user, catchUpPendingHostAlert]);
 
   useEffect(() => {
     return () => {

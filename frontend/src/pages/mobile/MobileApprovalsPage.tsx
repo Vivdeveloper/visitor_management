@@ -556,7 +556,6 @@ export function MobileApprovalsPage() {
         visitor={passVisitor}
         open={!!passVisitor}
         onClose={() => setPassVisitor(null)}
-        onSendToMobile={handleSendPassToMobile}
       />
     </div>
   );

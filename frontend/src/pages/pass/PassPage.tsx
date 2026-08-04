@@ -64,6 +64,7 @@ export function PublicPassPage() {
         passCode={pass?.visitor_entry || token}
         visitorName={pass?.full_name || "Visitor"}
         company={pass?.company || "—"}
+        visitorCompany={pass?.visitor_company || "—"}
         hostName={pass?.person_to_meet_name || pass?.host_name || "Administrator"}
         floor={pass?.floor || "—"}
         status={pass?.status || (result.valid ? "Approved" : "Invalid")}
@@ -72,13 +73,6 @@ export function PublicPassPage() {
         photoUrl={pass?.photo}
         qrPayload={qrTarget}
         onDownload={() => window.print()}
-        onShare={() => {
-          if (navigator.share) {
-            void navigator.share({ title: `Gate Pass - ${pass?.full_name || "Visitor"}`, url: qrTarget });
-          } else {
-            void navigator.clipboard?.writeText(qrTarget);
-          }
-        }}
       />
     </div>
   );
