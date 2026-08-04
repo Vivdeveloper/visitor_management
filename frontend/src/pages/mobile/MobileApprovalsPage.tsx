@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   approvalApi,
   meetingApi,
-  passApi,
   securityApi,
   visitorApi,
   type VisitorListRow,
@@ -13,7 +12,6 @@ import { PendingDecisionCard } from "@/components/approvals/PendingDecisionCard"
 import { ApprovalFloorModal } from "@/components/approvals/ApprovalFloorModal";
 import { ApprovalRejectModal } from "@/components/approvals/ApprovalRejectModal";
 import { ApprovalTransferModal } from "@/components/approvals/ApprovalTransferModal";
-import { VisitorCheckInConfirmModal } from "@/components/approvals/VisitorCheckInConfirmModal";
 import { ViewGatePassModal } from "@/components/approvals/ViewGatePassModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
@@ -24,6 +22,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   canApproveReject,
   canCallNotifyHost,
+  canGateCheckIn,
   canMarkMeetingDone,
   canPerformCheckout,
   canTransferVisitor,
@@ -103,6 +102,8 @@ export function MobileApprovalsPage() {
   // Notify is gate-desk only — host is the person being notified.
   const canHostOps = mode === "security" && canCallNotifyHost(user);
   const canTransfer = canTransferVisitor(user);
+  // Approver (no create DocPerm) → View Gate Pass only; gate create → Check In too.
+  const showGateCheckIn = canGateCheckIn(user);
 
   usePageChrome({
     title: ut(lang, "pending"),
@@ -123,43 +124,22 @@ export function MobileApprovalsPage() {
   const [rejectVisitor, setRejectVisitor] = useState<VisitorListRow | null>(null);
   const [transferVisitor, setTransferVisitor] = useState<VisitorListRow | null>(null);
   const [toast, setToast] = useState<ErpToastData | null>(null);
-  const [confirmVisitor, setConfirmVisitor] = useState<VisitorListRow | null>(null);
   const [approveVisitor, setApproveVisitor] = useState<VisitorListRow | null>(null);
   const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
-  const statusMapRef = useState(() => new Map<string, string>())[0];
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const list = await visitorApi.listDetailed(200, visitorScopeFilters(user));
-      const newList = list || [];
-
-      for (const v of newList) {
-        const prevStatus = statusMapRef.get(v.name);
-        if (prevStatus && (prevStatus === "Pending Approval" || prevStatus === "Pending") && v.status === "Approved") {
-          setConfirmVisitor(v);
-        }
-        statusMapRef.set(v.name, v.status || "");
-      }
-
-      const lastSubName = sessionStorage.getItem("vms_last_submitted_visitor");
-      if (lastSubName) {
-        const matched = newList.find((r) => r.name === lastSubName);
-        if (matched && matched.status === "Approved") {
-          setConfirmVisitor(matched);
-          sessionStorage.removeItem("vms_last_submitted_visitor");
-        }
-      }
-
-      setRows(newList);
+      setRows(list || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not load approvals");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [statusMapRef, user]);
+  }, [user]);
 
   useEffect(() => {
     void load();
@@ -181,10 +161,11 @@ export function MobileApprovalsPage() {
       try {
         await approvalApi.approve(visitor.name, undefined, floor);
         setApproveVisitor(null);
-        setConfirmVisitor({
-          ...visitor,
-          status: "Approved",
-          floor,
+        setToast({
+          id: Date.now().toString(),
+          title: "Visitor approved",
+          message: `${visitor.full_name || visitor.name} was approved${floor ? ` for ${floor}` : ""}.`,
+          time: formatNowTime(lang),
         });
         void load();
       } catch (err: unknown) {
@@ -193,7 +174,7 @@ export function MobileApprovalsPage() {
         setBusy(null);
       }
     },
-    [load],
+    [load, lang],
   );
 
   const handleReject = useCallback((item: VisitorListRow) => {
@@ -314,25 +295,6 @@ export function MobileApprovalsPage() {
     },
     [load, lang],
   );
-
-  const handleGeneratePass = useCallback(async (visitor: VisitorListRow) => {
-    setConfirmVisitor(null);
-    setPassVisitor(visitor);
-  }, []);
-
-  const handleSendPassToMobile = useCallback(async (visitor: VisitorListRow) => {
-    try {
-      const res = await passApi.sendPassToMobile(visitor.name, visitor.mobile);
-      setToast({
-        id: Date.now().toString(),
-        title: "Gate Pass Sent",
-        message: res.message || `Gate pass link sent to ${visitor.mobile || "visitor"}`,
-        time: formatNowTime(lang),
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not send pass to mobile");
-    }
-  }, []);
 
   const counts = useMemo(() => {
     const next: Record<TabId, number> = {
@@ -479,7 +441,11 @@ export function MobileApprovalsPage() {
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
               }
               onCheckIn={
-                viewOnlyAll ? undefined : item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
+                viewOnlyAll || !showGateCheckIn
+                  ? undefined
+                  : item.status === "Approved"
+                    ? (v) => void handleCheckIn(v)
+                    : undefined
               }
               onMeetingDone={
                 viewOnlyAll || !canMeetingDone
@@ -542,14 +508,6 @@ export function MobileApprovalsPage() {
         busy={!!approveVisitor && busy === approveVisitor.name}
         onClose={() => setApproveVisitor(null)}
         onConfirm={handleApproveWithFloor}
-      />
-
-      <VisitorCheckInConfirmModal
-        visitor={confirmVisitor}
-        open={!!confirmVisitor}
-        onClose={() => setConfirmVisitor(null)}
-        onGeneratePass={handleGeneratePass}
-        onSendPassToMobile={handleSendPassToMobile}
       />
 
       <ViewGatePassModal

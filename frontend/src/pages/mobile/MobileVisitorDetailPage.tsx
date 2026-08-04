@@ -122,7 +122,7 @@ export function MobileVisitorDetailPage() {
   }, [routeName]);
 
   const status = visitor?.status || "";
-  // Gate checkout for PA Security Guard after host marks Meeting Done.
+  // Gate checkout after host marks Meeting Done (Visitor Entry create DocPerm).
   const canCheckout = showCheckout && status === "Meeting Done";
   const displayName = visitor?.full_name || visitor?.name || "";
 

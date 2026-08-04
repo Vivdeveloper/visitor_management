@@ -1,15 +1,16 @@
-"""Ensure gate / approver DocPerm rows exist even when DocType JSON sync is skipped.
+"""Ensure master DocPerm rows exist for roles already on Visitor Entry (RPM).
 
-RPM edits bump DocType.modified in the DB, so migrate may not re-apply JSON
-permissions. Masters then stay System-Manager-only and Link / Select checks fail.
+No hardcoded role names — uses roles from Visitor Entry DocPerm
+(Role Permission Manager / DocType permissions).
 """
 
 from __future__ import annotations
 
 import frappe
 
-GATE_ROLE = "PA Security Guard User"
-APPROVER_ROLE = "PA GatePass Approval"
+from visitor_management.auth.permissions import get_docperm_roles
+
+SKIP_ROLES = frozenset({"All", "Guest", "Administrator", "Desk User"})
 
 # Select + Read on masters used by Add Entry Link fields
 MASTER_SELECT_READ = {
@@ -42,8 +43,18 @@ def _upsert_role_perm(doctype: str, role: str, flags: dict[str, int]) -> None:
 	doc.save(ignore_permissions=True)
 
 
+def _visitor_entry_staff_roles() -> list[str]:
+	"""Roles with any DocPerm on Visitor Entry (from Role Permission Manager)."""
+	roles = set(get_docperm_roles("Visitor Entry"))
+	return sorted(r for r in roles if r not in SKIP_ROLES)
+
+
 def ensure_gate_master_docperms() -> None:
-	"""Select + Read on VMS masters for security + approval roles."""
+	"""Select + Read on VMS masters for every role that has Visitor Entry DocPerm."""
+	staff_roles = _visitor_entry_staff_roles()
+	if not staff_roles:
+		return
+
 	master_flags = {
 		"read": 1,
 		"select": 1,
@@ -56,39 +67,7 @@ def ensure_gate_master_docperms() -> None:
 		"email": 1,
 	}
 	for doctype in sorted(MASTER_SELECT_READ):
-		for role in (GATE_ROLE, APPROVER_ROLE):
+		for role in staff_roles:
 			_upsert_role_perm(doctype, role, master_flags)
-
-	# Select helps Link validation / dropdowns for gate create role
-	_upsert_role_perm(
-		"Visitor Entry",
-		GATE_ROLE,
-		{
-			"select": 1,
-			"read": 1,
-			"write": 1,
-			"create": 1,
-			"delete": 0,
-			"export": 1,
-			"print": 1,
-			"report": 1,
-			"email": 1,
-		},
-	)
-	_upsert_role_perm(
-		"Visitor Entry",
-		APPROVER_ROLE,
-		{
-			"select": 1,
-			"read": 1,
-			"write": 1,
-			"create": 0,
-			"delete": 0,
-			"export": 0,
-			"print": 1,
-			"report": 1,
-			"email": 1,
-		},
-	)
 
 	frappe.clear_cache()

@@ -322,8 +322,9 @@ def complete_meeting(visitor_entry: str | None = None, remarks: str | None = Non
 def check_out(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
 	"""Gate checkout from any active visit stage → Checked Out.
 
-	Security (PA Security Guard) may exit a visitor from Pending, Approved,
-	Checked In, or Meeting Done. Terminal statuses cannot be checked out again.
+	Requires Visitor Entry create DocPerm (Role Permission Manager).
+	May exit from Pending, Approved, Checked In, or Meeting Done.
+	Terminal statuses cannot be checked out again.
 	"""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
