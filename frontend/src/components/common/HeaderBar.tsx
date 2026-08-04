@@ -6,6 +6,7 @@ import { useAppLanguage } from "@/context/AppLanguageContext";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
+import { PwaAppUpdateButton } from "@/components/ui/PwaAppUpdateButton";
 import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPrompt";
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { initials } from "@/lib/format";
@@ -184,6 +185,8 @@ export function HeaderBar({
                     </div>
 
                     <NotificationSetupPrompt variant="popup" onAction={() => setPopup("none")} />
+
+                    <PwaAppUpdateButton variant="popup" onStarted={() => setPopup("none")} />
 
                     <button
                       type="button"

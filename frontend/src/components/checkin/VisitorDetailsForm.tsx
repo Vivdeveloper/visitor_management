@@ -3,9 +3,9 @@ import { settingsApi, frappeGetList, type HostOption, type MastersPayload } from
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
-import { VoiceTextInput } from "@/components/ui/VoiceTextInput";
-import { VoiceDictationButton, type VoiceTargetField } from "@/components/ui/VoiceDictationButton";
+import { VoiceDictationButton } from "@/components/ui/VoiceDictationButton";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
+import { autocorrectPersonName } from "@/lib/nameCase";
 import {
   VISIT_PURPOSE_OTHER_VALUE,
   visitPurposeOtherText,
@@ -178,33 +178,41 @@ export function VisitorDetailsForm({
         <p className="vm-form-section-label">{vt(lang, "your_details")}</p>
         <VoiceDictationButton
           lang={lang}
-          target={voiceTarget}
-          onTargetChange={setVoiceTarget}
-          onTranscript={(field, text) => onChangeField(field, text)}
+          onNames={({ first_name, last_name }) => {
+            onChangeField("first_name", first_name);
+            onChangeField("last_name", last_name);
+          }}
         />
       </div>
       <div className="vm-form-grid">
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "first_name")}</label>
-          <VoiceTextInput
+          <input
+            className="vm-input-field"
             required
-            lang={lang}
             value={values.first_name}
-            onChangeValue={(val) => onChangeField("first_name", val)}
+            onChange={(e) => onChangeField("first_name", e.target.value)}
+            onBlur={(e) => onChangeField("first_name", autocorrectPersonName(e.target.value))}
             autoComplete="given-name"
             aria-label={vt(lang, "first_name")}
           />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "middle_name")}</label>
-          <input className="vm-input-field" value={values.middle_name} onChange={(e) => onChangeField("middle_name", e.target.value)} />
+          <input
+            className="vm-input-field"
+            value={values.middle_name}
+            onChange={(e) => onChangeField("middle_name", e.target.value)}
+            onBlur={(e) => onChangeField("middle_name", autocorrectPersonName(e.target.value))}
+          />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "last_name")}</label>
-          <VoiceTextInput
-            lang={lang}
+          <input
+            className="vm-input-field"
             value={values.last_name}
-            onChangeValue={(val) => onChangeField("last_name", val)}
+            onChange={(e) => onChangeField("last_name", e.target.value)}
+            onBlur={(e) => onChangeField("last_name", autocorrectPersonName(e.target.value))}
             autoComplete="family-name"
             aria-label={vt(lang, "last_name")}
           />

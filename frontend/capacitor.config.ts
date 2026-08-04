@@ -15,17 +15,11 @@ const config: CapacitorConfig = {
       }
     : {
         androidScheme: "https",
-        iosScheme: "https",
       },
   android: {
     allowMixedContent: true,
     captureInput: true,
     webContentsDebuggingEnabled: process.env.NODE_ENV !== "production",
-  },
-  ios: {
-    contentInset: "automatic",
-    scrollEnabled: true,
-    allowsLinkPreview: false,
   },
   plugins: {
     SplashScreen: {

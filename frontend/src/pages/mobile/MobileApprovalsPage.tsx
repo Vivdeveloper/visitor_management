@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   approvalApi,
-  frappeGetList,
   meetingApi,
   passApi,
   securityApi,
@@ -101,7 +100,7 @@ export function MobileApprovalsPage() {
   const mode = resolveMode(user);
   const canDecide = canApproveReject(user);
   const canMeetingDone = canMarkMeetingDone(user);
-  // Call Host / Notify are gate-desk only — host is the person being called.
+  // Notify is gate-desk only — host is the person being notified.
   const canHostOps = mode === "security" && canCallNotifyHost(user);
   const canTransfer = canTransferVisitor(user);
 
@@ -250,46 +249,6 @@ export function MobileApprovalsPage() {
     [load],
   );
 
-  const handleCallHost = useCallback(async (item: VisitorListRow) => {
-    const hostId = item.person_to_meet;
-    if (!hostId) {
-      setToast({
-        id: Date.now().toString(),
-        title: "Host phone unavailable",
-        message: "No host assigned for this visitor.",
-        time: formatNowTime(lang),
-      });
-      return;
-    }
-
-    try {
-      const users = await frappeGetList<{ name: string; mobile_no?: string; phone?: string }>({
-        doctype: "User",
-        fields: ["name", "mobile_no", "phone"],
-        filters: { name: hostId },
-        limit_page_length: 1,
-      });
-      const phone = users[0]?.mobile_no || users[0]?.phone;
-      if (!phone) {
-        setToast({
-          id: Date.now().toString(),
-          title: "Host phone unavailable",
-          message: `${item.person_to_meet_name || "Host"} has no phone number on file.`,
-          time: formatNowTime(lang),
-        });
-        return;
-      }
-      window.location.href = `tel:${phone.replace(/\s+/g, "")}`;
-    } catch {
-      setToast({
-        id: Date.now().toString(),
-        title: "Could not call host",
-        message: "Unable to fetch host contact details.",
-        time: formatNowTime(lang),
-      });
-    }
-  }, []);
-
   const handleMeetingDone = useCallback(
     async (visitor: VisitorListRow) => {
       setBusy(visitor.name);
@@ -327,6 +286,28 @@ export function MobileApprovalsPage() {
         void load();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Check-out failed");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load, lang],
+  );
+
+  const handleCancel = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await approvalApi.cancel(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Visit cancelled",
+          message: `${visitor.full_name || visitor.name} was cancelled.`,
+          time: formatNowTime(lang),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Cancel failed");
       } finally {
         setBusy(null);
       }
@@ -494,7 +475,6 @@ export function MobileApprovalsPage() {
               onReject={viewOnlyAll || !canDecide ? undefined : () => handleReject(item)}
               onNotifyHost={viewOnlyAll || !canHostOps ? undefined : () => handleNotifyHost(item)}
               onTransfer={viewOnlyAll || !canTransfer ? undefined : (v) => setTransferVisitor(v)}
-              onCallHost={viewOnlyAll || !canHostOps ? undefined : (v) => void handleCallHost(v)}
               onGenerateGatePass={
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => setPassVisitor(v) : undefined
               }
@@ -509,10 +489,17 @@ export function MobileApprovalsPage() {
                     : undefined
               }
               onCheckOut={
-                showCheckout && !viewOnlyAll
-                  ? item.status === "Meeting Done"
-                    ? (v) => void handleCheckOut(v)
-                    : undefined
+                showCheckout && !viewOnlyAll && item.status === "Meeting Done"
+                  ? (v) => void handleCheckOut(v)
+                  : undefined
+              }
+              onCancel={
+                showCheckout &&
+                !viewOnlyAll &&
+                (item.status === "Pending Approval" ||
+                  item.status === "Pending" ||
+                  item.status === "Approved")
+                  ? (v) => void handleCancel(v)
                   : undefined
               }
             />

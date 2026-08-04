@@ -3,35 +3,28 @@ import type { VisitorLang } from "@/i18n/visitorJourney";
 import { vt } from "@/i18n/visitorJourney";
 import { IconMic } from "@/components/ui/MobileIcons";
 import { autocorrectPersonName } from "@/lib/nameCase";
+import { splitFullName } from "@/lib/format";
 import {
   isSpeechRecognitionSupported,
   startSpeechListen,
   type SpeechListenHandle,
 } from "@/native/services/speech";
 
-export type VoiceTargetField = "first_name" | "last_name";
-
 type VoiceDictationButtonProps = {
   lang?: VisitorLang;
-  target: VoiceTargetField;
-  onTargetChange: (target: VoiceTargetField) => void;
-  onTranscript: (field: VoiceTargetField, text: string) => void;
+  onNames: (names: { first_name: string; last_name: string }) => void;
   disabled?: boolean;
 };
 
-/** Section-level voice control: pick First/Last name, then speak. */
+/** Speak full name once — auto-splits into first_name + last_name. */
 export function VoiceDictationButton({
   lang = "en",
-  target,
-  onTargetChange,
-  onTranscript,
+  onNames,
   disabled,
 }: VoiceDictationButtonProps) {
   const [listening, setListening] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const handleRef = useRef<SpeechListenHandle | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => {
@@ -40,19 +33,18 @@ export function VoiceDictationButton({
     };
   }, []);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [menuOpen]);
+  function applySpokenName(raw: string, finalize: boolean) {
+    const cleaned = finalize ? autocorrectPersonName(raw) : raw.trim();
+    if (!cleaned) return;
+    const parts = splitFullName(cleaned);
+    onNames({
+      first_name: finalize ? autocorrectPersonName(parts.first_name) : parts.first_name,
+      last_name: finalize ? autocorrectPersonName(parts.last_name) : parts.last_name,
+    });
+  }
 
-  async function startFor(field: VoiceTargetField) {
+  async function toggleListen() {
     if (disabled) return;
-    setMenuOpen(false);
-    onTargetChange(field);
 
     if (listening) {
       handleRef.current?.stop();
@@ -71,9 +63,12 @@ export function VoiceDictationButton({
 
     const handle = await startSpeechListen({
       lang,
-      onPartial: (text) => onTranscript(field, text),
-      onFinal: (text) => onTranscript(field, autocorrectPersonName(text)),
-      onError: (message) => setHint(message),
+      onPartial: (text) => applySpokenName(text, false),
+      onFinal: (text) => applySpokenName(text, true),
+      onError: (message) => {
+        setHint(message);
+        window.setTimeout(() => setHint(null), 3500);
+      },
       onEnd: () => {
         setListening(false);
         handleRef.current = null;
@@ -82,60 +77,21 @@ export function VoiceDictationButton({
     handleRef.current = handle;
   }
 
-  function onMainClick() {
-    if (listening) {
-      handleRef.current?.stop();
-      handleRef.current = null;
-      setListening(false);
-      return;
-    }
-    setMenuOpen((open) => !open);
-  }
-
-  const targetLabel = target === "first_name" ? vt(lang, "first_name") : vt(lang, "last_name");
-
   return (
-    <div className="vm-voice-dictation" ref={rootRef}>
+    <div className="vm-voice-dictation">
       <button
         type="button"
         className={`vm-voice-dictation-btn${listening ? " is-active" : ""}`}
-        onClick={onMainClick}
+        onClick={() => void toggleListen()}
         disabled={disabled}
-        aria-expanded={menuOpen}
-        aria-haspopup="menu"
+        aria-pressed={listening}
         aria-label={listening ? vt(lang, "voice_stop") : vt(lang, "voice_to_text")}
       >
         <IconMic size={16} />
         <span>{listening ? vt(lang, "voice_listening_short") : vt(lang, "voice_to_text")}</span>
       </button>
 
-      {menuOpen ? (
-        <div className="vm-voice-dictation-menu" role="menu">
-          <p className="vm-voice-dictation-menu-label">{vt(lang, "voice_choose_field")}</p>
-          <button
-            type="button"
-            role="menuitem"
-            className={`vm-voice-dictation-option${target === "first_name" ? " is-selected" : ""}`}
-            onClick={() => void startFor("first_name")}
-          >
-            {vt(lang, "first_name")}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={`vm-voice-dictation-option${target === "last_name" ? " is-selected" : ""}`}
-            onClick={() => void startFor("last_name")}
-          >
-            {vt(lang, "last_name")}
-          </button>
-        </div>
-      ) : null}
-
-      {listening ? (
-        <p className="vm-voice-hint is-live">
-          {vt(lang, "voice_listening_for", { field: targetLabel.replace(/\s*\*$/, "") })}
-        </p>
-      ) : null}
+      {listening ? <p className="vm-voice-hint is-live">{vt(lang, "voice_listening_full_name")}</p> : null}
       {!listening && hint ? <p className="vm-voice-hint">{hint}</p> : null}
     </div>
   );

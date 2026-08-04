@@ -1,6 +1,7 @@
 import frappe
 
 from visitor_management.auth.permissions import VMS_DOCTYPES, get_docperm_roles
+from visitor_management.utils.ensure_docperms import ensure_gate_master_docperms
 from visitor_management.utils.setup_defaults import setup_master_data
 
 SKIP_ROLE_SEED = frozenset({"All", "Guest", "Administrator", "System Manager", "Desk User"})
@@ -28,8 +29,10 @@ def ensure_roles_from_docperm() -> None:
 
 def after_install():
 	ensure_roles_from_docperm()
+	ensure_gate_master_docperms()
 	setup_master_data()
 
 
 def after_migrate():
 	ensure_roles_from_docperm()
+	ensure_gate_master_docperms()

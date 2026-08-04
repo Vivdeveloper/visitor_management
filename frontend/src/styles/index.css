@@ -15164,6 +15164,28 @@ button.vm-photo-preview.is-clickable:active {
   min-width: 0;
 }
 
+.vm-gate-pass-company-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  max-width: 62%;
+}
+
+.vm-gate-pass-company-val span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.vm-gate-pass-company-logo {
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .vm-gate-pass-detail-val.is-status-approved {
   color: #16a34a;
 }

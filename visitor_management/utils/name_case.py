@@ -1,4 +1,4 @@
-"""Proper-case free text for Visitor Entry (vivEk → Vivek, company / location too)."""
+"""Proper-case person names for Visitor Entry (vivEk → Vivek)."""
 
 from __future__ import annotations
 
@@ -8,19 +8,9 @@ import re
 _INDIC_RE = re.compile(r"[\u0900-\u097F]")
 _WORD_RE = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?|[^\s]+")
 
-TITLE_CASE_FIELDS = (
-	"first_name",
-	"middle_name",
-	"last_name",
-	"visitor_company",
-	"visitor_location",
-)
-
-UPPERCASE_FIELDS = ("vehicle_number",)
-
 
 def _case_latin_token(token: str) -> str:
-	"""Title-case one Latin token, including simple apostrophe names."""
+	"""Title-case one Latin name token, including simple apostrophe names."""
 	if not token:
 		return token
 	if "'" in token:
@@ -31,16 +21,15 @@ def _case_latin_token(token: str) -> str:
 	return token[:1].upper() + token[1:].lower()
 
 
-def autocorrect_text_case(value: str | None) -> str:
+def autocorrect_person_name(value: str | None) -> str:
 	"""
-	Normalize free-text casing for storage / display.
+	Normalize a person name for storage / display.
 
 	Examples:
 	        vivEk  → Vivek
 	        JOHN   → John
 	        mAry-jane → Mary-Jane
 	        o'brien → O'Brien
-	        ACME corp → Acme Corp
 	"""
 	raw = (value or "").strip()
 	if not raw:
@@ -64,36 +53,14 @@ def autocorrect_text_case(value: str | None) -> str:
 	return "".join(parts).strip()
 
 
-def autocorrect_person_name(value: str | None) -> str:
-	"""Alias for person-name fields."""
-	return autocorrect_text_case(value)
-
-
-def autocorrect_vehicle_number(value: str | None) -> str:
-	raw = (value or "").strip()
-	if not raw:
-		return ""
-	return re.sub(r"\s+", " ", raw).upper()
-
-
 def autocorrect_name_fields(doc) -> None:
-	"""Apply case auto-fix to visitor text fields on save."""
-	for fieldname in TITLE_CASE_FIELDS:
+	"""Apply autocorrect to first / middle / last name on a Visitor Entry doc."""
+	for fieldname in ("first_name", "middle_name", "last_name"):
 		if not doc.meta.has_field(fieldname):
 			continue
 		current = doc.get(fieldname)
 		if current is None or current == "":
 			continue
-		fixed = autocorrect_text_case(str(current))
-		if fixed != current:
-			doc.set(fieldname, fixed)
-
-	for fieldname in UPPERCASE_FIELDS:
-		if not doc.meta.has_field(fieldname):
-			continue
-		current = doc.get(fieldname)
-		if current is None or current == "":
-			continue
-		fixed = autocorrect_vehicle_number(str(current))
+		fixed = autocorrect_person_name(str(current))
 		if fixed != current:
 			doc.set(fieldname, fixed)

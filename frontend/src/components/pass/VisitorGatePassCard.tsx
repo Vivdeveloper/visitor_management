@@ -122,7 +122,12 @@ export function VisitorGatePassCard({
             </svg>
             COMPANY
           </span>
-          <strong className="vm-gate-pass-detail-val">{companyLabel}</strong>
+          <strong className="vm-gate-pass-detail-val vm-gate-pass-company-val">
+            <span>{companyLabel}</span>
+            {companyLabel !== "—" ? (
+              <BrandLogo variant="icon" className="vm-gate-pass-company-logo" alt="Precious Alloys" />
+            ) : null}
+          </strong>
         </div>
 
         <div className="vm-gate-pass-detail-row">

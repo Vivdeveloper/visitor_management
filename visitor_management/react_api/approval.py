@@ -105,6 +105,7 @@ def list_for_host(status: str | None = None) -> list:
 			"status",
 			"photo",
 			"visitor_company",
+			"company",
 			"visitor_location",
 			"person_to_meet",
 			"person_to_meet_name",

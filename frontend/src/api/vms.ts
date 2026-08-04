@@ -283,6 +283,7 @@ export type VisitorListRow = {
   transfer_to_user?: string;
   creation?: string;
   visitor_company?: string;
+  company?: string;
   visitor_location?: string;
   id_proof_type?: string;
   vehicle_type?: string;
@@ -353,6 +354,7 @@ export const visitorApi = {
         "transfer_to_user",
         "creation",
         "visitor_company",
+        "company",
         "visitor_location",
         "number_of_visitors",
         "photo",

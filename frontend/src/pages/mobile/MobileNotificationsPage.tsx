@@ -26,8 +26,6 @@ function alertRoute(item: InAppNotification): string {
     if (subject.includes("reject") || body.includes("rejected")) {
       return "/inside?status=rejected";
     }
-    if (subject.includes("checkout") || subject.includes("meeting")) return "/inside";
-    return "/approvals";
   }
   return "/approvals";
 }

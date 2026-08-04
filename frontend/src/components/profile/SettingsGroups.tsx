@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPrompt";
+import { applyAppUpdate, isPwaInstalled } from "@/lib/pwaUpdate";
+import { isNativePlatform } from "@/native/platform";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { ut } from "@/i18n/uiChrome";
 
 type SettingsGroupsProps = {
@@ -84,6 +87,8 @@ export function SettingsGroups({
   onToggleProfileCard,
 }: SettingsGroupsProps) {
   const { lang } = useAppLanguage();
+  const { installed } = usePwaInstall();
+  const showAppUpdate = installed || isPwaInstalled() || isNativePlatform();
   const [openGroups, setOpenGroups] = useState<Record<GroupId, boolean>>({
     account: true,
     appearance: true,
@@ -115,6 +120,12 @@ export function SettingsGroups({
 
       <SettingsGroup id="tools" title={ut(lang, "tools")} open={openGroups.tools} onToggle={toggle}>
         <SettingsRow label={ut(lang, "calendar_view")} to="/meetings" />
+        {showAppUpdate ? (
+          <SettingsRow
+            label={ut(lang, "app_update")}
+            onClick={() => void applyAppUpdate()}
+          />
+        ) : null}
       </SettingsGroup>
     </div>
   );

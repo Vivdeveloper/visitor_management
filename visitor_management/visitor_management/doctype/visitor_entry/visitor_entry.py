@@ -39,7 +39,7 @@ class VisitorEntry(Document):
 			self.company = company
 
 	def autocorrect_names(self):
-		"""vivEk → Vivek; also company / location title-case and vehicle plate upper."""
+		"""vivEk → Vivek (and same for middle / last name)."""
 		from visitor_management.utils.name_case import autocorrect_name_fields
 
 		autocorrect_name_fields(self)

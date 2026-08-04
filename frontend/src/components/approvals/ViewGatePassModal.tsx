@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiClient } from "@/api/client";
 import { passApi, type VisitorListRow } from "@/api/vms";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import { formatTime } from "@/lib/format";
@@ -27,6 +28,18 @@ type Props = {
   onSendToMobile?: (visitor: VisitorListRow) => Promise<void> | void;
 };
 
+async function fetchDefaultCompany(): Promise<string> {
+  try {
+    const { data } = await apiClient.post(`/api/method/frappe.client.get_single_value`, {
+      doctype: "Global Defaults",
+      field: "default_company",
+    });
+    return String(data?.message || "").trim();
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Display-only gate pass popup.
  * Pass URL / QR must come from Python (`visitor_pass.get_pass` → `ve.generate_pass`).
@@ -34,6 +47,7 @@ type Props = {
  */
 export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Props) {
   const [pass, setPass] = useState<PassPayload | null>(null);
+  const [defaultCompany, setDefaultCompany] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busySend, setBusySend] = useState(false);
@@ -48,9 +62,8 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void passApi
-      .get(visitor.name)
-      .then((data) => {
+    void Promise.all([passApi.get(visitor.name), fetchDefaultCompany()])
+      .then(([data, companyFromDefaults]) => {
         if (cancelled) return;
         const payload = (data || {}) as PassPayload;
         if (!payload.pass_url) {
@@ -59,6 +72,7 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
           return;
         }
         setPass(payload);
+        setDefaultCompany(companyFromDefaults);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -82,7 +96,8 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
   const status = pass?.status || visitor.status || "—";
   const hostName = pass?.person_to_meet_name || pass?.host_name || visitor.person_to_meet_name || "—";
   const floor = pass?.floor || visitor.floor || "—";
-  const company = (pass?.company || "").trim() || "—";
+  const company =
+    (pass?.company || visitor.company || defaultCompany || "").trim() || "—";
   const passUrl = pass?.pass_url;
   const validUntil = pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : undefined;
   const gateReady = status === "Checked In" || status === "Meeting Done";

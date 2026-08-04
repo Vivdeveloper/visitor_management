@@ -32,25 +32,6 @@ frappe.ui.form.on("Visitor Entry", {
 		autocorrect_name_field(frm, "last_name");
 	},
 
-	visitor_company(frm) {
-		autocorrect_name_field(frm, "visitor_company");
-	},
-
-	visitor_location(frm) {
-		autocorrect_name_field(frm, "visitor_location");
-	},
-
-	vehicle_number(frm) {
-		const current = frm.doc.vehicle_number;
-		if (!current || typeof current !== "string") {
-			return;
-		}
-		const fixed = String(current).trim().replace(/\s+/g, " ").toUpperCase();
-		if (fixed !== current) {
-			frm.set_value("vehicle_number", fixed);
-		}
-	},
-
 	id_proof_photo(frm) {
 		frm.set_value("id_proof_photo_preview", frm.doc.id_proof_photo || "");
 	},

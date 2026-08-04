@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -16,7 +17,8 @@ import {
   needsBackgroundPushSetup,
   shouldShowNotificationPermissionModal,
 } from "@/components/alerts/NotificationPermissionModal";
-import { resolveMode } from "@/lib/roles";
+import { visitorApi } from "@/api/vms";
+import { resolveMode, visitorScopeFilters } from "@/lib/roles";
 import {
   type ActiveHostAlert,
   type HostAlertPayload,
@@ -51,6 +53,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<Record<string, ActiveHostAlert>>({});
   const [notifyPerm, setNotifyPerm] = useState(notificationPermissionState());
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
+  const catchUpUserRef = useRef<string | null>(null);
 
   const activeAlert = useMemo(() => {
     const list = Object.values(alerts);
@@ -178,7 +181,8 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     "vms_visitor_update",
     (payload) => {
       if (mode !== "security") return;
-      if (payload?.event !== "meeting_done" && payload?.event !== "security_checkout_required") return;
+      // Only the dedicated security channel / checkout event — not host "meeting_done" copy.
+      if (payload?.event !== "security_checkout_required") return;
       registerSecurityAlert(payload);
     },
     Boolean(user?.user) && mode === "security",
@@ -199,6 +203,46 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     },
     Boolean(user?.user),
   );
+
+  /** If host missed the realtime ring (offline), show Allow popup for pending entries on login. */
+  useEffect(() => {
+    const uid = user?.user;
+    if (!uid) {
+      catchUpUserRef.current = null;
+      return;
+    }
+    if (mode !== "host") return;
+    if (catchUpUserRef.current === uid) return;
+    catchUpUserRef.current = uid;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await visitorApi.listDetailed(50, visitorScopeFilters(user));
+        if (cancelled) return;
+        const pending = list.filter(
+          (row) => row.status === "Pending Approval" || row.status === "Pending",
+        );
+        const newest = pending[0];
+        if (!newest?.name) return;
+        registerAlert({
+          visitor_entry: newest.name,
+          visitor_name: newest.full_name || newest.name,
+          host: newest.person_to_meet_name || newest.person_to_meet,
+          host_user: uid,
+          message: `${newest.full_name || "Visitor"} is waiting for your approval at the gate.`,
+          event: "host_notified",
+          alert_variant: "host",
+        });
+      } catch {
+        /* ignore catch-up failures */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, mode, registerAlert]);
 
   useEffect(() => {
     if (!user?.user) {
@@ -270,12 +314,11 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleReview = useCallback(() => {
-    const variant = activeAlert?.variant;
     stopHostAlertRing();
     stopAllHostAlertReminders();
     setAlerts({});
-    navigate(variant === "security" ? "/inside" : "/approvals");
-  }, [navigate, activeAlert?.variant]);
+    navigate("/approvals");
+  }, [navigate]);
 
   const openPermissionSetup = useCallback(() => {
     sessionStorage.removeItem("vms_notify_modal_skip");
