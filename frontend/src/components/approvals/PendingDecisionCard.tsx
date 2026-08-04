@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
+import { AdditionalGuestsInfoModal } from "@/components/approvals/AdditionalGuestsInfoModal";
 import { formatCount, formatTime, resolveFileUrl } from "@/lib/format";
 import { intlLocale, localizeDigits } from "@/lib/localize";
-import { formatVisitorCardTitle } from "@/lib/visitorDisplay";
+import { parseAdditionalGuestsFromRemarks } from "@/lib/additionalGuests";
 import { localizeFloorLabel, localizePersonName } from "@/lib/transliterate";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
@@ -54,9 +55,10 @@ export function PendingDecisionCard({
 }: Props) {
   const { lang } = useAppLanguage();
   const [photoPreviewSrc, setPhotoPreviewSrc] = useState<string | null>(null);
+  const [guestsOpen, setGuestsOpen] = useState(false);
 
   const visitorName = localizePersonName(item.full_name || item.name, lang);
-  const cardTitle = formatVisitorCardTitle(visitorName, item.visitor_company);
+  const cardTitle = visitorName;
   const hostName = localizePersonName(item.person_to_meet_name || "—", lang);
   const company = (item.visitor_company || "").trim();
   const location = (item.visitor_location || "").trim();
@@ -92,6 +94,8 @@ export function PendingDecisionCard({
     ? "You do not have permission to Accept or Reject"
     : undefined;
   const visitorCount = item.number_of_visitors ? Number(item.number_of_visitors) : 1;
+  const additionalGuests = parseAdditionalGuestsFromRemarks(item.approval_remarks);
+  const canOpenGuests = visitorCount > 1;
   const floorDisplay = item.floor
     ? localizeFloorLabel(item.floor, lang) || localizeDigits(String(item.floor), lang)
     : "—";
@@ -195,7 +199,21 @@ export function PendingDecisionCard({
               </svg>
               <span>{ut(lang, "label_visitors")}</span>
             </div>
-            <span className="vm-pending-redesign-val">{formatCount(visitorCount, lang)}</span>
+            {canOpenGuests ? (
+              <button
+                type="button"
+                className="vm-pending-redesign-val is-link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGuestsOpen(true);
+                }}
+                aria-label={`View ${visitorCount} visitors`}
+              >
+                {formatCount(visitorCount, lang)}
+              </button>
+            ) : (
+              <span className="vm-pending-redesign-val">{formatCount(visitorCount, lang)}</span>
+            )}
           </div>
 
           <div className="vm-pending-redesign-col">
@@ -458,6 +476,14 @@ export function PendingDecisionCard({
         src={photoPreviewSrc}
         alt={`${visitorName} photo`}
         onClose={() => setPhotoPreviewSrc(null)}
+      />
+
+      <AdditionalGuestsInfoModal
+        open={guestsOpen}
+        primaryName={visitorName}
+        visitorCount={visitorCount}
+        guests={additionalGuests}
+        onClose={() => setGuestsOpen(false)}
       />
     </>
   );

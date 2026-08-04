@@ -99,6 +99,9 @@ export function MobileHomePage() {
             <span className="vm-live-dot" aria-hidden />
             <span className="vm-gate-ops-live-label">{ut(lang, "live_gate_desk")}</span>
           </div>
+          <span className="vm-gate-ops-om" aria-hidden title="Om">
+            ॐ
+          </span>
           <button
             type="button"
             className="vm-gate-refresh-btn"

@@ -1,4 +1,4 @@
-/** Proper-case a person name: vivEk → Vivek. Matches Python `name_case`. */
+/** Proper-case Latin text: vivEk → Vivek. Skips Devanagari. Matches Python `name_case`. */
 export function autocorrectPersonName(value: string): string {
   const raw = (value || "").trim();
   if (!raw) return "";
@@ -16,6 +16,11 @@ export function autocorrectPersonName(value: string): string {
     }
     return token;
   });
+}
+
+/** Title-case free-text form fields (company, location, notes). Same rule as person names. */
+export function autocorrectFormText(value: string): string {
+  return autocorrectPersonName(value);
 }
 
 function caseLatinToken(token: string): string {

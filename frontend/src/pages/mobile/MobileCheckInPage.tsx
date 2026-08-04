@@ -29,6 +29,7 @@ import { usePageChrome } from "@/context/PageChromeContext";
 import { registerBackHandler, getSpaDepth } from "@/native/backNavigation";
 import { resolveVisitPurposeType, VISIT_PURPOSE_OTHER_VALUE } from "@/lib/visitPurpose";
 import { formatTime } from "@/lib/format";
+import { autocorrectFormText, autocorrectPersonName } from "@/lib/nameCase";
 import { canPerformCheckout } from "@/lib/roles";
 import {
   clearCheckInDraft,
@@ -647,18 +648,18 @@ function normalizePhotoToVertical(file: File): Promise<File> {
         mobile,
         photo,
         id_proof_photo,
-        first_name: form.first_name.trim(),
-        middle_name: form.middle_name.trim() || undefined,
-        last_name: form.last_name.trim() || undefined,
-        email: form.email || undefined,
+        first_name: autocorrectPersonName(form.first_name),
+        middle_name: autocorrectPersonName(form.middle_name) || undefined,
+        last_name: autocorrectPersonName(form.last_name) || undefined,
+        email: form.email.trim() || undefined,
         gender: form.gender || undefined,
-        visitor_company: form.visitor_company || undefined,
-        visitor_location: form.visitor_location || undefined,
+        visitor_company: autocorrectFormText(form.visitor_company) || undefined,
+        visitor_location: autocorrectFormText(form.visitor_location) || undefined,
         person_to_meet: form.person_to_meet.trim(),
         visit_purpose_type: visitPurposeType || undefined,
         id_proof_type: form.id_proof_type || undefined,
         vehicle_type: form.vehicle_type || undefined,
-        vehicle_number: form.vehicle_number || undefined,
+        vehicle_number: form.vehicle_number.trim().toUpperCase() || undefined,
         number_of_visitors: visitorCount,
         approval_remarks: remarks,
         otp_verified: 1,
@@ -1100,11 +1101,15 @@ function normalizePhotoToVertical(file: File): Promise<File> {
               visitorCompany={visitorCompany}
               hostName={hostName}
               department={visitor?.floor || "—"}
+              floor={visitor?.floor || "—"}
+              status={visitor?.status || "Approved"}
               validUntil={visitor?.qr_expires_on ? formatTime(visitor.qr_expires_on) : vt(lang, "end_of_day")}
               checkInTime={checkInLabel}
               checkInLocation={vt(lang, "main_gate")}
               photoUrl={photoUrl}
               qrPayload={passUrl || (visitorName ? `${window.location.origin}/vms/pass/${encodeURIComponent(visitorName)}` : undefined)}
+              visitorCount={Number(form.number_of_visitors) || 1}
+              additionalGuests={additionalGuests}
               busy={busy}
               onDownload={() => {
                 if (passUrl) {

@@ -112,10 +112,10 @@ define(['/assets/visitor_management/frontend/workbox-50bb6711'], (function (work
     "revision": "c4ca906123f2dea7f7cd6fcc4755e3c9"
   }, {
     "url": "/assets/visitor_management/frontend/vms-asset-index.css",
-    "revision": "25b733f5bf91dde2188e9bb8d7212169"
+    "revision": "49e77a3883a94259718af06486ec3613"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "06b9330f2284147e14d36737535950e1"
+    "revision": "790fafad3d8181d1a30ea68909dd1fa8"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"
@@ -149,6 +149,9 @@ define(['/assets/visitor_management/frontend/workbox-50bb6711'], (function (work
   }, {
     "url": "/assets/visitor_management/frontend/brand/precious-alloys-icon-dark.png",
     "revision": "e2cb080af49198cc41d2489c77e17008"
+  }, {
+    "url": "/assets/visitor_management/frontend/brand/om-symbol.png",
+    "revision": "c20d5178bada101316834f6b8a030a76"
   }, {
     "url": "/assets/visitor_management/frontend/icons/icon-180.png",
     "revision": "3e9360f965ec3d675c7df53845607f15"

@@ -3906,10 +3906,29 @@ a {
 }
 
 .vm-gate-ops-top {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.vm-gate-ops-om {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 1.75rem;
+  font-size: 1.55rem;
+  line-height: 1;
+  font-weight: 600;
+  color: #0a3d91;
+  user-select: none;
+  pointer-events: none;
 }
 
 .vm-gate-refresh-btn {
@@ -12509,6 +12528,31 @@ button.vm-photo-preview.is-clickable:active {
   word-break: break-word;
 }
 
+.vm-detail-multi-guests {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.vm-detail-multi-guest-row {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.vm-detail-multi-guest-row:last-child {
+  border-bottom: 0;
+}
+
+.vm-detail-multi-empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
 .vm-detail-actions {
   display: flex;
   flex-direction: column;
@@ -13642,6 +13686,26 @@ button.vm-photo-preview.is-clickable:active {
   line-height: 1.3;
 }
 
+button.vm-pending-redesign-val.is-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0a3d91;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+
+button.vm-pending-redesign-val.is-link:hover {
+  color: #0f4fb5;
+}
+
 .vm-visit-stage-timeline {
   display: flex;
   flex-direction: column;
@@ -14008,15 +14072,21 @@ button.vm-photo-preview.is-clickable:active {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-  margin-top: 0.15rem;
-  padding-top: 0.15rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
   padding-bottom: 0;
 }
 
 .vm-view-gate-pass-footer .vm-confirm-act-btn {
-  min-height: 40px;
-  font-size: 0.8rem;
-  border-radius: 12px;
+  min-height: 44px;
+  font-size: 0.82rem;
+  border-radius: 14px;
+}
+
+.vm-view-gate-pass-footer .vm-confirm-act-btn.is-secondary {
+  background: #ffffff;
+  color: #0a3d91;
+  border: 1.5px solid #bfdbfe;
 }
 
 .vm-view-gate-pass-footer .vm-confirm-act-btn:only-child {
@@ -14044,133 +14114,186 @@ button.vm-photo-preview.is-clickable:active {
   display: none !important;
 }
 
-/* ERPNext Popup Notification Toast — light surface (no dark shell) */
-.erp-toast-overlay {
+/* iPhone-style notification toast — liquid glass banner */
+.vm-toast-overlay {
   position: fixed;
-  top: calc(4.35rem + env(safe-area-inset-top, 0px) + 0.4rem);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(0.65rem + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
   z-index: 100010;
-  width: min(calc(100vw - 1.5rem), 420px);
-  max-width: calc(480px - 1.5rem);
-  pointer-events: auto;
-  animation: erp-toast-slide 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  justify-content: center;
+  padding: 0 0.65rem;
+  pointer-events: none;
+  animation: vm-toast-ios-in 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes erp-toast-slide {
-  from {
+@keyframes vm-toast-ios-in {
+  0% {
     opacity: 0;
-    transform: translate(-50%, -20px);
+    transform: translateY(-120%);
   }
-  to {
+  72% {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.erp-toast-card {
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 0.85rem 1rem;
+.vm-toast-glass {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.72rem;
+  width: min(100%, 390px);
+  margin: 0 auto;
+  padding: 0.78rem 0.85rem 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
   box-shadow:
-    0 0 0 1px rgba(10, 61, 145, 0.04),
-    0 16px 36px rgba(15, 23, 42, 0.12);
+    0 0 0 0.5px rgba(255, 255, 255, 0.85) inset,
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 16px 40px rgba(10, 61, 145, 0.1),
+    0 4px 14px rgba(15, 23, 42, 0.06);
+  color: #14213d;
+  color-scheme: light;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  font: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.vm-toast-glass:active {
+  transform: scale(0.985);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.vm-toast-glass-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(255, 255, 255, 0.18) 42%,
+    rgba(255, 255, 255, 0) 68%
+  );
+  pointer-events: none;
+}
+
+.vm-toast-app-icon {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 2px 10px rgba(10, 61, 145, 0.1),
+    0 0 0 0.5px rgba(10, 61, 145, 0.05) inset;
+  display: grid;
+  place-items: center;
+}
+
+.vm-toast-app-icon-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.vm-toast-copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.14rem;
+  min-width: 0;
+  flex: 1;
+  padding-top: 0.05rem;
 }
 
-.erp-toast-header {
+.vm-toast-copy-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 0.45rem;
-}
-
-.erp-toast-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #0a3d91;
-}
-
-.erp-toast-logo {
-  display: grid;
-  place-items: center;
-}
-
-.erp-toast-title {
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #0a3d91;
-}
-
-.erp-toast-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.erp-toast-time {
-  font-size: 0.72rem;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.erp-toast-close {
-  background: transparent;
-  border: 0;
-  color: #64748b;
-  font-size: 0.95rem;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.erp-toast-close:hover {
-  color: #0f172a;
-}
-
-.erp-toast-body {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-}
-
-.erp-toast-icon-wrap {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: rgba(10, 61, 145, 0.1);
-  color: #0a3d91;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.erp-toast-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
-.erp-toast-msg {
-  font-size: 0.88rem;
+.vm-toast-app-name {
+  font-size: 0.68rem;
   font-weight: 700;
-  color: #0f172a;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0a3d91;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.erp-toast-desc {
+.vm-toast-time {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.vm-toast-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #14213d;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vm-toast-message {
   font-size: 0.78rem;
-  color: #475569;
-  margin: 0;
-  line-height: 1.35;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vm-toast-glass {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(226, 232, 240, 0.95);
+  }
+}
+
+/* Legacy toast classes (cached bundles) */
+.erp-toast-overlay {
+  position: fixed;
+  top: calc(0.65rem + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  z-index: 100010;
+  pointer-events: none;
+}
+
+.erp-toast-card {
+  display: none;
 }
 
 /* Urgent host alert — Swiggy/Zomato-style sticky banner */
@@ -15011,6 +15134,24 @@ button.vm-photo-preview.is-clickable:active {
   color: #0a3d91;
 }
 
+.vm-additional-guest-row.is-readonly {
+  gap: 0.2rem;
+}
+
+.vm-additional-guest-info-name {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.vm-additional-guest-info-mobile {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
 .vm-additional-guests-error {
   margin: 0.35rem 0 0;
   text-align: center;
@@ -15042,11 +15183,35 @@ button.vm-photo-preview.is-clickable:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.vm-gate-pass-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .vm-gate-pass-logo {
-  height: 1.55rem;
-  width: auto;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.vm-gate-pass-company-name {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0a3d91;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .vm-gate-pass-status-badge {
@@ -15061,6 +15226,7 @@ button.vm-photo-preview.is-clickable:active {
   background: #dcfce7;
   color: #16a34a;
   border: 1px solid #86efac;
+  flex-shrink: 0;
 }
 
 .vm-gate-pass-identity-row {
@@ -15110,31 +15276,21 @@ button.vm-photo-preview.is-clickable:active {
 }
 
 .vm-gate-pass-company-banner {
-  margin: 0 0 0.55rem;
-  padding: 0.35rem 0.65rem;
-  text-align: center;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #0a3d91;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  border-radius: 10px;
+  display: none;
 }
 
 .vm-gate-pass-notice-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  background: #fee2e2;
-  color: #ef4444;
-  border: 1px solid #fca5a5;
-  border-radius: 6px;
-  padding: 0.15rem 0.4rem;
-  font-size: 0.62rem;
+  gap: 0.3rem;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  padding: 0.22rem 0.5rem;
+  font-size: 0.66rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .vm-gate-pass-details-table {
@@ -15202,6 +15358,18 @@ button.vm-photo-preview.is-clickable:active {
 
 .vm-gate-pass-detail-val.is-status-approved {
   color: #16a34a;
+}
+
+.vm-gate-pass-detail-row.is-guests {
+  align-items: center;
+}
+
+.vm-gate-pass-guest-names {
+  display: block;
+  white-space: normal;
+  line-height: 1.35;
+  font-weight: 600;
+  word-break: break-word;
 }
 
 .vm-gate-pass-qr-box {
@@ -15280,6 +15448,10 @@ button.vm-photo-preview.is-clickable:active {
   gap: 0.5rem;
 }
 
+.vm-gate-pass-actions-grid.has-pair {
+  grid-template-columns: 1fr 1fr;
+}
+
 .vm-pass-act-btn {
   display: inline-flex;
   align-items: center;
@@ -15309,14 +15481,24 @@ button.vm-photo-preview.is-clickable:active {
 }
 
 .vm-pass-act-btn.is-print {
-  background: #2563eb;
+  background: #0a3d91;
   color: #ffffff;
   border: 0;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 16px rgba(10, 61, 145, 0.25);
 }
 
 .vm-pass-act-btn.is-print:hover {
-  background: #1d4ed8;
+  background: #0f4fb5;
+}
+
+.vm-pass-act-btn.is-close {
+  background: #ffffff;
+  color: #0a3d91;
+  border: 1.5px solid #bfdbfe;
+}
+
+.vm-pass-act-btn.is-close:hover {
+  background: #eff6ff;
 }
 
 .vm-gate-pass-footer-note {

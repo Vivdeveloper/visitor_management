@@ -5,7 +5,7 @@ import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { VoiceDictationButton } from "@/components/ui/VoiceDictationButton";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
-import { autocorrectPersonName } from "@/lib/nameCase";
+import { autocorrectFormText, autocorrectPersonName } from "@/lib/nameCase";
 import {
   VISIT_PURPOSE_OTHER_VALUE,
   visitPurposeOtherText,
@@ -193,6 +193,7 @@ export function VisitorDetailsForm({
             onChange={(e) => onChangeField("first_name", e.target.value)}
             onBlur={(e) => onChangeField("first_name", autocorrectPersonName(e.target.value))}
             autoComplete="given-name"
+            autoCapitalize="words"
             aria-label={vt(lang, "first_name")}
           />
         </div>
@@ -203,6 +204,7 @@ export function VisitorDetailsForm({
             value={values.middle_name}
             onChange={(e) => onChangeField("middle_name", e.target.value)}
             onBlur={(e) => onChangeField("middle_name", autocorrectPersonName(e.target.value))}
+            autoCapitalize="words"
           />
         </div>
         <div className="vm-form-group">
@@ -213,6 +215,7 @@ export function VisitorDetailsForm({
             onChange={(e) => onChangeField("last_name", e.target.value)}
             onBlur={(e) => onChangeField("last_name", autocorrectPersonName(e.target.value))}
             autoComplete="family-name"
+            autoCapitalize="words"
             aria-label={vt(lang, "last_name")}
           />
         </div>
@@ -234,7 +237,15 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "email")}</label>
-        <input className="vm-input-field" type="email" value={values.email} onChange={(e) => onChangeField("email", e.target.value)} />
+        <input
+          className="vm-input-field"
+          type="email"
+          value={values.email}
+          onChange={(e) => onChangeField("email", e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
       </div>
     </div>
   );
@@ -272,12 +283,24 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "company")}</label>
-        <input className="vm-input-field" value={values.visitor_company} onChange={(e) => onChangeField("visitor_company", e.target.value)} />
+        <input
+          className="vm-input-field"
+          value={values.visitor_company}
+          onChange={(e) => onChangeField("visitor_company", e.target.value)}
+          onBlur={(e) => onChangeField("visitor_company", autocorrectFormText(e.target.value))}
+          autoCapitalize="words"
+        />
       </div>
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "location")}</label>
-        <input className="vm-input-field" value={values.visitor_location} onChange={(e) => onChangeField("visitor_location", e.target.value)} />
+        <input
+          className="vm-input-field"
+          value={values.visitor_location}
+          onChange={(e) => onChangeField("visitor_location", e.target.value)}
+          onBlur={(e) => onChangeField("visitor_location", autocorrectFormText(e.target.value))}
+          autoCapitalize="words"
+        />
       </div>
 
       <div className="vm-form-group">
@@ -337,7 +360,12 @@ export function VisitorDetailsForm({
               onChangeField("visit_purpose_type", VISIT_PURPOSE_OTHER_VALUE);
               onChangeField("visit_purpose_other", e.target.value);
             }}
+            onBlur={(e) => {
+              onChangeField("visit_purpose_type", VISIT_PURPOSE_OTHER_VALUE);
+              onChangeField("visit_purpose_other", autocorrectFormText(e.target.value));
+            }}
             placeholder={vt(lang, "visit_purpose_other_placeholder")}
+            autoCapitalize="words"
             aria-label={vt(lang, "visit_purpose_other_label")}
           />
         </div>
@@ -396,7 +424,13 @@ export function VisitorDetailsForm({
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "vehicle_number")}</label>
-          <input className="vm-input-field" value={values.vehicle_number} onChange={(e) => onChangeField("vehicle_number", e.target.value)} />
+          <input
+            className="vm-input-field"
+            value={values.vehicle_number}
+            onChange={(e) => onChangeField("vehicle_number", e.target.value)}
+            onBlur={(e) => onChangeField("vehicle_number", e.target.value.trim().toUpperCase())}
+            autoCapitalize="characters"
+          />
         </div>
       </div>
     </>

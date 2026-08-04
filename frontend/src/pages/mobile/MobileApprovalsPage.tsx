@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   approvalApi,
   meetingApi,
@@ -91,8 +91,16 @@ const TABS: Array<{ id: TabId; labelKey: UiCopyKey; match: (s?: string) => boole
   { id: "inside", labelKey: "tab_inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
 ];
 
+function parseApprovalsTab(raw: string | null): TabId {
+  if (raw === "all" || raw === "pending" || raw === "approved" || raw === "inside") {
+    return raw;
+  }
+  return "pending";
+}
+
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { lang } = useAppLanguage();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
@@ -114,7 +122,7 @@ export function MobileApprovalsPage() {
     showProfile: true,
   });
 
-  const [tab, setTab] = useState<TabId>("pending");
+  const [tab, setTab] = useState<TabId>(() => parseApprovalsTab(searchParams.get("tab")));
   const [query, setQuery] = useState("");
   const [dateMode, setDateMode] = useState<DateFilterMode>("week");
   const [rows, setRows] = useState<VisitorListRow[]>([]);
@@ -144,6 +152,24 @@ export function MobileApprovalsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setTab(parseApprovalsTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const setApprovalsTab = useCallback(
+    (nextTab: TabId) => {
+      setTab(nextTab);
+      const next = new URLSearchParams(searchParams);
+      if (nextTab === "pending") {
+        next.delete("tab");
+      } else {
+        next.set("tab", nextTab);
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   usePageRefresh(load);
 
@@ -360,7 +386,7 @@ export function MobileApprovalsPage() {
               role="tab"
               aria-selected={tab === t.id}
               className={`vm-reports-tab${tab === t.id ? " is-active" : ""}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => setApprovalsTab(t.id)}
             >
               {ut(lang, t.labelKey)}
               <span className="vm-reports-tab-count">{formatCount(counts[t.id], lang)}</span>

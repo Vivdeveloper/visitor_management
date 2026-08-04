@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiClient } from "@/api/client";
 import { passApi, type VisitorListRow } from "@/api/vms";
 import { VisitorGatePassCard } from "@/components/pass/VisitorGatePassCard";
 import { formatTime } from "@/lib/format";
+import { parseAdditionalGuestsFromRemarks } from "@/lib/additionalGuests";
 
 type PassPayload = {
   visitor_entry?: string;
@@ -19,6 +20,8 @@ type PassPayload = {
   qr_expires_on?: string;
   checked_in_on?: string;
   pass_url?: string;
+  number_of_visitors?: number | string;
+  approval_remarks?: string;
 };
 
 type Props = {
@@ -87,6 +90,14 @@ export function ViewGatePassModal({ visitor, open, onClose }: Props) {
     };
   }, [open, visitor]);
 
+  const additionalGuests = useMemo(
+    () =>
+      parseAdditionalGuestsFromRemarks(
+        pass?.approval_remarks || visitor?.approval_remarks,
+      ),
+    [pass?.approval_remarks, visitor?.approval_remarks],
+  );
+
   if (!open || !visitor) return null;
 
   const visitorName = pass?.full_name || visitor.full_name || visitor.name;
@@ -95,11 +106,14 @@ export function ViewGatePassModal({ visitor, open, onClose }: Props) {
   const hostName = pass?.person_to_meet_name || pass?.host_name || visitor.person_to_meet_name || "—";
   const floor = pass?.floor || visitor.floor || "—";
   const company =
-    (pass?.company || visitor.company || defaultCompany || "").trim() || "—";
+    (pass?.company || visitor.company || defaultCompany || "").trim() || "Precious Alloys";
   const visitorCompany =
     (pass?.visitor_company || visitor.visitor_company || "").trim() || "—";
   const passUrl = pass?.pass_url;
   const validUntil = pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : undefined;
+  const visitorCount = Number(
+    pass?.number_of_visitors ?? visitor.number_of_visitors ?? 1,
+  ) || 1;
   const gateReady = status === "Checked In" || status === "Meeting Done";
   const noticeMessage = gateReady
     ? undefined
@@ -108,6 +122,10 @@ export function ViewGatePassModal({ visitor, open, onClose }: Props) {
       : status
         ? `Pass status: ${status}`
         : undefined;
+
+  function handlePrint() {
+    window.print();
+  }
 
   return (
     <div
@@ -151,12 +169,17 @@ export function ViewGatePassModal({ visitor, open, onClose }: Props) {
             validUntil={validUntil}
             photoUrl={pass?.photo || visitor.photo}
             qrPayload={passUrl}
-            onDownload={() => window.print()}
+            visitorCount={visitorCount}
+            additionalGuests={additionalGuests}
+            hideActions
           />
         ) : null}
 
         <div className="vm-view-gate-pass-footer vm-no-print">
-          <button type="button" className="vm-confirm-act-btn is-primary" onClick={onClose}>
+          <button type="button" className="vm-confirm-act-btn is-primary" onClick={handlePrint} disabled={!passUrl}>
+            Print
+          </button>
+          <button type="button" className="vm-confirm-act-btn is-secondary" onClick={onClose}>
             Close
           </button>
         </div>
