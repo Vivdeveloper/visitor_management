@@ -63,7 +63,7 @@ export function PublicPassPage() {
       <VisitorGatePassCard
         passCode={pass?.visitor_entry || token}
         visitorName={pass?.full_name || "Visitor"}
-        company={pass?.visitor_company || "—"}
+        company={pass?.company || "—"}
         hostName={pass?.person_to_meet_name || pass?.host_name || "Administrator"}
         floor={pass?.floor || "—"}
         status={pass?.status || (result.valid ? "Approved" : "Invalid")}

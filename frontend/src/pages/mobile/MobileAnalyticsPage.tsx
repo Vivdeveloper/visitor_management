@@ -9,18 +9,20 @@ import {
 } from "@/api/vms";
 import { CheckoutPendingReport } from "@/components/reports/CheckoutPendingReport";
 import { StageCountsReport } from "@/components/reports/StageCountsReport";
-import { extractError, formatDate } from "@/lib/format";
+import { extractError, formatCount, formatDate } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import { canPerformCheckout, visitorScopeFilters } from "@/lib/roles";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 
 type SubTab = "overview" | "checkout_pending";
 
-const TAB_LABELS: Record<SubTab, string> = {
-  overview: "Overview",
-  checkout_pending: "Checkout Pending",
+const TAB_KEYS: Record<SubTab, UiCopyKey> = {
+  overview: "tab_overview",
+  checkout_pending: "status_checkout_pending",
 };
 
 function toInputDate(d: Date) {
@@ -37,13 +39,14 @@ function parseReportsTab(raw: string | null): SubTab {
 export function MobileAnalyticsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { lang } = useAppLanguage();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
   const [checkoutBusy, setCheckoutBusy] = useState<string | null>(null);
 
   usePageChrome({
-    title: "Reports",
-    subtitle: "Visitor analytics",
+    title: ut(lang, "reports_title"),
+    subtitle: ut(lang, "visitor_analytics"),
     showBack: false,
     showNotification: true,
     showProfile: true,
@@ -121,8 +124,11 @@ export function MobileAnalyticsPage() {
     [load, selectedDate],
   );
 
-  const dateLabel = formatDate(selectedDate) || selectedDate;
+  const dateLabel = formatDate(selectedDate, lang) || selectedDate;
   const isToday = selectedDate === toInputDate(new Date());
+  const pendingCountLabel = formatCount(checkoutPendingCount, lang);
+  const pendingCopyKey =
+    checkoutPendingCount === 1 ? "checkout_pending_visitor_one" : "checkout_pending_visitors";
 
   function shiftDate(days: number) {
     const d = new Date(`${selectedDate}T12:00:00`);
@@ -138,10 +144,12 @@ export function MobileAnalyticsPage() {
 
       <header className="vm-reports-head">
         <div>
-          <p className="vm-reports-eyebrow">Analytics</p>
-          <h1 className="vm-reports-title">Reports</h1>
+          <p className="vm-reports-eyebrow">{ut(lang, "analytics_eyebrow")}</p>
+          <h1 className="vm-reports-title">{ut(lang, "reports_title")}</h1>
         </div>
-        <span className={`vm-live-pill${isToday ? " is-live" : ""}`}>{isToday ? "Live" : "Historic"}</span>
+        <span className={`vm-live-pill${isToday ? " is-live" : ""}`}>
+          {isToday ? ut(lang, "live_pill") : ut(lang, "historic_pill")}
+        </span>
       </header>
 
       <main className="vm-main-body vm-reports-stack">
@@ -181,23 +189,25 @@ export function MobileAnalyticsPage() {
 
         <button type="button" className="vm-meetings-cta" onClick={() => setReportsTab("checkout_pending")}>
           <span className="vm-meetings-cta-copy">
-            <strong>Checkout Pending Report</strong>
+            <strong>{ut(lang, "checkout_pending_report")}</strong>
             <span>
-              {loading ? "Loading…" : `${checkoutPendingCount} visitor${checkoutPendingCount === 1 ? "" : "s"} awaiting gate checkout`}
+              {loading
+                ? ut(lang, "loading")
+                : ut(lang, pendingCopyKey, { n: pendingCountLabel })}
             </span>
           </span>
-          <span className="vm-meetings-cta-count">{loading ? "…" : checkoutPendingCount}</span>
+          <span className="vm-meetings-cta-count">{loading ? "…" : pendingCountLabel}</span>
         </button>
 
         <button type="button" className="vm-meetings-cta is-secondary" onClick={() => navigate("/meetings")}>
           <span className="vm-meetings-cta-copy">
-            <strong>Meetings by day</strong>
-            <span>Timeline cards with time · person to meet</span>
+            <strong>{ut(lang, "meetings_by_day")}</strong>
+            <span>{ut(lang, "meetings_by_day_sub")}</span>
           </span>
           <span aria-hidden>›</span>
         </button>
 
-        <div className="vm-reports-tabs vm-reports-tabs--compact" role="tablist" aria-label="Reports sections">
+        <div className="vm-reports-tabs vm-reports-tabs--compact" role="tablist" aria-label={ut(lang, "reports_title")}>
           {(["overview", "checkout_pending"] as const).map((t) => (
             <button
               key={t}
@@ -207,9 +217,9 @@ export function MobileAnalyticsPage() {
               className={`vm-reports-tab${subTab === t ? " is-active" : ""}`}
               onClick={() => setReportsTab(t)}
             >
-              {TAB_LABELS[t]}
+              {ut(lang, TAB_KEYS[t])}
               {t === "checkout_pending" ? (
-                <span className="vm-reports-tab-count">{checkoutPendingCount}</span>
+                <span className="vm-reports-tab-count">{formatCount(checkoutPendingCount, lang)}</span>
               ) : null}
             </button>
           ))}

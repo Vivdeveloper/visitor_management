@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { ut } from "@/i18n/uiChrome";
 
 export type RecentVisitorItem = {
   name: string;
@@ -7,6 +9,8 @@ export type RecentVisitorItem = {
   purpose?: string;
   time: string;
   status: string;
+  /** Raw ERP status for tone styling (optional). */
+  statusRaw?: string;
   photo?: string | null;
 };
 
@@ -15,23 +19,38 @@ type RecentVisitorsListProps = {
   loading?: boolean;
 };
 
-const DEMO_VISITORS: RecentVisitorItem[] = [
-  { name: "V001", full_name: "Om", purpose: "Audit", time: "07:09 PM", status: "Checked-in" },
-  { name: "V002", full_name: "vivek", purpose: "Audit", time: "06:57 PM", status: "Checked-in" },
-  { name: "V003", full_name: "vivek sonaw...", purpose: "Audit", time: "06:53 PM", status: "Checked-in" },
-  { name: "V004", full_name: "Nikhil Sarin", purpose: "Maintenance", time: "02:40 PM", status: "Checked-out" },
-];
-
 function statusTone(status: string) {
   const s = status.toLowerCase();
-  if (s.includes("out")) return { color: "#ea580c", bg: "#ffedd5" };
-  if (s.includes("pending") || s.includes("reject")) return { color: "#d97706", bg: "#fff7ed" };
+  if (s.includes("out") || s.includes("चेक-आउट") || s.includes("नाकार") || s.includes("अस्वीकृत")) {
+    return { color: "#ea580c", bg: "#ffedd5" };
+  }
+  if (
+    s.includes("pending") ||
+    s.includes("reject") ||
+    s.includes("प्रलंबित") ||
+    s.includes("पेंडिंग") ||
+    s.includes("नाकार") ||
+    s.includes("अस्वीकृत")
+  ) {
+    return { color: "#d97706", bg: "#fff7ed" };
+  }
   return { color: "#16a34a", bg: "#dcfce7" };
+}
+
+function toneFromRaw(raw?: string, fallbackStatus?: string) {
+  if (raw) {
+    const s = raw.toLowerCase();
+    if (s.includes("out") || s.includes("reject")) return { color: "#ea580c", bg: "#ffedd5" };
+    if (s.includes("pending")) return { color: "#d97706", bg: "#fff7ed" };
+    return { color: "#16a34a", bg: "#dcfce7" };
+  }
+  return statusTone(fallbackStatus || "");
 }
 
 export function RecentVisitorsList({ visitors = [], loading = false }: RecentVisitorsListProps) {
   const navigate = useNavigate();
-  const displayVisitors = visitors.length ? visitors : DEMO_VISITORS;
+  const { lang } = useAppLanguage();
+  const displayVisitors = visitors;
 
   return (
     <div className="vm-overview-card vm-chart-card vm-recent-card">
@@ -43,19 +62,21 @@ export function RecentVisitorsList({ visitors = [], loading = false }: RecentVis
               <circle cx="12" cy="7" r="4" />
             </svg>
           </div>
-          <h3 className="vm-chart-card-title">Recent Visitors</h3>
+          <h3 className="vm-chart-card-title">{ut(lang, "recent_visitors")}</h3>
         </div>
         <button type="button" className="vm-card-link-btn" onClick={() => navigate("/inside")}>
-          View All ›
+          {ut(lang, "view_all")}
         </button>
       </div>
 
       <div className="vm-recent-list">
         {loading ? (
-          <span className="vm-empty-hint">Loading visitors…</span>
+          <span className="vm-empty-hint">{ut(lang, "loading_visitors")}</span>
+        ) : displayVisitors.length === 0 ? (
+          <span className="vm-empty-hint">—</span>
         ) : (
           displayVisitors.map((v) => {
-            const tone = statusTone(v.status);
+            const tone = toneFromRaw(v.statusRaw, v.status);
             return (
               <button
                 key={v.name}
@@ -95,7 +116,7 @@ export function RecentVisitorsList({ visitors = [], loading = false }: RecentVis
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <span>View Visitor History</span>
+        <span>{ut(lang, "view_visitor_history")}</span>
         <span className="vm-cta-arrow">›</span>
       </button>
     </div>

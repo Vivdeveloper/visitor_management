@@ -12,6 +12,9 @@ import {
   IconUser,
   IconUserInside,
 } from "@/components/ui/MobileIcons";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { formatCount } from "@/lib/format";
+import { translateVisitorStatus, ut, type UiCopyKey } from "@/i18n/uiChrome";
 
 interface VisitorStatusDashboardProps {
   kpis?: DashboardKpis;
@@ -21,6 +24,11 @@ interface VisitorStatusDashboardProps {
   subtitle?: string;
   className?: string;
 }
+
+const STATUS_FOOT_KEYS: Partial<Record<VisitorStatusKey, UiCopyKey>> = {
+  "Pending Approval": "needs_action",
+  "Checkout Pending": "awaiting_gate",
+};
 
 function iconFor(key: VisitorStatusKey) {
   switch (key) {
@@ -48,19 +56,22 @@ export function VisitorStatusDashboard({
   kpis = {},
   rows = [],
   loading = false,
-  title = "Status overview",
-  subtitle = "Today's visitor counts by stage",
+  title,
+  subtitle,
   className = "",
 }: VisitorStatusDashboardProps) {
   const navigate = useNavigate();
+  const { lang } = useAppLanguage();
   const counts = resolveStatusCounts(kpis, rows);
+  const heading = title ?? ut(lang, "status_overview");
+  const sub = subtitle ?? ut(lang, "status_overview_sub");
 
   return (
-    <section className={`vm-status-dashboard ${className}`.trim()} aria-label={title}>
+    <section className={`vm-status-dashboard ${className}`.trim()} aria-label={heading}>
       <div className="vm-status-dashboard-head">
         <div>
-          <h2 className="vm-status-dashboard-title">{title}</h2>
-          {subtitle ? <p className="vm-status-dashboard-sub">{subtitle}</p> : null}
+          <h2 className="vm-status-dashboard-title">{heading}</h2>
+          {sub ? <p className="vm-status-dashboard-sub">{sub}</p> : null}
         </div>
       </div>
 
@@ -69,6 +80,9 @@ export function VisitorStatusDashboard({
           const value = counts[tile.key];
           const showWarn = tile.key === "Pending Approval" && !loading && value > 0;
           const showCheckout = tile.key === "Checkout Pending" && !loading && value > 0;
+          const label = translateVisitorStatus(lang, tile.key);
+          const footKey = STATUS_FOOT_KEYS[tile.key];
+          const footWarn = footKey ? ut(lang, footKey) : ut(lang, "today");
 
           return (
             <button
@@ -77,21 +91,19 @@ export function VisitorStatusDashboard({
               className="vm-kpi-tile vm-kpi-tile--status"
               data-badge={tile.badge}
               onClick={() => navigate(tile.to)}
-              aria-label={`${tile.label}: ${loading ? "loading" : value}`}
+              aria-label={`${label}: ${loading ? "loading" : value}`}
             >
               <div className="vm-kpi-tile-status-inner">
                 <div className={`vm-kpi-badge ${tile.badge}`}>{iconFor(tile.key)}</div>
                 <div className="vm-kpi-tile-status-body">
-                  <span className="vm-kpi-label">{tile.label}</span>
-                  {showWarn ? (
-                    <span className="vm-kpi-foot is-warn">{tile.foot || "Needs action"}</span>
-                  ) : showCheckout ? (
-                    <span className="vm-kpi-foot is-warn">{tile.foot || "Awaiting gate"}</span>
+                  <span className="vm-kpi-label">{label}</span>
+                  {showWarn || showCheckout ? (
+                    <span className="vm-kpi-foot is-warn">{footWarn}</span>
                   ) : (
-                    <span className="vm-kpi-foot">Today</span>
+                    <span className="vm-kpi-foot">{ut(lang, "today")}</span>
                   )}
                 </div>
-                <span className="vm-kpi-value">{loading ? "—" : value}</span>
+                <span className="vm-kpi-value">{loading ? "—" : formatCount(value, lang)}</span>
               </div>
             </button>
           );

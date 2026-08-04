@@ -1,3 +1,6 @@
+import type { VisitorLang } from "@/i18n/visitorJourney";
+import { localizeDigits } from "@/lib/localize";
+
 export function formatVisitorCardTitle(fullName?: string | null, company?: string | null): string {
   const name = (fullName || "").trim() || "—";
   const org = (company || "").trim();
@@ -8,22 +11,29 @@ export function formatVisitorCardTitle(fullName?: string | null, company?: strin
 export function formatVisitorCardSubtitle(
   host?: string | null,
   floor?: string | null,
+  hostPrefix = "Host:",
+  floorSuffix = "Floor",
 ): string {
   const hostLabel = (host || "").trim() || "—";
   const floorLabel = (floor || "").trim();
-  if (!floorLabel) return `Host: ${hostLabel}`;
-  return `Host: ${hostLabel} · ${formatFloorLabel(floorLabel)}`;
+  if (!floorLabel) return `${hostPrefix} ${hostLabel}`;
+  return `${hostPrefix} ${hostLabel} · ${formatFloorLabel(floorLabel, floorSuffix)}`;
 }
 
-export function formatFloorLabel(floor?: string | null): string {
+export function formatFloorLabel(floor?: string | null, floorSuffix = "Floor"): string {
   const floorLabel = (floor || "").trim();
   if (!floorLabel) return "";
-  return /floor/i.test(floorLabel) ? floorLabel : `${floorLabel} Floor`;
+  return /floor|मंजिल|मजला/i.test(floorLabel) ? floorLabel : `${floorLabel} ${floorSuffix}`;
 }
 
-export function formatVisitorHostLine(host?: string | null, floor?: string | null): string {
+export function formatVisitorHostLine(
+  host?: string | null,
+  floor?: string | null,
+  lang: VisitorLang = "en",
+): string {
   const hostLabel = (host || "").trim() || "—";
-  const floorLabel = formatFloorLabel(floor);
+  const floorSuffix = lang === "hi" ? "मंजिल" : lang === "mr" ? "मजला" : "Floor";
+  const floorLabel = formatFloorLabel(floor, floorSuffix);
   if (!floorLabel) return hostLabel;
-  return `${hostLabel} · ${floorLabel}`;
+  return `${hostLabel} · ${localizeDigits(floorLabel, lang)}`;
 }

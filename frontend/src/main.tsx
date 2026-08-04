@@ -71,8 +71,12 @@ if (isCapacitorNativeRuntime() && "serviceWorker" in navigator) {
   });
 } else if (import.meta.env.PROD && !IS_CAPACITOR_BUILD && "serviceWorker" in navigator) {
   const registerSw = () => {
+    const assetV =
+      typeof window !== "undefined" && (window as Window & { vmsAssetV?: string }).vmsAssetV
+        ? String((window as Window & { vmsAssetV?: string }).vmsAssetV)
+        : String(Date.now());
     void navigator.serviceWorker
-      .register("/vms_sw.js", { scope: "/vms/" })
+      .register(`/vms_sw.js?v=${encodeURIComponent(assetV)}`, { scope: "/vms/" })
       .then((registration) => {
         registration.addEventListener("updatefound", () => {
           const nextWorker = registration.installing;

@@ -60,9 +60,10 @@ export function MobilePassPage() {
           <VisitorGatePassCard
             passCode={featured.name}
             visitorName={featured.full_name || "Visitor"}
-            company="—"
+            company={featured.company || "—"}
             hostName={featured.person_to_meet_name || featured.host_name || "—"}
-            department="—"
+            floor={featured.floor || "—"}
+            status={featured.status || "Approved"}
             validUntil={featured.qr_expires_on ? formatTime(featured.qr_expires_on) : "—"}
             checkInTime="—"
             checkInLocation="Main Gate"

@@ -5,7 +5,12 @@
 const VE = "visitor_management.visitor_management.doctype.visitor_entry.visitor_entry";
 
 frappe.ui.form.on("Visitor Entry", {
+	onload(frm) {
+		set_company_from_global_defaults(frm);
+	},
+
 	refresh(frm) {
+		set_company_from_global_defaults(frm);
 		add_approval_actions(frm);
 		add_gate_actions(frm);
 		add_meeting_actions(frm);
@@ -15,10 +20,101 @@ frappe.ui.form.on("Visitor Entry", {
 		}
 	},
 
+	first_name(frm) {
+		autocorrect_name_field(frm, "first_name");
+	},
+
+	middle_name(frm) {
+		autocorrect_name_field(frm, "middle_name");
+	},
+
+	last_name(frm) {
+		autocorrect_name_field(frm, "last_name");
+	},
+
+	visitor_company(frm) {
+		autocorrect_name_field(frm, "visitor_company");
+	},
+
+	visitor_location(frm) {
+		autocorrect_name_field(frm, "visitor_location");
+	},
+
+	vehicle_number(frm) {
+		const current = frm.doc.vehicle_number;
+		if (!current || typeof current !== "string") {
+			return;
+		}
+		const fixed = String(current).trim().replace(/\s+/g, " ").toUpperCase();
+		if (fixed !== current) {
+			frm.set_value("vehicle_number", fixed);
+		}
+	},
+
 	id_proof_photo(frm) {
 		frm.set_value("id_proof_photo_preview", frm.doc.id_proof_photo || "");
 	},
 });
+
+/** Prefill Company from Global Defaults → default_company. */
+function set_company_from_global_defaults(frm) {
+	if (frm.doc.company) {
+		return;
+	}
+	const company =
+		frappe.defaults.get_user_default("company") ||
+		frappe.defaults.get_global_default("company");
+	if (company) {
+		frm.set_value("company", company);
+	}
+}
+
+/** vivEk → Vivek (Desk form live correction). */
+function autocorrect_name_field(frm, fieldname) {
+	const current = frm.doc[fieldname];
+	if (!current || typeof current !== "string") {
+		return;
+	}
+	const fixed = autocorrect_person_name(current);
+	if (fixed !== current) {
+		frm.set_value(fieldname, fixed);
+	}
+}
+
+function autocorrect_person_name(value) {
+	const raw = String(value || "").trim();
+	if (!raw) {
+		return "";
+	}
+	if (/[\u0900-\u097F]/.test(raw)) {
+		return raw;
+	}
+	return raw.replace(/[A-Za-z]+(?:'[A-Za-z]+)?|[^\s]+/g, (token) => {
+		if (token.includes("-")) {
+			return token
+				.split("-")
+				.map((part) => case_latin_token(part))
+				.join("-");
+		}
+		if (/^[A-Za-z]+(?:'[A-Za-z]+)?$/.test(token)) {
+			return case_latin_token(token);
+		}
+		return token;
+	});
+}
+
+function case_latin_token(token) {
+	if (!token) {
+		return token;
+	}
+	if (token.includes("'")) {
+		return token
+			.split("'")
+			.map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : part))
+			.join("'");
+	}
+	return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+}
 
 function can_host_act(frm) {
 	if (frappe.user.has_role("System Manager")) {

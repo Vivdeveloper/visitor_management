@@ -9,6 +9,7 @@ type PassPayload = {
   full_name?: string;
   photo?: string;
   mobile?: string;
+  company?: string;
   visitor_company?: string;
   person_to_meet_name?: string;
   host_name?: string;
@@ -81,6 +82,7 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
   const status = pass?.status || visitor.status || "—";
   const hostName = pass?.person_to_meet_name || pass?.host_name || visitor.person_to_meet_name || "—";
   const floor = pass?.floor || visitor.floor || "—";
+  const company = (pass?.company || "").trim() || "—";
   const passUrl = pass?.pass_url;
   const validUntil = pass?.qr_expires_on ? formatTime(pass.qr_expires_on) : undefined;
   const gateReady = status === "Checked In" || status === "Meeting Done";
@@ -116,7 +118,10 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
           ✕
         </button>
 
-        <div className="vm-confirm-modal-top vm-no-print">
+        <div className="vm-confirm-modal-top vm-view-gate-pass-top vm-no-print">
+          <span className="vm-gate-pass-om" aria-hidden>
+            ॐ
+          </span>
           <h2 id="vm-view-gate-pass-title" className="vm-confirm-modal-title">
             View Gate Pass
           </h2>
@@ -132,6 +137,7 @@ export function ViewGatePassModal({ visitor, open, onClose, onSendToMobile }: Pr
           <VisitorGatePassCard
             passCode={passCode}
             visitorName={visitorName}
+            company={company}
             hostName={hostName}
             floor={floor}
             status={status}

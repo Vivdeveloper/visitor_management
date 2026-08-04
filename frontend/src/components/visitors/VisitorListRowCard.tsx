@@ -2,9 +2,11 @@ import type { VisitorListRow } from "@/api/vms";
 import { formatTime } from "@/lib/format";
 import { extractRejectionReason } from "@/lib/rejectionReason";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
-import { formatVisitorHostLine } from "@/lib/visitorDisplay";
+import { localizeHostDisplay, localizePersonName } from "@/lib/transliterate";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
 import { VisitorStageTimeline } from "@/components/visitors/VisitorStageTimeline";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { translateListBadge, ut } from "@/i18n/uiChrome";
 
 type VisitorListRowCardProps = {
   item: VisitorListRow;
@@ -28,30 +30,29 @@ function avatarTone(status?: string, idx = 0) {
   return (["green", "blue", "purple", "orange"] as const)[idx % 4];
 }
 
-function resolveListBadge(status?: string, transferred?: boolean): ListBadge {
+function resolveListBadgeStyle(status?: string, transferred?: boolean): Omit<ListBadge, "text"> {
   if (transferred) {
-    return { text: "TRANSFERRED", className: "vm-visitor-list-badge is-transferred", icon: "transferred" };
+    return { className: "vm-visitor-list-badge is-transferred", icon: "transferred" };
   }
   if (status === "Pending Approval") {
-    return { text: "PENDING", className: "vm-visitor-list-badge is-pending", icon: "pending" };
+    return { className: "vm-visitor-list-badge is-pending", icon: "pending" };
   }
   if (status === "Approved") {
-    return { text: "APPROVED", className: "vm-visitor-list-badge is-approved", icon: "approved" };
+    return { className: "vm-visitor-list-badge is-approved", icon: "approved" };
   }
   if (status === "Checked Out") {
-    return { text: "CHECKOUT", className: "vm-visitor-list-badge is-out", icon: "out" };
+    return { className: "vm-visitor-list-badge is-out", icon: "out" };
   }
   if (status === "Meeting Done") {
-    return { text: "CHECKOUT", className: "vm-visitor-list-badge is-checkout", icon: "checkout" };
+    return { className: "vm-visitor-list-badge is-checkout", icon: "checkout" };
   }
   if (status === "Checked In") {
-    return { text: "IN", className: "vm-visitor-list-badge is-in", icon: "in" };
+    return { className: "vm-visitor-list-badge is-in", icon: "in" };
   }
   if (status === "Rejected") {
-    return { text: "REJECTED", className: "vm-visitor-list-badge is-rejected", icon: "rejected" };
+    return { className: "vm-visitor-list-badge is-rejected", icon: "rejected" };
   }
   return {
-    text: (status || "—").toUpperCase(),
     className: "vm-visitor-list-badge is-default",
     icon: "default",
   };
@@ -81,11 +82,16 @@ export function VisitorListRowCard({
   index = 0,
   onOpen,
 }: VisitorListRowCardProps) {
-  const badge = resolveListBadge(item.status, Boolean(item.transfer_to_user));
-  const time = formatTime(getCurrentStageTimestamp(item)) || "—";
-  const name = (item.full_name || item.name || "—").trim();
+  const { lang } = useAppLanguage();
+  const style = resolveListBadgeStyle(item.status, Boolean(item.transfer_to_user));
+  const badge: ListBadge = {
+    ...style,
+    text: translateListBadge(lang, item.status, Boolean(item.transfer_to_user)),
+  };
+  const time = formatTime(getCurrentStageTimestamp(item), lang) || "—";
+  const name = localizePersonName((item.full_name || item.name || "—").trim(), lang);
   const company = (item.visitor_company || "").trim();
-  const hostLine = formatVisitorHostLine(item.person_to_meet_name, item.floor);
+  const hostLine = localizeHostDisplay(item.person_to_meet_name, item.floor, lang);
   const rejectionReason =
     item.status === "Rejected" ? extractRejectionReason(item.approval_remarks) : null;
 
@@ -117,11 +123,11 @@ export function VisitorListRowCard({
             ) : null}
           </div>
           <p className="vm-visitor-list-host">
-            Host: <span>{hostLine}</span>
+            {ut(lang, "host_prefix")} <span>{hostLine}</span>
           </p>
           {rejectionReason ? (
             <p className="vm-visitor-list-reject-reason" title={rejectionReason}>
-              Reason: <span>{rejectionReason}</span>
+              {ut(lang, "reason_prefix")} <span>{rejectionReason}</span>
             </p>
           ) : null}
         </div>

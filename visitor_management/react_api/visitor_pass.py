@@ -25,14 +25,20 @@ def _validate_pass(token: str) -> dict:
 	return {"valid": True, "reason": _("Pass is valid"), "pass": _payload(doc)}
 
 
+def _default_company() -> str:
+	return frappe.db.get_single_value("Global Defaults", "default_company") or ""
+
+
 def _payload(doc) -> dict:
 	"""Return pass fields from Visitor Entry only — never invent pass_url here."""
+	company = (doc.get("company") or "").strip() or _default_company()
 	return {
 		"visitor_entry": doc.name,
 		"name": doc.name,
 		"full_name": doc.full_name,
 		"photo": doc.photo,
 		"mobile": doc.mobile,
+		"company": company,
 		"visitor_company": doc.visitor_company,
 		"person_to_meet_name": doc.person_to_meet_name,
 		"host_name": doc.person_to_meet_name,
@@ -121,11 +127,25 @@ def list_my_passes(mobile: str | None = None) -> list:
 	rows = frappe.get_all(
 		"Visitor Entry",
 		filters={"mobile": ["like", f"%{last10}"]},
-		fields=["name", "full_name", "status", "pass_url", "qr_expires_on", "person_to_meet_name", "creation"],
+		fields=[
+			"name",
+			"full_name",
+			"status",
+			"pass_url",
+			"qr_expires_on",
+			"person_to_meet_name",
+			"company",
+			"visitor_company",
+			"floor",
+			"creation",
+		],
 		order_by="creation desc",
 		limit_page_length=20,
 	)
+	default_company = _default_company()
 	for row in rows:
 		# Do not invent pass URLs in Python list — only return DB value from generate_pass
 		row["host_name"] = row.get("person_to_meet_name")
+		if not row.get("company"):
+			row["company"] = default_company
 	return rows

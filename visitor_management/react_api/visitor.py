@@ -53,11 +53,20 @@ def _ensure_visit_purpose_type(name: str) -> str:
 
 @frappe.whitelist()
 def create_visitor(**kwargs) -> dict:
+	"""Register a Visitor Entry from the PWA (gate desk or OTP guest).
+
+	Desk users need Create on Visitor Entry (Role Permission Manager).
+	Guests need a verified OTP for the mobile. Insert uses ignore_permissions
+	so Link fields (User, ID Proof Type, …) do not fail after that check —
+	same pattern as approve / reject / check_in.
+	"""
 	data = {k: v for k, v in kwargs.items() if not k.startswith("_") and k in ALLOWED_FIELDS and v not in (None, "")}
 	if not data.get("mobile"):
 		frappe.throw(_("Mobile number is required"))
 	if not data.get("first_name") and not data.get("last_name"):
 		frappe.throw(_("First name or last name is required"))
+
+	_authorize_visitor_create(data.get("mobile"))
 
 	if data.get("visit_purpose_type"):
 		data["visit_purpose_type"] = _ensure_visit_purpose_type(data["visit_purpose_type"])
@@ -76,15 +85,98 @@ def create_visitor(**kwargs) -> dict:
 				fallback = frappe.db.get_value("User", {"enabled": 1, "user_type": "System User"}, "name") or "Administrator"
 				data["person_to_meet"] = fallback
 
+	# Drop placeholder / missing vehicle links (UI "None" is not a Vehicle Type row).
+	vehicle = str(data.get("vehicle_type") or "").strip()
+	if vehicle.lower() in ("", "none", "null", "undefined") or not frappe.db.exists("Vehicle Type", vehicle):
+		data.pop("vehicle_type", None)
+
+	if data.get("id_proof_type") and not frappe.db.exists("ID Proof Type", data["id_proof_type"]):
+		data.pop("id_proof_type", None)
+
 	# otp_verified is derived in Visitor Entry.validate_otp from the server-side
 	# verification cache — a client-supplied flag is not trusted here.
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
-	doc.insert()
+	doc.flags.ignore_permissions = True
+	doc.flags.ignore_links = False
+	doc.insert(ignore_permissions=True)
 	return {
 		"success": True,
 		"name": doc.name,
 		"message": _("Visitor registered and pending approval."),
 		"visitor": doc.as_dict(),
+	}
+
+
+def _authorize_visitor_create(mobile: str | None) -> None:
+	"""Allow create when:
+
+	- Desk user has Visitor Entry **Create** (gate DocPerm), or
+	- Desk user has **Write** (common misconfig for gate admins), or
+	- Visitor mobile OTP was verified for ``visitor_registration`` (PWA Add Entry
+	  always verifies OTP before Continue — Guest or desk).
+	"""
+	from visitor_management.react_api.otp import is_mobile_verified
+
+	otp_ok = bool(mobile) and is_mobile_verified(mobile or "", "visitor_registration")
+	user = frappe.session.user
+
+	if user and user != "Guest":
+		if frappe.has_permission("Visitor Entry", "create"):
+			return
+		if otp_ok:
+			return
+		if frappe.has_permission("Visitor Entry", "write"):
+			return
+		frappe.throw(
+			_(
+				"Not permitted to create Visitor Entry for {0}. "
+				"Enable Create on Visitor Entry in Role Permission Manager, "
+				"or complete visitor OTP verification first."
+			).format(user),
+			frappe.PermissionError,
+		)
+		return
+
+	if not otp_ok:
+		frappe.throw(
+			_("Please verify the mobile number with an OTP before registering."),
+			frappe.PermissionError,
+		)
+
+
+@frappe.whitelist(allow_guest=True)
+def upload_visitor_media(mobile: str | None = None) -> dict:
+	"""Upload visitor / ID photos for Add Entry.
+
+	Uses ignore_permissions after auth so gate users and OTP guests are not
+	blocked by bare ``upload_file`` PermissionError (guest upload disabled).
+	"""
+	_authorize_visitor_create(mobile)
+
+	files = frappe.request.files
+	if not files or "file" not in files:
+		frappe.throw(_("No file uploaded"))
+
+	uploaded = files["file"]
+	content = uploaded.stream.read()
+	filename = uploaded.filename or "upload.bin"
+	if not content:
+		frappe.throw(_("Uploaded file is empty"))
+
+	file_doc = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": filename,
+			"is_private": 0,
+			"folder": "Home",
+			"content": content,
+		}
+	)
+	file_doc.insert(ignore_permissions=True)
+	return {
+		"file_url": file_doc.file_url,
+		"file_name": file_doc.file_name,
+		"name": file_doc.name,
 	}
 
 

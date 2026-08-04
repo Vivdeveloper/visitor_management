@@ -19,16 +19,19 @@ import { ViewGatePassModal } from "@/components/approvals/ViewGatePassModal";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { usePageChrome } from "@/context/PageChromeContext";
-import { formatNowTime } from "@/lib/format";
+import { useAppLanguage } from "@/context/AppLanguageContext";
+import { formatCount, formatNowTime } from "@/lib/format";
 import { useAuth } from "@/context/AuthContext";
 import {
   canApproveReject,
   canCallNotifyHost,
+  canMarkMeetingDone,
   canPerformCheckout,
   canTransferVisitor,
   resolveMode,
   visitorScopeFilters,
 } from "@/lib/roles";
+import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
 const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
@@ -83,26 +86,28 @@ function matchesDateFilter(rawDate: string | undefined | null, mode: DateFilterM
   return true;
 }
 
-const TABS: Array<{ id: TabId; label: string; match: (s?: string) => boolean }> = [
-  { id: "all", label: "All", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
-  { id: "pending", label: "Pending", match: (s) => s === "Pending Approval" || s === "Pending" },
-  { id: "approved", label: "Approved", match: (s) => s === "Approved" },
-  { id: "inside", label: "Inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
+const TABS: Array<{ id: TabId; labelKey: UiCopyKey; match: (s?: string) => boolean }> = [
+  { id: "all", labelKey: "tab_all", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
+  { id: "pending", labelKey: "tab_pending", match: (s) => s === "Pending Approval" || s === "Pending" },
+  { id: "approved", labelKey: "tab_approved", match: (s) => s === "Approved" },
+  { id: "inside", labelKey: "tab_inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
 ];
 
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
+  const { lang } = useAppLanguage();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
   const mode = resolveMode(user);
   const canDecide = canApproveReject(user);
+  const canMeetingDone = canMarkMeetingDone(user);
   // Call Host / Notify are gate-desk only — host is the person being called.
   const canHostOps = mode === "security" && canCallNotifyHost(user);
   const canTransfer = canTransferVisitor(user);
 
   usePageChrome({
-    title: "Pending",
-    subtitle: "Approvals queue",
+    title: ut(lang, "pending"),
+    subtitle: ut(lang, "approvals_queue"),
     showBack: true,
     backTo: "/",
     showNotification: true,
@@ -198,7 +203,7 @@ export function MobileApprovalsPage() {
 
   const handleNotifyHost = useCallback(async (item: VisitorListRow) => {
     const host = item.person_to_meet_name || item.person_to_meet || "Host";
-    const time = formatNowTime();
+    const time = formatNowTime(lang);
     try {
       const res = await approvalApi.notifyHost(item.name);
       const deliveredLive = res.realtime_sent !== false;
@@ -233,7 +238,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Visitor Checked In",
           message: `${visitor.full_name || visitor.name} checked in successfully.`,
-          time: formatNowTime(),
+          time: formatNowTime(lang),
         });
         void load();
       } catch (err: unknown) {
@@ -252,7 +257,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Host phone unavailable",
         message: "No host assigned for this visitor.",
-        time: formatNowTime(),
+        time: formatNowTime(lang),
       });
       return;
     }
@@ -270,7 +275,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Host phone unavailable",
           message: `${item.person_to_meet_name || "Host"} has no phone number on file.`,
-          time: formatNowTime(),
+          time: formatNowTime(lang),
         });
         return;
       }
@@ -280,7 +285,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Could not call host",
         message: "Unable to fetch host contact details.",
-        time: formatNowTime(),
+        time: formatNowTime(lang),
       });
     }
   }, []);
@@ -295,7 +300,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Meeting Completed",
           message: `Meeting with ${visitor.full_name || visitor.name} marked as complete.`,
-          time: formatNowTime(),
+          time: formatNowTime(lang),
         });
         void load();
       } catch (err: unknown) {
@@ -317,7 +322,7 @@ export function MobileApprovalsPage() {
           id: Date.now().toString(),
           title: "Visitor Checked Out",
           message: `${visitor.full_name || visitor.name} checked out successfully.`,
-          time: formatNowTime(),
+          time: formatNowTime(lang),
         });
         void load();
       } catch (err: unknown) {
@@ -326,7 +331,7 @@ export function MobileApprovalsPage() {
         setBusy(null);
       }
     },
-    [load],
+    [load, lang],
   );
 
   const handleGeneratePass = useCallback(async (visitor: VisitorListRow) => {
@@ -341,7 +346,7 @@ export function MobileApprovalsPage() {
         id: Date.now().toString(),
         title: "Gate Pass Sent",
         message: res.message || `Gate pass link sent to ${visitor.mobile || "visitor"}`,
-        time: formatNowTime(),
+        time: formatNowTime(lang),
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not send pass to mobile");
@@ -399,8 +404,8 @@ export function MobileApprovalsPage() {
             className="vm-input-field vm-meetings-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search visitor, host or company..."
-            aria-label="Search approvals"
+            placeholder={ut(lang, "search_visitor_host_company")}
+            aria-label={ut(lang, "search_visitor_host_company")}
           />
         </div>
 
@@ -414,8 +419,8 @@ export function MobileApprovalsPage() {
               className={`vm-reports-tab${tab === t.id ? " is-active" : ""}`}
               onClick={() => setTab(t.id)}
             >
-              {t.label}
-              <span className="vm-reports-tab-count">{counts[t.id]}</span>
+              {ut(lang, t.labelKey)}
+              <span className="vm-reports-tab-count">{formatCount(counts[t.id], lang)}</span>
             </button>
           ))}
         </div>
@@ -427,7 +432,7 @@ export function MobileApprovalsPage() {
               className={`vm-filter-pill${dateMode === "today" ? " is-active" : ""}`}
               onClick={() => setDateMode("today")}
             >
-              Today
+              {ut(lang, "filter_today")}
             </button>
 
             <button
@@ -435,7 +440,7 @@ export function MobileApprovalsPage() {
               className={`vm-filter-pill${dateMode === "yesterday" ? " is-active" : ""}`}
               onClick={() => setDateMode("yesterday")}
             >
-              Yesterday
+              {ut(lang, "filter_yesterday")}
             </button>
 
             <button
@@ -443,7 +448,7 @@ export function MobileApprovalsPage() {
               className={`vm-filter-pill${dateMode === "week" ? " is-active" : ""}`}
               onClick={() => setDateMode("week")}
             >
-              This Week
+              {ut(lang, "filter_this_week")}
             </button>
           </div>
 
@@ -455,22 +460,26 @@ export function MobileApprovalsPage() {
                 setDateMode("week");
                 setQuery("");
               }}
-              title="Clear filters"
+              title={ut(lang, "filter_clear")}
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
-              <span>Clear</span>
+              <span>{ut(lang, "filter_clear")}</span>
             </button>
           ) : null}
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
-        {loading ? <p className="vm-empty-hint">Loading…</p> : null}
+        {loading ? <p className="vm-empty-hint">{ut(lang, "loading")}</p> : null}
 
         {!loading && filteredItems.length === 0 ? (
           <div className="vm-overview-card vm-approvals-empty">
-            <strong>No {TABS.find((t) => t.id === tab)?.label || tab} items</strong>
+            <strong>
+              {ut(lang, "no_tab_items", {
+                label: ut(lang, TABS.find((t) => t.id === tab)?.labelKey || "tab_pending"),
+              })}
+            </strong>
           </div>
         ) : null}
 
@@ -493,7 +502,7 @@ export function MobileApprovalsPage() {
                 viewOnlyAll ? undefined : item.status === "Approved" ? (v) => void handleCheckIn(v) : undefined
               }
               onMeetingDone={
-                viewOnlyAll
+                viewOnlyAll || !canMeetingDone
                   ? undefined
                   : item.status === "Checked In"
                     ? (v) => void handleMeetingDone(v)
@@ -524,7 +533,7 @@ export function MobileApprovalsPage() {
             message: remarks
               ? `${name} was rejected. Reason: ${remarks}`
               : `${name} was rejected.`,
-            time: formatNowTime(),
+            time: formatNowTime(lang),
           });
           void load();
         }}

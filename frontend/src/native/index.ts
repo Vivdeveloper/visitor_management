@@ -13,3 +13,4 @@ export * from "@/native/services/notifications";
 export * from "@/native/services/network";
 export * from "@/native/services/keyboard";
 export * from "@/native/services/screenOrientation";
+export * from "@/native/services/speech";

@@ -3,6 +3,8 @@ import { settingsApi, frappeGetList, type HostOption, type MastersPayload } from
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
+import { VoiceTextInput } from "@/components/ui/VoiceTextInput";
+import { VoiceDictationButton, type VoiceTargetField } from "@/components/ui/VoiceDictationButton";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
 import {
   VISIT_PURPOSE_OTHER_VALUE,
@@ -29,7 +31,6 @@ export type VisitorFormValues = {
 
 interface VisitorDetailsFormProps {
   lang?: VisitorLang;
-  returningVisitor?: boolean;
   values: VisitorFormValues;
   photoPreview?: string | null;
   busy?: boolean;
@@ -43,7 +44,6 @@ interface VisitorDetailsFormProps {
 
 export function VisitorDetailsForm({
   lang = "en",
-  returningVisitor = false,
   values,
   photoPreview,
   idProofPreview,
@@ -63,6 +63,7 @@ export function VisitorDetailsForm({
   const [loading, setLoading] = useState(true);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewAlt, setPreviewAlt] = useState("Photo preview");
+  const [voiceTarget, setVoiceTarget] = useState<VoiceTargetField>("first_name");
 
   useEffect(() => {
     let cancelled = false;
@@ -173,13 +174,26 @@ export function VisitorDetailsForm({
 
   const identityFields = (
     <div className="vm-form-section vm-form-section--identity">
-      {returningVisitor ? (
-        <p className="vm-form-section-label">Your details</p>
-      ) : null}
+      <div className="vm-form-section-head">
+        <p className="vm-form-section-label">{vt(lang, "your_details")}</p>
+        <VoiceDictationButton
+          lang={lang}
+          target={voiceTarget}
+          onTargetChange={setVoiceTarget}
+          onTranscript={(field, text) => onChangeField(field, text)}
+        />
+      </div>
       <div className="vm-form-grid">
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "first_name")}</label>
-          <input className="vm-input-field" required value={values.first_name} onChange={(e) => onChangeField("first_name", e.target.value)} />
+          <VoiceTextInput
+            required
+            lang={lang}
+            value={values.first_name}
+            onChangeValue={(val) => onChangeField("first_name", val)}
+            autoComplete="given-name"
+            aria-label={vt(lang, "first_name")}
+          />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "middle_name")}</label>
@@ -187,7 +201,13 @@ export function VisitorDetailsForm({
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "last_name")}</label>
-          <input className="vm-input-field" value={values.last_name} onChange={(e) => onChangeField("last_name", e.target.value)} />
+          <VoiceTextInput
+            lang={lang}
+            value={values.last_name}
+            onChangeValue={(val) => onChangeField("last_name", val)}
+            autoComplete="family-name"
+            aria-label={vt(lang, "last_name")}
+          />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "gender")}</label>
@@ -214,10 +234,6 @@ export function VisitorDetailsForm({
 
   const visitFields = (
     <>
-      {returningVisitor ? (
-        <p className="vm-form-section-label vm-form-section-label--visit">Visit details</p>
-      ) : null}
-
       <div className="vm-photo-capture">
         <ClickablePhotoPreview
           src={photoPreview}
@@ -245,7 +261,7 @@ export function VisitorDetailsForm({
         </div>
       </div>
 
-      {!returningVisitor ? identityFields : null}
+      {identityFields}
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "company")}</label>
@@ -385,10 +401,9 @@ export function VisitorDetailsForm({
         {vt(lang, "details_title")}
       </h1>
       <p style={{ textAlign: "center", color: "var(--vms-muted)", fontSize: "0.85rem", margin: "0.3rem 0 1.1rem" }}>
-        {returningVisitor ? "We found your previous visit. Confirm your details and fill in today's visit information." : vt(lang, "details_sub")}
+        {vt(lang, "details_sub")}
       </p>
 
-      {returningVisitor ? identityFields : null}
       {visitFields}
 
       {error ? <p className="login-error" style={{ textAlign: "center", marginTop: "0.5rem" }}>{error}</p> : null}

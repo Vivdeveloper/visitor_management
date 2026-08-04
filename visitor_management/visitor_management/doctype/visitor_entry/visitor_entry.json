@@ -10,6 +10,7 @@
   "mobile",
   "column_break_contact",
   "status",
+  "company",
   "otp_verified",
   "email",
   "photo",
@@ -347,13 +348,20 @@
    "fieldname": "gate_pass_tab",
    "fieldtype": "Tab Break",
    "label": "Gate Pass"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "image_field": "photo",
  "index_web_pages_for_search": 1,
  "links": [],
  "make_attachments_public": 1,
- "modified": "2026-07-24 15:14:01.322002",
+ "modified": "2026-08-03 12:49:45.558699",
  "modified_by": "Administrator",
  "module": "Visitor Management",
  "name": "Visitor Entry",

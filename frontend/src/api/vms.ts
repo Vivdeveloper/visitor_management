@@ -105,7 +105,13 @@ function extractApiError(err: unknown): string {
     }
     if (data?.exception) {
       const line = String(data.exception).split("\n").pop() || data.exception;
-      return line.replace(/^.*Error:\s*/i, "").trim() || line;
+      const cleaned = line.replace(/^.*Error:\s*/i, "").trim();
+      if (cleaned && cleaned !== "frappe.exceptions.PermissionError" && !/^frappe\.exceptions\./.test(cleaned)) {
+        return cleaned;
+      }
+    }
+    if (data?.exc_type === "PermissionError" || /PermissionError/.test(String(data?.exception || ""))) {
+      return "Permission denied. Security needs Create on Visitor Entry, and Select/Read on Visit Purpose Type, ID Proof Type, and Vehicle Type.";
     }
     if (ax.response?.status === 417) {
       return "Server rejected the request (invalid field or value). Refresh and try again.";
@@ -127,6 +133,9 @@ function extractApiError(err: unknown): string {
   if (err instanceof Error) {
     if (err.message === "Network Error") {
       return "Cannot reach the server. Check your connection, then refresh and try again.";
+    }
+    if (err.message === "frappe.exceptions.PermissionError") {
+      return "Permission denied. Security needs Create on Visitor Entry, and Select/Read on Visit Purpose Type, ID Proof Type, and Vehicle Type.";
     }
     return err.message;
   }
@@ -344,6 +353,7 @@ export const visitorApi = {
         "transfer_to_user",
         "creation",
         "visitor_company",
+        "visitor_location",
         "number_of_visitors",
         "photo",
         "pass_url",
@@ -362,6 +372,8 @@ export const approvalApi = {
     callMethod("approval.approve", { visitor_entry, remarks, floor }),
   reject: (visitor_entry: string, remarks?: string) =>
     callMethod("approval.reject", { visitor_entry, remarks }),
+  cancel: (visitor_entry: string, remarks?: string) =>
+    callMethod("approval.cancel", { visitor_entry, remarks }),
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
   notifyHost: (visitor_entry: string, message?: string) =>
@@ -377,6 +389,7 @@ export type PublicPassInfo = {
   visitor_entry?: string;
   full_name?: string;
   photo?: string;
+  company?: string;
   visitor_company?: string;
   person_to_meet_name?: string;
   host_name?: string;
@@ -400,6 +413,9 @@ export type MyPassRow = {
   qr_expires_on?: string;
   person_to_meet_name?: string;
   host_name?: string;
+  company?: string;
+  visitor_company?: string;
+  floor?: string;
 };
 
 export const passApi = {

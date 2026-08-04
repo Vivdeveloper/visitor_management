@@ -47,7 +47,8 @@ def verify_visitor(visitor_entry: str | None = None) -> dict:
 		"pass_valid": pass_ok,
 		"pass_reason": validation.get("reason"),
 		"can_check_in": doc.status == "Approved",
-		"can_check_out": doc.status in ("Checked In", "Meeting Done"),
+		"can_check_out": doc.status
+		not in ("Checked Out", "Rejected", "Cancelled"),
 	}
 
 

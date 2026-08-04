@@ -180,6 +180,17 @@ export function IconMenuMore(props: IconProps) {
   );
 }
 
+export function IconMic(props: IconProps) {
+  return (
+    <svg {...baseProps({ ...props, strokeWidth: 2 })}>
+      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" />
+      <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="8" y1="22" x2="16" y2="22" />
+    </svg>
+  );
+}
+
 export type MobileTabIcon = "home" | "checkin" | "scan" | "inside" | "history" | "pass" | "reports" | "more" | "approvals";
 
 export function MobileTabIconView({ name, size = 22 }: { name: MobileTabIcon; size?: number }) {
