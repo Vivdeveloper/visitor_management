@@ -294,6 +294,8 @@ def transfer(
 		remarks,
 		_("Transferred from {0} to {1} by {2}").format(previous or "—", transfer_to_user, actor),
 	)
+	# Urgent ring for the new host (PWA/API transfer — not Desk field edits).
+	doc.flags.vms_ring_host = True
 	doc.save(ignore_permissions=True)
 	return {
 		"name": doc.name,

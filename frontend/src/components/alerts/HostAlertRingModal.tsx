@@ -41,12 +41,12 @@ export function HostAlertRingModal({ alert, onReview }: Props) {
         <p className="vm-host-ring-message">{alert.message}</p>
         <p className="vm-host-ring-meta">
           {isSecurity
-            ? "Ready for gate checkout"
+            ? `Checkout pending${alert.reminderCount > 0 ? ` · Reminder ${alert.reminderCount + 1}` : ""}`
             : `Waiting ${minutesWaiting} min${alert.reminderCount > 0 ? ` · Ring ${alert.reminderCount + 1}` : ""}`}
         </p>
 
         <button type="button" className="vm-host-ring-cta" onClick={onReview}>
-          {isSecurity ? "Open Approvals" : "Allow / Review"}
+          {isSecurity ? "Open Inside / Checkout" : "Allow / Review"}
         </button>
       </div>
     </div>

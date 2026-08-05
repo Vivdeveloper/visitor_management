@@ -7842,13 +7842,192 @@ body {
 }
 
 .pwa-ios-sheet {
+  display: none;
+}
+
+.pwa-install-sheet {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 100200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  pointer-events: none;
+}
+
+.pwa-install-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: rgba(20, 33, 61, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pwa-install-sheet-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  margin: 0 0.65rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.55rem 1.15rem 1.15rem;
+  border-radius: 22px 22px 18px 18px;
+  background: #ffffff;
+  color: #14213d;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.22);
+  pointer-events: auto;
+  animation: pwa-install-sheet-up 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pwa-install-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pwa-install-sheet-handle {
+  width: 2.25rem;
+  height: 0.28rem;
+  margin: 0.15rem auto 0.85rem;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.pwa-install-sheet-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.pwa-install-sheet-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.pwa-install-sheet-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.pwa-install-sheet-brand-copy strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0a3d91;
+  letter-spacing: -0.01em;
+}
+
+.pwa-install-sheet-brand-copy span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pwa-install-sheet-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #14213d;
+  letter-spacing: -0.02em;
+}
+
+.pwa-install-sheet-sub {
+  margin: 0 0 1rem;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.pwa-install-sheet-steps {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pwa-install-sheet-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #1e293b;
+}
+
+.pwa-install-step-num {
+  flex-shrink: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: #0a3d91;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
   display: grid;
-  place-items: end center;
-  padding: 1rem;
-  background: rgba(15, 23, 42, 0.45);
+  place-items: center;
+}
+
+.pwa-install-sheet-primary,
+.pwa-install-sheet-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.pwa-install-sheet-primary {
+  border: 0;
+  background: #0a3d91;
+  color: #ffffff;
+  margin-bottom: 0.55rem;
+  box-shadow: 0 8px 20px rgba(10, 61, 145, 0.22);
+}
+
+.pwa-install-sheet-primary:hover {
+  background: #0f4fb5;
+}
+
+.pwa-install-sheet-secondary {
+  border: 1.5px solid #bfdbfe;
+  background: #ffffff;
+  color: #0a3d91;
+}
+
+.pwa-install-sheet-secondary:hover {
+  background: #eff6ff;
+}
+
+body:has(.pwa-install-sheet) .vm-dock,
+body:has(.pwa-install-sheet) .vm-floating-nav {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .pwa-ios-sheet-card {
@@ -7873,6 +8052,23 @@ body {
   color: #1e293b;
   font-size: 0.9rem;
   line-height: 1.55;
+}
+
+.pwa-ios-sheet-close {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #0a3d91;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwa-ios-share {
+  display: inline-block;
+  font-size: 1rem;
 }
 
 .pwa-ios-share {
@@ -11048,6 +11244,15 @@ button.vm-photo-preview.is-clickable:active {
   line-height: 1.35;
 }
 
+.vm-visitor-list-entry-id {
+  margin: 0.22rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
 .vm-visitor-list-host span {
   font-weight: 600;
 }
@@ -12285,6 +12490,16 @@ button.vm-photo-preview.is-clickable:active {
   background: #eff6ff;
 }
 
+.vm-settings-install-wrap {
+  padding: 0.75rem 0.85rem 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.vm-settings-install-wrap .vm-settings-install-btn,
+.vm-settings-install-wrap .pwa-install {
+  width: 100%;
+}
+
 .vm-profile-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -12921,6 +13136,19 @@ button.vm-photo-preview.is-clickable:active {
 .vm-history-cta-btn:hover {
   background: #dbeafe;
   transform: translateY(-1px);
+}
+
+.vm-history-page .vm-history-list-card .vm-visitor-list-item {
+  padding-bottom: 0.15rem;
+}
+
+.vm-history-page .vm-visitor-list-timestamps {
+  padding: 0 0 1rem;
+}
+
+.vm-history-page .vm-visit-stage-timeline.is-compact.is-filled-only {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-color: #e2e8f0;
 }
 
 .vm-cta-arrow {

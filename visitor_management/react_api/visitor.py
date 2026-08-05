@@ -98,6 +98,8 @@ def create_visitor(**kwargs) -> dict:
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
 	doc.flags.ignore_permissions = True
 	doc.flags.ignore_links = False
+	# Host ring alert only for PWA Add Entry — not Desk New/Save.
+	doc.flags.vms_pwa_entry = True
 	doc.insert(ignore_permissions=True)
 	return {
 		"success": True,

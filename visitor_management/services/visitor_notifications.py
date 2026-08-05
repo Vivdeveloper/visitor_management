@@ -55,11 +55,12 @@ def _extract_reject_reason(remarks: str | None) -> str | None:
 def _status_copy(status: str, visitor_name: str, remarks: str | None = None) -> tuple[str, str, str, bool]:
 	"""Return (event, title, body, ring_host)."""
 	if status == "Pending Approval":
+		# Soft notify only — urgent ring is reserved for PWA create / Notify Host / transfer.
 		return (
 			"host_notified",
 			_("Visitor waiting at gate"),
 			_("Visitor {0} is waiting for your approval at the gate.").format(visitor_name),
-			True,
+			False,
 		)
 	if status == "Approved":
 		return (
@@ -159,7 +160,15 @@ def _notify_one_user(
 		frappe.log_error(title="VMS Notification Log failed")
 
 	try:
-		publish_event = "host_notified" if ring_host else event
+		publish_event = event
+		if ring_host and event == "security_checkout_required":
+			# Keep checkout event so clients get `vms_security_alert` (not host ring).
+			publish_event = "security_checkout_required"
+		elif ring_host:
+			publish_event = "host_notified"
+		elif event in ("host_notified", "created"):
+			# Soft update — never open the urgent host ring from Desk saves.
+			publish_event = "visitor_registered"
 		publish_vms_event(publish_event, payload, user=user)
 	except Exception:
 		frappe.log_error(title="VMS realtime notify failed")
@@ -321,9 +330,10 @@ def notify_visitor_lifecycle(doc, previous=None) -> dict | None:
 	if getattr(frappe.flags, "in_vms_notify", False):
 		return None
 
-	# New document
+	# New document — urgent host ring only for PWA Add Entry (not Desk New/Save).
 	if previous is None:
-		return notify_host_and_creator(doc, event="created", ring_host=True)
+		is_pwa = bool(getattr(doc.flags, "vms_pwa_entry", False))
+		return notify_host_and_creator(doc, event="created", ring_host=is_pwa)
 
 	status_changed = previous.get("status") != doc.get("status")
 	host_changed = previous.get("person_to_meet") != doc.get("person_to_meet")
@@ -333,12 +343,17 @@ def notify_visitor_lifecycle(doc, previous=None) -> dict | None:
 
 	if host_changed and not status_changed:
 		visitor_name = doc.full_name or doc.name
+		# Ring only when transfer API sets vms_ring_host (not Desk host field edits).
+		do_ring = bool(getattr(doc.flags, "vms_ring_host", False)) and doc.status in (
+			"Pending Approval",
+			"Pending",
+		)
 		return notify_host_and_creator(
 			doc,
 			event="transferred",
 			title=_("Visitor transferred to you"),
 			body=_("Visitor {0} was transferred to you and needs approval.").format(visitor_name),
-			ring_host=doc.status in ("Pending Approval", "Pending"),
+			ring_host=do_ring,
 		)
 
 	result = notify_host_and_creator(doc)

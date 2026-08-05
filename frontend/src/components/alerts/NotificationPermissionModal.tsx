@@ -5,12 +5,60 @@ import { notificationPermissionState } from "@/native/services/notifications";
 import { getWebPushStatus } from "@/services/webPush";
 
 const SKIP_SESSION_KEY = "vms_notify_modal_skip";
+const SKIP_LOCAL_KEY = "vms_notify_modal_skip_until";
+const SETUP_DONE_KEY = "vms_notify_setup_done";
+/** How long "Not now" hides the prompt across refreshes. */
+const SKIP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onEnabled: () => void;
 };
+
+function isSkipActive(): boolean {
+  if (typeof window === "undefined") return false;
+  if (sessionStorage.getItem(SKIP_SESSION_KEY) === "1") return true;
+
+  if (localStorage.getItem(SETUP_DONE_KEY) === "1") {
+    const state = notificationPermissionState();
+    // Still allowed — never re-prompt.
+    if (state === "granted") return true;
+    // User revoked permission — allow the prompt again when browser resets to default.
+    if (state === "default") {
+      localStorage.removeItem(SETUP_DONE_KEY);
+    } else {
+      return true;
+    }
+  }
+
+  const untilRaw = localStorage.getItem(SKIP_LOCAL_KEY);
+  if (!untilRaw) return false;
+  const until = Number(untilRaw);
+  if (!Number.isFinite(until) || Date.now() >= until) {
+    localStorage.removeItem(SKIP_LOCAL_KEY);
+    return false;
+  }
+  return true;
+}
+
+function markSetupDone(): void {
+  localStorage.setItem(SETUP_DONE_KEY, "1");
+  localStorage.removeItem(SKIP_LOCAL_KEY);
+  sessionStorage.removeItem(SKIP_SESSION_KEY);
+}
+
+function markSkipped(): void {
+  sessionStorage.setItem(SKIP_SESSION_KEY, "1");
+  localStorage.setItem(SKIP_LOCAL_KEY, String(Date.now() + SKIP_TTL_MS));
+}
+
+/** Clear skip flags when the user opens setup from Profile. */
+export function clearNotificationPermissionSkip(): void {
+  sessionStorage.removeItem(SKIP_SESSION_KEY);
+  localStorage.removeItem(SKIP_LOCAL_KEY);
+  localStorage.removeItem(SETUP_DONE_KEY);
+}
 
 export function NotificationPermissionModal({ open, onClose, onEnabled }: Props) {
   const [busy, setBusy] = useState(false);
@@ -38,7 +86,7 @@ export function NotificationPermissionModal({ open, onClose, onEnabled }: Props)
         setError("Could not enable background push. Check connection and try again.");
         return;
       }
-      sessionStorage.removeItem(SKIP_SESSION_KEY);
+      markSetupDone();
       onEnabled();
       onClose();
     } finally {
@@ -47,7 +95,7 @@ export function NotificationPermissionModal({ open, onClose, onEnabled }: Props)
   }
 
   function onSkip() {
-    sessionStorage.setItem(SKIP_SESSION_KEY, "1");
+    markSkipped();
     onClose();
   }
 
@@ -95,18 +143,23 @@ export function NotificationPermissionModal({ open, onClose, onEnabled }: Props)
 }
 
 export function shouldShowNotificationPermissionModal(): boolean {
-  if (sessionStorage.getItem(SKIP_SESSION_KEY) === "1") return false;
+  if (isSkipActive()) return false;
   const state = notificationPermissionState();
+  // Already granted in the browser — do not prompt again.
+  if (state === "granted" || state === "unsupported") return false;
   return state === "default" || state === "denied";
 }
 
-/** True when host still needs Web Push setup for background alerts. */
+/**
+ * True only when the host still needs to grant notification permission.
+ * If permission is already granted, Web Push is (re)subscribed silently —
+ * never reopen this modal on every refresh.
+ */
 export async function needsBackgroundPushSetup(): Promise<boolean> {
-  if (sessionStorage.getItem(SKIP_SESSION_KEY) === "1") return false;
+  if (isSkipActive()) return false;
   if (isNativePlatform()) return false;
   const state = notificationPermissionState();
-  if (state === "denied" || state === "unsupported") return state === "denied";
-  if (state === "default") return true;
-  const status = await getWebPushStatus();
-  return !status.subscribed;
+  // Already allowed — Web Push is (re)subscribed silently in initWebHostNotifications.
+  if (state === "granted" || state === "unsupported") return false;
+  return state === "default" || state === "denied";
 }

@@ -7,6 +7,7 @@ import { PageChromeProvider, usePageChromeState } from "@/context/PageChromeCont
 import { HostAlertProvider } from "@/context/HostAlertContext";
 import { VMS_PAGE_REFRESH_EVENT } from "@/hooks/usePageRefresh";
 import { setSpaNavigators, syncSpaDepth } from "@/native/backNavigation";
+import { PwaInstallNudge } from "@/components/ui/PwaInstallNudge";
 
 function AppTopBar() {
   const chrome = usePageChromeState();
@@ -196,6 +197,7 @@ export function MobileLayout() {
             <Outlet key={location.pathname} />
           </main>
           <FloatingNavbar />
+          <PwaInstallNudge />
         </div>
       </HostAlertProvider>
     </PageChromeProvider>

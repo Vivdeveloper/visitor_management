@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAppLanguage } from "@/context/AppLanguageContext";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPrompt";
+import { PwaInstallButton } from "@/components/ui/PwaInstallButton";
 import { applyAppUpdate, isPwaInstalled } from "@/lib/pwaUpdate";
 import { isNativePlatform } from "@/native/platform";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
@@ -120,6 +121,11 @@ export function SettingsGroups({
 
       <SettingsGroup id="tools" title={ut(lang, "tools")} open={openGroups.tools} onToggle={toggle}>
         <SettingsRow label={ut(lang, "calendar_view")} to="/meetings" />
+        {!isNativePlatform() ? (
+          <div className="vm-settings-install-wrap">
+            <PwaInstallButton variant="full" className="vm-settings-install-btn" />
+          </div>
+        ) : null}
         {showAppUpdate ? (
           <SettingsRow
             label={ut(lang, "app_update")}

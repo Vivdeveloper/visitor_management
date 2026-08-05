@@ -1,4 +1,5 @@
 import { usePwaInstall } from "@/hooks/usePwaInstall";
+import { PwaInstallSheet } from "@/components/ui/PwaInstallSheet";
 
 type PwaInstallButtonProps = {
   /** full = profile card · compact = pill · welcome = dark splash */
@@ -10,7 +11,7 @@ export function PwaInstallButton({
   variant = "full",
   className = "",
 }: PwaInstallButtonProps) {
-  const { showButton, installed, install, ios, hintOpen, setHintOpen } =
+  const { showButton, installed, install, ios, canPrompt, hintOpen, setHintOpen } =
     usePwaInstall();
 
   if (installed && variant !== "full") {
@@ -46,10 +47,6 @@ export function PwaInstallButton({
         </span>
         {variant === "compact" ? (
           <span>Download App</span>
-        ) : variant === "welcome" ? (
-          <span className="pwa-install-copy">
-            <strong>Download App</strong>
-          </span>
         ) : (
           <span className="pwa-install-copy">
             <strong>Download App</strong>
@@ -57,57 +54,13 @@ export function PwaInstallButton({
         )}
       </button>
 
-      {hintOpen ? (
-        <div
-          className="pwa-ios-sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="pwa-install-title"
-          onClick={() => setHintOpen(false)}
-        >
-          <div
-            className="pwa-ios-sheet-card"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="pwa-install-title">
-              {ios ? "Install on iPhone" : "Install this app"}
-            </h3>
-            {ios ? (
-              <ol>
-                <li>
-                  Tap the <strong>Share</strong> button{" "}
-                  <span aria-hidden className="pwa-ios-share">
-                    ⎋
-                  </span>
-                </li>
-                <li>
-                  Scroll and tap <strong>Add to Home Screen</strong>
-                </li>
-                <li>
-                  Tap <strong>Add</strong> to install Precious Alloys VMS
-                </li>
-              </ol>
-            ) : (
-              <ol>
-                <li>
-                  Open the browser menu (<strong>⋮</strong> or <strong>⋯</strong>)
-                </li>
-                <li>
-                  Tap <strong>Install app</strong> / <strong>Add to Home screen</strong>
-                </li>
-                <li>Confirm to add Precious Alloys VMS</li>
-              </ol>
-            )}
-            <button
-              type="button"
-              className="pwa-ios-sheet-close"
-              onClick={() => setHintOpen(false)}
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <PwaInstallSheet
+        open={hintOpen}
+        ios={ios}
+        canPrompt={canPrompt}
+        onClose={() => setHintOpen(false)}
+        onInstall={() => void install()}
+      />
     </>
   );
 }

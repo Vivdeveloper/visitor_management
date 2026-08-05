@@ -29,8 +29,8 @@ export type ActiveHostAlert = {
   variant: "host" | "security";
 };
 
-const REMINDER_INTERVAL_MS = 45_000;
-const MAX_REMINDERS = 20;
+const REMINDER_INTERVAL_MS = 5 * 60_000;
+const MAX_REMINDERS = 24;
 
 type ReminderState = {
   timer: ReturnType<typeof setInterval>;
@@ -204,12 +204,9 @@ export function startHostAlertReminders(
 
     const next: ActiveHostAlert = { ...alert, reminderCount: count };
     void fireHostAlertFeedback();
-    void pushHostAlertNotification(
-      alert.visitorEntry,
-      "Visitor still waiting",
-      next.message,
-      count,
-    ).then((id) => {
+    const reminderTitle =
+      alert.variant === "security" ? "Checkout still pending" : "Visitor still waiting";
+    void pushHostAlertNotification(alert.visitorEntry, reminderTitle, next.message, count).then((id) => {
       const state = reminders.get(alert.visitorEntry);
       if (state) state.notificationIds.push(id);
     });
