@@ -299,6 +299,10 @@ export type VisitorListRow = {
   qr_expires_on?: string;
   /** Host/security remarks — includes reject reason lines. */
   approval_remarks?: string;
+  /** Document owner (User.name) — creator of the Visitor Entry. */
+  owner?: string;
+  /** Resolved User.full_name for `owner`. */
+  owner_name?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -357,8 +361,8 @@ export const visitorApi = {
    * Pass host-scope filters from `visitorScopeFilters(user)` for host users
    * (Visitor Entry without create DocPerm).
    */
-  listDetailed: (limit = 100, filters?: Record<string, unknown> | unknown[]) =>
-    frappeGetList<VisitorListRow>({
+  listDetailed: async (limit = 100, filters?: Record<string, unknown> | unknown[]) => {
+    const rows = await frappeGetList<VisitorListRow>({
       doctype: "Visitor Entry",
       fields: [
         "name",
@@ -378,6 +382,7 @@ export const visitorApi = {
         "cancelled_on",
         "transfer_to_user",
         "creation",
+        "owner",
         "visitor_company",
         "company",
         "visitor_location",
@@ -390,7 +395,50 @@ export const visitorApi = {
       filters,
       order_by: "modified desc",
       limit_page_length: limit,
-    }),
+    });
+
+    const owners = Array.from(
+      new Set(
+        rows
+          .map((row) => (row.owner || "").trim())
+          .filter((owner) => owner && owner !== "Guest"),
+      ),
+    );
+    if (!owners.length) {
+      return rows.map((row) => ({
+        ...row,
+        owner_name: row.owner && row.owner !== "Guest" ? row.owner : undefined,
+      }));
+    }
+
+    try {
+      const users = await frappeGetList<{ name: string; full_name?: string }>({
+        doctype: "User",
+        fields: ["name", "full_name"],
+        filters: [["name", "in", owners]],
+        limit_page_length: owners.length,
+      });
+      const nameByUser = new Map(
+        users.map((user) => [user.name, (user.full_name || user.name || "").trim()]),
+      );
+      return rows.map((row) => {
+        const owner = (row.owner || "").trim();
+        if (!owner || owner === "Guest") return { ...row, owner_name: undefined };
+        return {
+          ...row,
+          owner_name: nameByUser.get(owner) || owner,
+        };
+      });
+    } catch {
+      return rows.map((row) => {
+        const owner = (row.owner || "").trim();
+        return {
+          ...row,
+          owner_name: owner && owner !== "Guest" ? owner : undefined,
+        };
+      });
+    }
+  },
 };
 
 export const approvalApi = {

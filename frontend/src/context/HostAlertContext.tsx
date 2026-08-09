@@ -67,10 +67,57 @@ function payloadTargetsCurrentHost(payload: HostAlertPayload, user: AuthProfile 
   const ids = currentUserIds(user);
   if (!ids.length) return false;
   const hostUser = (payload.host_user || "").trim().toLowerCase();
-  // Targeted alert: only the assigned host.
+  // Targeted alert: only the assigned host login.
   if (hostUser) return ids.includes(hostUser);
   // Untargeted broadcast (legacy) — show to host-mode users only.
   return resolveMode(user) === "host" || canApproveReject(user);
+}
+
+function payloadTargetsCurrentCreator(payload: HostAlertPayload, user: AuthProfile | null): boolean {
+  const ids = currentUserIds(user);
+  if (!ids.length) return false;
+  const owner = (payload.owner || "").trim().toLowerCase();
+  if (owner) return ids.includes(owner);
+  return false;
+}
+
+/** Urgent host ring — prefer explicit ring_for from server. */
+function isUrgentHostRingEvent(payload: HostAlertPayload): boolean {
+  if (payload.ring_for === "host") return true;
+  if (payload.ring_for === "creator") return false;
+  const event = payload.event || "";
+  return event === "host_notified";
+}
+
+/** Urgent creator ring — prefer explicit ring_for from server. */
+function isUrgentCreatorRingEvent(payload: HostAlertPayload): boolean {
+  if (payload.ring_for === "creator") return true;
+  if (payload.ring_for === "host") return false;
+  const event = payload.event || "";
+  return event === "creator_alert";
+}
+
+function creatorAlertTitle(payload: HostAlertPayload): string {
+  const event = payload.lifecycle_event || payload.event || "";
+  switch (event) {
+    case "approved":
+      return "Visitor approved";
+    case "rejected":
+      return "Visitor rejected";
+    case "meeting_done":
+      return "Meeting completed";
+    case "creator_alert": {
+      if (payload.status === "Approved") return "Visitor approved";
+      if (payload.status === "Rejected") return "Visitor rejected";
+      if (payload.status === "Meeting Done") return "Meeting completed";
+      return "Visitor update";
+    }
+    default:
+      if (payload.status === "Approved") return "Visitor approved";
+      if (payload.status === "Rejected") return "Visitor rejected";
+      if (payload.status === "Meeting Done") return "Meeting completed";
+      return "Visitor update";
+  }
 }
 
 export function HostAlertProvider({ children }: { children: ReactNode }) {
@@ -82,8 +129,9 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   /** Entries the host dismissed via Review — reminders still fire every 5 min until approve/reject. */
   const [suppressedEntries, setSuppressedEntries] = useState<Record<string, true>>({});
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
-  /** Avoid double-register when both vms_security_alert and vms_visitor_update arrive. */
+  /** Avoid double-register when both dedicated alert channel and visitor_update arrive. */
   const securityAlertCooldownRef = useRef<Record<string, number>>({});
+  const ringAlertCooldownRef = useRef<Record<string, number>>({});
 
   const activeAlert = useMemo(() => {
     const list = Object.values(alerts).filter((a) => !suppressedEntries[a.visitorEntry]);
@@ -117,7 +165,11 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const goToPendingApprovals = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    navigate(current?.variant === "security" ? "/inside" : "/approvals");
+    if (current?.variant === "security" || current?.variant === "creator") {
+      navigate("/inside");
+      return;
+    }
+    navigate("/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
   const onReminderTick = useCallback((next: ActiveHostAlert) => {
@@ -136,14 +188,36 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     startHostAlertRing();
   }, []);
 
+  const withinRingCooldown = useCallback((key: string): boolean => {
+    const now = Date.now();
+    const lastAt = ringAlertCooldownRef.current[key] || 0;
+    if (now - lastAt < 2500) return true;
+    ringAlertCooldownRef.current[key] = now;
+    return false;
+  }, []);
+
   const registerAlert = useCallback(
     (payload: HostAlertPayload) => {
       const visitorEntry = payload.visitor_entry;
       if (!visitorEntry) return;
+      if (withinRingCooldown(`host:${visitorEntry}`)) return;
 
       const visitorName = payload.visitor_name || visitorEntry;
       const message = payload.message || `${visitorName} is waiting for your approval at the gate.`;
       const hostName = payload.host || "Host";
+      const isCheckedIn =
+        payload.lifecycle_event === "checked_in" ||
+        payload.event === "checked_in" ||
+        payload.status === "Checked In";
+      const isCancelled =
+        payload.lifecycle_event === "cancelled" ||
+        payload.event === "cancelled" ||
+        payload.status === "Cancelled";
+      const title = isCancelled
+        ? "Visit cancelled"
+        : isCheckedIn
+          ? "Visitor checked in"
+          : "Visitor waiting at gate";
 
       const alert: ActiveHostAlert = {
         visitorEntry,
@@ -153,6 +227,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         receivedAt: Date.now(),
         reminderCount: 0,
         variant: "host",
+        title,
       };
 
       setSuppressedEntries((prev) => {
@@ -165,11 +240,50 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
 
       void requestNotificationPermission();
       startHostAlertRing();
-      void pushHostAlertNotification(visitorEntry, "Visitor waiting at gate", message, 0);
+      void pushHostAlertNotification(visitorEntry, title, message, 0);
 
       startHostAlertReminders(alert, onReminderTick);
     },
-    [onReminderTick],
+    [onReminderTick, withinRingCooldown],
+  );
+
+  const registerCreatorAlert = useCallback(
+    (payload: HostAlertPayload) => {
+      const visitorEntry = payload.visitor_entry;
+      if (!visitorEntry) return;
+      if (withinRingCooldown(`creator:${visitorEntry}`)) return;
+
+      const visitorName = payload.visitor_name || visitorEntry;
+      const title = creatorAlertTitle(payload);
+      const message = payload.message || `${visitorName}: ${title}`;
+      const hostName = payload.host || "Host";
+
+      const alert: ActiveHostAlert = {
+        visitorEntry,
+        visitorName,
+        message,
+        hostName,
+        receivedAt: Date.now(),
+        reminderCount: 0,
+        variant: "creator",
+        title,
+      };
+
+      setSuppressedEntries((prev) => {
+        if (!prev[visitorEntry]) return prev;
+        const next = { ...prev };
+        delete next[visitorEntry];
+        return next;
+      });
+      setAlerts((prev) => ({ ...prev, [visitorEntry]: alert }));
+
+      void requestNotificationPermission();
+      startHostAlertRing();
+      void pushHostAlertNotification(visitorEntry, title, message, 0);
+
+      startHostAlertReminders(alert, onReminderTick);
+    },
+    [onReminderTick, withinRingCooldown],
   );
 
   const registerSecurityAlert = useCallback(
@@ -195,6 +309,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
         receivedAt: Date.now(),
         reminderCount: 0,
         variant: "security",
+        title: "Visitor ready for checkout",
       };
 
       setSuppressedEntries((prev) => {
@@ -225,6 +340,16 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   );
 
   useVmsRealtimeEvent<HostAlertPayload>(
+    "vms_creator_alert",
+    (payload) => {
+      if (!user?.authenticated || !payload) return;
+      if (!payloadTargetsCurrentCreator(payload, user)) return;
+      registerCreatorAlert(payload);
+    },
+    Boolean(user?.user),
+  );
+
+  useVmsRealtimeEvent<HostAlertPayload>(
     "vms_security_alert",
     (payload) => {
       if (mode !== "security") return;
@@ -233,25 +358,38 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     Boolean(user?.user) && mode === "security",
   );
 
-  // Fallback when only the generic update channel arrives (older publishers).
+  // Fallback: site-wide visitor_update carries ring_for when user-room alerts are missed.
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_visitor_update",
     (payload) => {
-      if (mode !== "security") return;
-      if (payload?.event !== "security_checkout_required") return;
-      // Prefer vms_security_alert; skip if that path already registered this visit recently.
-      registerSecurityAlert(payload);
-    },
-    Boolean(user?.user) && mode === "security",
-  );
+      if (!payload || !user?.authenticated) return;
 
-  useVmsRealtimeEvent<HostAlertPayload>(
-    "vms_visitor_update",
-    (payload) => {
-      const visitorEntry = payload?.visitor_entry;
-      const event = payload?.event;
-      if (!visitorEntry) return;
-      if (event === "approved" || event === "rejected" || event === "checked_in" || event === "checked_out") {
+      if (mode === "security" && payload.event === "security_checkout_required") {
+        registerSecurityAlert(payload);
+      }
+
+      if (isUrgentHostRingEvent(payload) && receivesHostAlerts && payloadTargetsCurrentHost(payload, user)) {
+        registerAlert(payload);
+      }
+
+      if (isUrgentCreatorRingEvent(payload) && payloadTargetsCurrentCreator(payload, user)) {
+        registerCreatorAlert(payload);
+      }
+
+      const visitorEntry = payload.visitor_entry;
+      const event = payload.event;
+      if (!visitorEntry || !event) return;
+
+      // Clear previous ring when status moves past that recipient's job —
+      // but never wipe a creator urgent ring that was just registered from this payload.
+      if (event === "approved" || event === "rejected" || event === "meeting_done") {
+        if (isUrgentCreatorRingEvent(payload) && payloadTargetsCurrentCreator(payload, user)) {
+          return;
+        }
+        clearAlert(visitorEntry);
+        return;
+      }
+      if (event === "checked_out") {
         clearAlert(visitorEntry);
         return;
       }
@@ -328,7 +466,16 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const handleReview = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    navigate(current?.variant === "security" ? "/inside" : "/approvals");
+    if (current?.variant === "security") {
+      navigate("/inside");
+      return;
+    }
+    if (current?.variant === "creator") {
+      const title = (current.title || "").toLowerCase();
+      navigate(title.includes("reject") ? "/inside?status=rejected" : "/inside");
+      return;
+    }
+    navigate("/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
   const openPermissionSetup = useCallback(() => {

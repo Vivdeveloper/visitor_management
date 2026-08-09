@@ -183,7 +183,7 @@ export function firstAllowedPath(user: AuthProfile | null): string {
   const tabs = mobileTabsFor(user);
   if (tabs.length) return tabs[0].to;
   if (hasCapability(user, "profile")) return "/profile";
-  return "/login";
+  return "/";
 }
 
 export function capabilityForPath(pathname: string): CapabilityKey | null {

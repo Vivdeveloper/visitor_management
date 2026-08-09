@@ -63,6 +63,9 @@ export function PendingDecisionCard({
   const visitorName = localizePersonName(item.full_name || item.name, lang);
   const cardTitle = visitorName;
   const hostName = localizePersonName(item.person_to_meet_name || "—", lang);
+  const rawCreator = (item.owner_name || item.owner || "").trim();
+  const creatorName =
+    rawCreator && rawCreator !== "Guest" ? localizePersonName(rawCreator, lang) : "";
   const company = (item.visitor_company || "").trim();
   const location = (item.visitor_location || "").trim();
   const purpose = item.visit_purpose_type
@@ -151,6 +154,18 @@ export function PendingDecisionCard({
                   <span className="vm-pending-redesign-host-name">{hostName}</span>
                 </span>
               </div>
+              {creatorName ? (
+                <div className="vm-pending-redesign-host-row">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                  <span className="vm-pending-redesign-host-text">
+                    {ut(lang, "creator_prefix")}{" "}
+                    <span className="vm-pending-redesign-host-name">{creatorName}</span>
+                  </span>
+                </div>
+              ) : null}
               {company ? (
                 <div className="vm-pending-redesign-host-row">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>

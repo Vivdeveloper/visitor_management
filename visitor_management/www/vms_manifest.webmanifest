@@ -1,7 +1,7 @@
 {
-  "name": "Precious Alloys VMS",
-  "short_name": "Precious Alloys",
-  "description": "Visitor passes, host approvals, and gate operations",
+  "name": "Visitor Gate",
+  "short_name": "Visitor Gate",
+  "description": "Precious Alloy Components — visitor check-in, host approvals, and gate passes",
   "start_url": "/vms/",
   "display": "standalone",
   "background_color": "#F8FAFC",
@@ -10,9 +10,52 @@
   "scope": "/vms/",
   "orientation": "portrait",
   "id": "/vms/",
+  "dir": "ltr",
   "categories": [
     "business",
     "productivity"
+  ],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Add Entry",
+      "short_name": "Check-in",
+      "description": "Register a visitor at the gate",
+      "url": "/vms/check-in",
+      "icons": [
+        {
+          "src": "/assets/visitor_management/frontend/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Approvals",
+      "short_name": "Pending",
+      "description": "Host approval queue",
+      "url": "/vms/approvals",
+      "icons": [
+        {
+          "src": "/assets/visitor_management/frontend/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Inside",
+      "short_name": "Inside",
+      "description": "Visitors currently inside",
+      "url": "/vms/inside",
+      "icons": [
+        {
+          "src": "/assets/visitor_management/frontend/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ],
   "icons": [
     {

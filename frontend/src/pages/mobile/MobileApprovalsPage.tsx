@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   approvalApi,
@@ -46,6 +46,7 @@ const ALL_STATUSES = new Set([
 
 type TabId = "all" | "pending" | "approved" | "inside";
 type DateFilterMode = "today" | "yesterday" | "week";
+type SortMode = "asc" | "desc";
 
 function toIsoDate(date: Date): string {
   const y = date.getFullYear();
@@ -167,6 +168,9 @@ export function MobileApprovalsPage() {
   const [tab, setTab] = useState<TabId>(() => parseApprovalsTab(searchParams.get("tab")));
   const [query, setQuery] = useState("");
   const [dateMode, setDateMode] = useState<DateFilterMode>("week");
+  const [sortMode, setSortMode] = useState<SortMode>("desc");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +180,17 @@ export function MobileApprovalsPage() {
   const [toast, setToast] = useState<ErpToastData | null>(null);
   const [approveVisitor, setApproveVisitor] = useState<VisitorListRow | null>(null);
   const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
+
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onDocDown = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [sortOpen]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -406,7 +421,7 @@ export function MobileApprovalsPage() {
   const filteredItems = useMemo(() => {
     const def = TABS.find((t) => t.id === tab) || TABS[0];
     const q = query.trim().toLowerCase();
-    return rows
+    const list = rows
       .filter((item) => def.match(item.status))
       .filter((item) => {
         const itemDate = itemFilterDate(item);
@@ -414,10 +429,19 @@ export function MobileApprovalsPage() {
       })
       .filter((item) => {
         if (!q) return true;
-        const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
+        const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.owner_name || ""} ${item.owner || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
         return haystack.includes(q);
       });
-  }, [rows, tab, query, dateMode]);
+
+    const createdAt = (item: VisitorListRow) =>
+      new Date(item.creation || item.modified || 0).getTime() || 0;
+
+    list.sort((a, b) => {
+      const diff = createdAt(a) - createdAt(b);
+      return sortMode === "asc" ? diff : -diff;
+    });
+    return list;
+  }, [rows, tab, query, dateMode, sortMode]);
 
   const viewOnlyAll = tab === "all";
 
@@ -483,24 +507,76 @@ export function MobileApprovalsPage() {
             >
               {ut(lang, "filter_this_week")}
             </button>
+
+            {dateMode !== "week" || query ? (
+              <button
+                type="button"
+                className="vm-filter-clear-btn"
+                onClick={() => {
+                  setDateMode("week");
+                  setQuery("");
+                }}
+                title={ut(lang, "filter_clear")}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+                <span>{ut(lang, "filter_clear")}</span>
+              </button>
+            ) : null}
           </div>
 
-          {dateMode !== "week" || query ? (
+          <div className="vm-approvals-sort" ref={sortRef}>
             <button
               type="button"
-              className="vm-filter-clear-btn"
-              onClick={() => {
-                setDateMode("week");
-                setQuery("");
-              }}
-              title={ut(lang, "filter_clear")}
+              className={`vm-sort-icon-btn${sortOpen || sortMode === "asc" ? " is-active" : ""}`}
+              onClick={() => setSortOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={sortOpen}
+              aria-label={ut(lang, "sort_label")}
+              title={ut(lang, "sort_label")}
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                <path d="M18 6 6 18M6 6l12 12" />
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path d="M4 7h10" />
+                <path d="M4 12h7" />
+                <path d="M4 17h4" />
+                <path d="M16 5v14" />
+                <path d="m13 16 3 3 3-3" />
               </svg>
-              <span>{ut(lang, "filter_clear")}</span>
             </button>
-          ) : null}
+
+            {sortOpen ? (
+              <div className="vm-approvals-sort-menu" role="menu" aria-label={ut(lang, "sort_label")}>
+                <p className="vm-approvals-sort-heading">{ut(lang, "sort_by_created")}</p>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={sortMode === "desc"}
+                  className={`vm-approvals-sort-option${sortMode === "desc" ? " is-active" : ""}`}
+                  onClick={() => {
+                    setSortMode("desc");
+                    setSortOpen(false);
+                  }}
+                >
+                  <span>{ut(lang, "sort_created_newest")}</span>
+                  <span className="vm-approvals-sort-dir">{ut(lang, "sort_dir_desc")}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={sortMode === "asc"}
+                  className={`vm-approvals-sort-option${sortMode === "asc" ? " is-active" : ""}`}
+                  onClick={() => {
+                    setSortMode("asc");
+                    setSortOpen(false);
+                  }}
+                >
+                  <span>{ut(lang, "sort_created_oldest")}</span>
+                  <span className="vm-approvals-sort-dir">{ut(lang, "sort_dir_asc")}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}

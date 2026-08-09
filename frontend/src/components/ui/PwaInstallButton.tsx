@@ -1,18 +1,31 @@
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { PwaInstallSheet } from "@/components/ui/PwaInstallSheet";
+import { isNativePlatform } from "@/native/platform";
 
 type PwaInstallButtonProps = {
-  /** full = profile card · compact = pill · welcome = dark splash */
-  variant?: "full" | "compact" | "welcome";
+  /** full = profile · compact = pill · welcome = splash · chrome = address-bar style Install */
+  variant?: "full" | "compact" | "welcome" | "chrome";
   className?: string;
 };
 
+/** Chrome-like Install control (matches Frappe HR address-bar Install). */
 export function PwaInstallButton({
   variant = "full",
   className = "",
 }: PwaInstallButtonProps) {
-  const { showButton, installed, install, ios, canPrompt, hintOpen, setHintOpen } =
-    usePwaInstall();
+  const {
+    showButton,
+    installed,
+    install,
+    ios,
+    canPrompt,
+    secure,
+    localhostUrl,
+    hintOpen,
+    setHintOpen,
+  } = usePwaInstall();
+
+  if (isNativePlatform()) return null;
 
   if (installed && variant !== "full") {
     return null;
@@ -35,22 +48,31 @@ export function PwaInstallButton({
     );
   }
 
+  const label =
+    variant === "chrome" ? "Install" : variant === "compact" ? "Install" : "Install app";
+
   return (
     <>
       <button
         type="button"
         className={`pwa-install pwa-install--${variant} ${className}`.trim()}
         onClick={() => void install()}
+        aria-label="Install Visitor Gate"
+        title={
+          secure
+            ? "Install Visitor Gate"
+            : "Open localhost or use HTTPS to show Chrome Install (like Frappe HR)"
+        }
       >
         <span className="pwa-install-icon" aria-hidden>
-          <DownloadIcon />
+          <InstallMonitorIcon />
         </span>
-        {variant === "compact" ? (
-          <span>Download App</span>
-        ) : (
+        {variant === "full" ? (
           <span className="pwa-install-copy">
-            <strong>Download App</strong>
+            <strong>{label}</strong>
           </span>
+        ) : (
+          <span>{label}</span>
         )}
       </button>
 
@@ -58,6 +80,8 @@ export function PwaInstallButton({
         open={hintOpen}
         ios={ios}
         canPrompt={canPrompt}
+        secure={secure}
+        localhostUrl={localhostUrl}
         onClose={() => setHintOpen(false)}
         onInstall={() => void install()}
       />
@@ -65,12 +89,12 @@ export function PwaInstallButton({
   );
 }
 
-function DownloadIcon() {
+function InstallMonitorIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="20"
-      height="20"
+      width="18"
+      height="18"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.2"
@@ -78,9 +102,11 @@ function DownloadIcon() {
       strokeLinejoin="round"
       aria-hidden
     >
-      <path d="M12 3v12" />
-      <path d="m7 10 5 5 5-5" />
-      <path d="M5 21h14" />
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M12 7v5" />
+      <path d="m9 10 3 3 3-3" />
     </svg>
   );
 }

@@ -11,12 +11,16 @@ import { subscribeWebPush } from "@/services/webPush";
 
 export type HostAlertPayload = {
   event?: string;
+  lifecycle_event?: string;
   visitor_entry?: string;
   visitor_name?: string;
   host?: string;
   host_user?: string;
+  owner?: string;
   message?: string;
-  alert_variant?: "host" | "security";
+  status?: string;
+  ring_for?: "host" | "creator" | null;
+  alert_variant?: "host" | "security" | "creator";
 };
 
 export type ActiveHostAlert = {
@@ -26,7 +30,9 @@ export type ActiveHostAlert = {
   hostName: string;
   receivedAt: number;
   reminderCount: number;
-  variant: "host" | "security";
+  variant: "host" | "security" | "creator";
+  /** Optional headline for creator / status-specific rings */
+  title?: string;
 };
 
 const REMINDER_INTERVAL_MS = 5 * 60_000;
@@ -41,7 +47,8 @@ const reminders = new Map<string, ReminderState>();
 let audioContext: AudioContext | null = null;
 let ringTimer: ReturnType<typeof setInterval> | null = null;
 
-const RING_INTERVAL_MS = 3_500;
+/** Faster than before — closer to Tawk / chat-widget urgency. */
+const RING_INTERVAL_MS = 2_200;
 
 function baseNotificationId(visitorEntry: string): number {
   let hash = 0;
@@ -68,7 +75,10 @@ export function primeHostAlertAudio(): void {
   void ctx.resume().catch(() => undefined);
 }
 
-/** Two-tone delivery-app style alert using Web Audio (no asset file). */
+/**
+ * Strong Tawk-like attention chime (square + saw, higher gain, multi-burst).
+ * No asset file — works on web + Capacitor WebView after audio unlock.
+ */
 export function playHostAlertSound(): void {
   primeHostAlertAudio();
   const ctx = getAudioContext();
@@ -76,24 +86,37 @@ export function playHostAlertSound(): void {
 
   const playTones = () => {
     const now = ctx.currentTime;
-    const tones = [
-      { freq: 880, start: 0, duration: 0.14 },
-      { freq: 660, start: 0.18, duration: 0.14 },
-      { freq: 880, start: 0.36, duration: 0.2 },
+    // Pattern: sharp ding-ding-ding then a lower punch (chat-widget style).
+    const tones: Array<{
+      freq: number;
+      start: number;
+      duration: number;
+      type: OscillatorType;
+      peak: number;
+    }> = [
+      { freq: 1046.5, start: 0, duration: 0.12, type: "square", peak: 0.42 },
+      { freq: 1318.5, start: 0.14, duration: 0.12, type: "square", peak: 0.48 },
+      { freq: 1568, start: 0.28, duration: 0.16, type: "square", peak: 0.55 },
+      { freq: 784, start: 0.5, duration: 0.28, type: "sawtooth", peak: 0.38 },
+      { freq: 1174.7, start: 0.82, duration: 0.18, type: "square", peak: 0.5 },
     ];
 
-    tones.forEach(({ freq, start, duration }) => {
+    tones.forEach(({ freq, start, duration, type, peak }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "sine";
+      const filter = ctx.createBiquadFilter();
+      osc.type = type;
       osc.frequency.setValueAtTime(freq, now + start);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(4200, now + start);
       gain.gain.setValueAtTime(0.0001, now + start);
-      gain.gain.exponentialRampToValueAtTime(0.22, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), now + start + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
-      osc.connect(gain);
+      osc.connect(filter);
+      filter.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now + start);
-      osc.stop(now + start + duration + 0.02);
+      osc.stop(now + start + duration + 0.03);
     });
   };
 
@@ -108,10 +131,10 @@ export function playHostAlertSound(): void {
 export async function triggerHostAlertHaptic(): Promise<void> {
   if (isNativePlatform()) {
     try {
-      await Haptics.vibrate({ duration: 420 });
+      await Haptics.vibrate({ duration: 480 });
       window.setTimeout(() => {
-        void Haptics.vibrate({ duration: 280 });
-      }, 520);
+        void Haptics.vibrate({ duration: 320 });
+      }, 560);
     } catch {
       /* haptics unavailable */
     }
@@ -119,7 +142,7 @@ export async function triggerHostAlertHaptic(): Promise<void> {
   }
 
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    navigator.vibrate([0, 220, 120, 220, 120, 360]);
+    navigator.vibrate([0, 260, 90, 260, 90, 420]);
   }
 }
 
@@ -205,7 +228,11 @@ export function startHostAlertReminders(
     const next: ActiveHostAlert = { ...alert, reminderCount: count };
     void fireHostAlertFeedback();
     const reminderTitle =
-      alert.variant === "security" ? "Checkout still pending" : "Visitor still waiting";
+      alert.variant === "security"
+        ? "Checkout still pending"
+        : alert.variant === "creator"
+          ? alert.title || "Visitor update"
+          : "Visitor still waiting";
     void pushHostAlertNotification(alert.visitorEntry, reminderTitle, next.message, count).then((id) => {
       const state = reminders.get(alert.visitorEntry);
       if (state) state.notificationIds.push(id);

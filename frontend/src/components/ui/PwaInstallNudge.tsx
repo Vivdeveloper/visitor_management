@@ -5,7 +5,8 @@ import { isNativePlatform } from "@/native/platform";
 
 const DISMISS_KEY = "vms_install_nudge_dismissed_at";
 const DISMISS_DAYS = 7;
-const SHOW_DELAY_MS = 2200;
+/** Delay before first auto-nudge (HRMS shows ASAP on beforeinstallprompt). */
+const SHOW_DELAY_MS = 1200;
 
 function wasRecentlyDismissed(): boolean {
   try {
@@ -28,11 +29,11 @@ function markDismissed() {
 }
 
 /**
- * Auto “Add to Home Screen” nudge when running in a mobile browser
- * (not already installed, not Capacitor native).
+ * Auto “Install Visitor Gate” nudge — same idea as HRMS InstallPrompt:
+ * show when browser fires beforeinstallprompt, or guide iOS Add to Home Screen.
  */
 export function PwaInstallNudge() {
-  const { installed, ios, canPrompt, install, showButton } = usePwaInstall();
+  const { installed, ios, canPrompt, install, showButton, secure, localhostUrl } = usePwaInstall();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -40,12 +41,20 @@ export function PwaInstallNudge() {
     if (installed || !showButton) return;
     if (wasRecentlyDismissed()) return;
 
+    // When Chrome is ready to install, open immediately (HRMS-style).
+    if (canPrompt) {
+      setOpen(true);
+      return;
+    }
+
+    // On insecure http://site-name, explain how to get the real Install button.
+    const delay = secure ? SHOW_DELAY_MS : 800;
     const timer = window.setTimeout(() => {
       setOpen(true);
-    }, SHOW_DELAY_MS);
+    }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [installed, showButton]);
+  }, [installed, showButton, canPrompt, secure]);
 
   const close = useCallback(() => {
     markDismissed();
@@ -67,6 +76,8 @@ export function PwaInstallNudge() {
       open={open}
       ios={ios}
       canPrompt={canPrompt}
+      secure={secure}
+      localhostUrl={localhostUrl}
       onClose={close}
       onInstall={() => void handleInstall()}
     />

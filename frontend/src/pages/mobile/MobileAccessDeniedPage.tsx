@@ -9,7 +9,7 @@ export function MobileAccessDeniedPage() {
 
   async function handleSignOut() {
     await logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   }
 
   return (

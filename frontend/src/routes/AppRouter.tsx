@@ -43,7 +43,8 @@ function RequirePwaAuth() {
     return <div className="login-page">Loading…</div>;
   }
   if (!isAuthenticated && !user?.verified) {
-    return <Navigate to="/login" replace />;
+    // Keep URL under /vms/ (not /vms/login) so PWA Install / start_url stay on /vms/
+    return <Navigate to="/" replace />;
   }
   return <Outlet />;
 }
@@ -96,6 +97,22 @@ function RequireCapability({ capability }: { capability: CapabilityKey }) {
   return <Outlet />;
 }
 
+/**
+ * `/vms/` entry shell:
+ * - signed out → login UI (URL stays /vms/)
+ * - signed in → MobileLayout + home outlet
+ */
+function VmsRootGate() {
+  const { user, loading, isAuthenticated } = useAuth();
+  if (loading) {
+    return <div className="login-page">Loading…</div>;
+  }
+  if (!isAuthenticated && !user?.verified) {
+    return <MobileLoginPage />;
+  }
+  return <MobileLayout />;
+}
+
 function HomeOrRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <div className="login-page">Loading…</div>;
@@ -107,17 +124,20 @@ function HomeOrRedirect() {
 
 const routeElements = createRoutesFromElements(
   <>
-    <Route path="/login" element={<MobileLoginPage />} />
-    <Route path="/m/login" element={<Navigate to="/login" replace />} />
+    {/* Prefer /vms/ over /vms/login so Chrome Install matches start_url */}
+    <Route path="/login" element={<Navigate to="/" replace />} />
+    <Route path="/m/login" element={<Navigate to="/" replace />} />
     <Route path="/welcome" element={<Navigate to="/check-in" replace />} />
     <Route path="/pass/:token" element={<PublicPassPage />} />
+
+    <Route element={<VmsRootGate />}>
+      <Route path="/" element={<HomeOrRedirect />} />
+    </Route>
 
     <Route element={<RequirePwaAuth />}>
       <Route path="/access-denied" element={<MobileAccessDeniedPage />} />
       <Route element={<RequireVmsAccess />}>
         <Route element={<MobileLayout />}>
-          <Route path="/" element={<HomeOrRedirect />} />
-
           <Route element={<RequireCapability capability="check_in" />}>
             <Route path="/check-in" element={<MobileCheckInPage />} />
             <Route path="/pre-register" element={<MobilePreRegisterPage />} />

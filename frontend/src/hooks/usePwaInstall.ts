@@ -28,6 +28,21 @@ function isStandaloneDisplay() {
   return Boolean(media || iosStandalone);
 }
 
+/** Chrome Install button needs HTTPS, localhost, or 127.0.0.1 — not http://site-name. */
+export function isPwaSecureContext(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.isSecureContext) return true;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
+
+/** Suggest a localhost URL so Chrome can show Install on local benches. */
+export function getLocalhostInstallUrl(): string {
+  if (typeof window === "undefined") return "http://localhost:8001/vms/";
+  const port = window.location.port ? `:${window.location.port}` : "";
+  return `${window.location.protocol}//localhost${port}/vms/`;
+}
+
 let store: InstallStore = {
   deferred: null,
   installed: typeof window !== "undefined" ? isStandaloneDisplay() : false,
@@ -74,6 +89,8 @@ function bindGlobalListeners() {
 export function usePwaInstall() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const ios = useMemo(() => isIosDevice(), []);
+  const secure = useMemo(() => isPwaSecureContext(), []);
+  const localhostUrl = useMemo(() => getLocalhostInstallUrl(), []);
 
   useEffect(() => {
     bindGlobalListeners();
@@ -109,6 +126,8 @@ export function usePwaInstall() {
     canPrompt,
     showButton,
     ios,
+    secure,
+    localhostUrl,
     hintOpen: snapshot.hintOpen,
     setHintOpen,
     install,
