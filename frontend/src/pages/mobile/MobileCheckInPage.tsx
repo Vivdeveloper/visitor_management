@@ -568,6 +568,26 @@ function normalizePhotoToVertical(file: File): Promise<File> {
       const accessToken = await msg91Otp.verifyOtp(otpValue);
       await otpApi.verify(accessToken, "visitor_registration");
       setOtpVerified(true);
+
+      // Repeated visitor: autofill latest first / middle / last name.
+      try {
+        const mobile = validateMobile(form.mobile, lang);
+        const profile = await visitorApi.getReturningProfile(mobile);
+        if (profile?.found) {
+          setForm((prev) => ({
+            ...prev,
+            first_name: prev.first_name.trim() || autocorrectPersonName(profile.first_name || ""),
+            middle_name: prev.middle_name.trim() || autocorrectPersonName(profile.middle_name || ""),
+            last_name: prev.last_name.trim() || autocorrectPersonName(profile.last_name || ""),
+            // Keep optional identity fields if blank (name is the required autofill).
+            email: prev.email.trim() || (profile.email || "").trim(),
+            gender: prev.gender || (profile.gender || ""),
+          }));
+        }
+      } catch {
+        /* lookup is best-effort — blank form is fine for first-time visitors */
+      }
+
       setOtpSuccess(true);
       setTimeout(() => {
         setStep("details");

@@ -150,17 +150,19 @@ export function MobilePreRegisterPage() {
           />
         </div>
         <div className="ad-field">
-          <label>Meet to</label>
+          <label>Host *</label>
           <SearchSelect
             value={form.person_to_meet}
             options={hostOptions}
             onChange={(val) => setField("person_to_meet", val)}
             placeholder="Select"
-            searchPlaceholder="Search person to meet"
+            searchPlaceholder="Search host"
             loading={loading}
+            loadingText="Loading hosts…"
+            emptyText="No hosts found"
             required
             allowEmpty
-            aria-label="Person to meet"
+            aria-label="Host"
           />
         </div>
         <div className="ad-field">

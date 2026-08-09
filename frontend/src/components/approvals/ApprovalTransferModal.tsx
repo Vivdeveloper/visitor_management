@@ -49,7 +49,11 @@ export function ApprovalTransferModal({ visitor, open, busy = false, onClose, on
   const transferHostOptions = useMemo(
     () =>
       hosts
-        .filter((h) => h.value !== visitor?.person_to_meet)
+        .filter((h) => {
+          const current = (visitor?.person_to_meet || "").trim();
+          if (!current) return true;
+          return h.value !== current && (h.email || "") !== current;
+        })
         .map((h) => ({
           value: h.value,
           label: h.label,

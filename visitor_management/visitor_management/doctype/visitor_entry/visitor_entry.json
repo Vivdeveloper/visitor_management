@@ -200,8 +200,8 @@
    "fieldname": "person_to_meet",
    "fieldtype": "Link",
    "in_standard_filter": 1,
-   "label": "Person to Meet",
-   "options": "User"
+   "label": "Host",
+   "options": "Host"
   },
   {
    "fieldname": "column_break_meeting",
@@ -243,7 +243,7 @@
    "fieldname": "transfer_to_user",
    "fieldtype": "Link",
    "label": "Transferred To",
-   "options": "User",
+   "options": "Host",
    "read_only": 1
   },
   {

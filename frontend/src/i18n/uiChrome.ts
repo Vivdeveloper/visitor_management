@@ -106,6 +106,7 @@ const en: UiDict = {
   action_meeting_done: "Meeting Done",
   action_check_out: "Check Out",
   action_cancel: "Cancel",
+  action_to_pending: "Request Again",
   reason_prefix: "Reason:",
 
   // Live visitors / inside
@@ -269,6 +270,7 @@ const hi: UiDict = {
   action_meeting_done: "मीटिंग पूर्ण",
   action_check_out: "चेक-आउट",
   action_cancel: "रद्द करें",
+  action_to_pending: "फिर से अनुरोध",
   reason_prefix: "कारण:",
 
   live_visitors: "लाइव विज़िटर",
@@ -429,6 +431,7 @@ const mr: UiDict = {
   action_meeting_done: "मीटिंग पूर्ण",
   action_check_out: "चेक-आउट",
   action_cancel: "रद्द करा",
+  action_to_pending: "पुन्हा विनंती",
   reason_prefix: "कारण:",
 
   live_visitors: "लाईव्ह अभ्यागत",

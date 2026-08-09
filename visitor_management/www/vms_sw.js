@@ -115,7 +115,7 @@ define(['/assets/visitor_management/frontend/workbox-50bb6711'], (function (work
     "revision": "81ac443b4c3b0c5a2e7bc68c849bc2b0"
   }, {
     "url": "/assets/visitor_management/frontend/vms-app.js",
-    "revision": "862bc88242875e85dd796da10fa325de"
+    "revision": "c293970bb40495afdbb269d13a9f98f7"
   }, {
     "url": "/assets/visitor_management/frontend/vite.svg",
     "revision": "e1b5a649812a3640929b2e2a896f7b9a"

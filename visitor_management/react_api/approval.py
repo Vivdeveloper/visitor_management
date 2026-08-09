@@ -31,6 +31,13 @@ def cancel(visitor_entry: str | None = None, remarks: str | None = None) -> dict
 
 
 @frappe.whitelist()
+def reopen_to_pending(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+	if not visitor_entry:
+		frappe.throw(_("Visitor Entry is required"))
+	return {"success": True, **ve.reopen_to_pending(visitor_entry, remarks=remarks)}
+
+
+@frappe.whitelist()
 def transfer(
 	visitor_entry: str | None = None,
 	transfer_to_user: str | None = None,

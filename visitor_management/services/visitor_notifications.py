@@ -16,22 +16,147 @@ from visitor_management.auth.permissions import get_users_with_doctype_permissio
 
 
 def resolve_host_user(raw: str | None) -> str | None:
-	"""Map person_to_meet to a valid User id (name / email / full_name tolerant)."""
+	"""Map person_to_meet (Host.name or User) → User.name for notifications / push.
+
+	Host DocType is the master list; ``Host.user`` is the login that receives alerts.
+	With autoname ``field:user``, Host.name usually equals User.name.
+	"""
 	if not raw:
 		return None
 
 	person = str(raw).strip()
 	if not person:
 		return None
+
+	if frappe.db.exists("DocType", "Host"):
+		if frappe.db.exists("Host", person):
+			user = frappe.db.get_value("Host", person, "user")
+			return user or person
+		by_user = frappe.db.get_value("Host", {"user": person}, ["name", "user"], as_dict=True)
+		if by_user:
+			return by_user.user or by_user.name
+
 	if frappe.db.exists("User", person):
+		return _canonical_user(person)
+
+	by_email = frappe.db.get_value("User", {"email": person, "enabled": 1}, "name")
+	if by_email:
+		return _canonical_user(by_email)
+
+	for field in ("full_name", "first_name", "mobile_no"):
+		matches = frappe.get_all(
+			"User",
+			filters={field: person, "enabled": 1},
+			pluck="name",
+			limit_page_length=20,
+		)
+		picked = _prefer_email_user(matches)
+		if picked:
+			return picked
+
+	return None
+
+
+def resolve_host_link(raw: str | None) -> str | None:
+	"""Map input → Host.name for Visitor Entry.person_to_meet (Link → Host)."""
+	if not raw:
+		return None
+
+	person = str(raw).strip()
+	if not person:
+		return None
+
+	if not frappe.db.exists("DocType", "Host"):
+		# Legacy sites without Host DocType — fall back to User id.
+		return resolve_host_user(person)
+
+	if frappe.db.exists("Host", person):
 		return person
 
-	return (
-		frappe.db.get_value("User", {"full_name": person, "enabled": 1}, "name")
-		or frappe.db.get_value("User", {"email": person, "enabled": 1}, "name")
-		or frappe.db.get_value("User", {"first_name": person, "enabled": 1}, "name")
-		or frappe.db.get_value("User", {"mobile_no": person, "enabled": 1}, "name")
+	by_user = frappe.db.get_value("Host", {"user": person}, "name")
+	if by_user:
+		return by_user
+
+	matches = frappe.get_all(
+		"Host",
+		filters={"full_name": person},
+		pluck="name",
+		limit_page_length=5,
 	)
+	if len(matches) == 1:
+		return matches[0]
+
+	# Recover from display name via User, then Host.user
+	user = resolve_host_user(person)
+	if user:
+		by_user = frappe.db.get_value("Host", {"user": user}, "name")
+		if by_user:
+			return by_user
+		if frappe.db.exists("Host", user):
+			return user
+
+	return None
+
+
+def list_host_options() -> list[dict]:
+	"""Active Host DocType rows for PWA / desk pickers (value = Host.name)."""
+	if not frappe.db.exists("DocType", "Host"):
+		return []
+
+	filters: dict = {}
+	if frappe.db.has_column("Host", "is_active"):
+		filters["is_active"] = 1
+
+	hosts = frappe.get_all(
+		"Host",
+		filters=filters,
+		fields=["name", "user", "full_name"],
+		order_by="full_name asc, name asc",
+		limit_page_length=500,
+		ignore_permissions=True,
+	)
+
+	rows: list[dict] = []
+	for host in hosts:
+		user = (host.get("user") or host.get("name") or "").strip()
+		if not user or user in ("Guest", "Administrator"):
+			continue
+		if frappe.db.exists("User", user) and not frappe.db.get_value("User", user, "enabled"):
+			continue
+		label = (host.get("full_name") or user).strip()
+		rows.append(
+			{
+				"value": host["name"],
+				"label": label,
+				"email": user,
+			}
+		)
+	return rows
+
+
+def _prefer_email_user(names: list[str]) -> str | None:
+	if not names:
+		return None
+	emailish = [n for n in names if isinstance(n, str) and "@" in n]
+	if emailish:
+		return sorted(emailish)[0]
+	for name in names:
+		canonical = _canonical_user(name)
+		if canonical and "@" in canonical:
+			return canonical
+	return names[0]
+
+
+def _canonical_user(user_name: str) -> str:
+	"""If a hash User duplicates a real email User, prefer the email User.name."""
+	if not user_name:
+		return user_name
+	if "@" in user_name:
+		return user_name
+	email = frappe.db.get_value("User", user_name, "email")
+	if email and email != user_name and frappe.db.exists("User", email):
+		return email
+	return user_name
 
 
 def get_security_users() -> list[str]:

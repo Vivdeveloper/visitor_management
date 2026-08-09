@@ -15,6 +15,7 @@ import frappe
 
 VMS_DOCTYPES = (
 	"Visitor Entry",
+	"Host",
 	"Floor",
 	"Visit Purpose Type",
 	"Vehicle Type",
@@ -101,9 +102,11 @@ def get_docperm_roles(doctype: str, ptype: str | None = None) -> list[str]:
 
 def get_users_with_doctype_permission(doctype: str, ptype: str = "write") -> list[str]:
 	"""Enabled users allowed for `ptype` on `doctype` via Role Permission Manager."""
+	from frappe.utils.user import get_users_with_role
+
 	users: set[str] = set()
 	for role in get_docperm_roles(doctype, ptype):
-		for user in frappe.get_users_with_role(role) or []:
+		for user in get_users_with_role(role) or []:
 			if not user or user in ("Guest", "Administrator"):
 				continue
 			if not frappe.db.get_value("User", user, "enabled"):
@@ -152,11 +155,26 @@ def must_scope_visitor_entry_to_host(user: str | None = None) -> bool:
 
 
 def visitor_entry_permission_query_conditions(user: str | None = None) -> str:
-	"""Desk / get_list: host DocPerm users see only person_to_meet = self."""
+	"""Desk / get_list: host DocPerm users see only their Host assignment.
+
+	``person_to_meet`` is Link → Host. With autoname by User, Host.name == user.
+	Also include any Host rows where Host.user = session user (legacy hash names).
+	"""
 	user = user or frappe.session.user
 	if not must_scope_visitor_entry_to_host(user):
 		return ""
-	return "`tabVisitor Entry`.person_to_meet = {user}".format(user=frappe.db.escape(user))
+
+	host_ids = {user}
+	if frappe.db.exists("DocType", "Host"):
+		host_ids.update(frappe.get_all("Host", filters={"user": user}, pluck="name") or [])
+		if frappe.db.exists("Host", user):
+			host_ids.add(user)
+
+	ids = sorted(host_ids)
+	if len(ids) == 1:
+		return "`tabVisitor Entry`.person_to_meet = {0}".format(frappe.db.escape(ids[0]))
+	escaped = ", ".join(frappe.db.escape(i) for i in ids)
+	return "`tabVisitor Entry`.person_to_meet in ({0})".format(escaped)
 
 
 def visitor_entry_has_permission(doc, user: str | None = None, permission_type: str | None = None):
@@ -169,6 +187,15 @@ def visitor_entry_has_permission(doc, user: str | None = None, permission_type: 
 	user = user or frappe.session.user
 	if not must_scope_visitor_entry_to_host(user):
 		return None
-	if doc.get("person_to_meet") == user:
+
+	assigned = (doc.get("person_to_meet") or "").strip()
+	if not assigned:
+		return False
+	if assigned == user:
 		return None
+	if frappe.db.exists("DocType", "Host"):
+		if assigned == user or frappe.db.get_value("Host", assigned, "user") == user:
+			return None
+		if frappe.db.exists("Host", {"name": assigned, "user": user}):
+			return None
 	return False

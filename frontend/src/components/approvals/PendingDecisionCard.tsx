@@ -27,6 +27,8 @@ type Props = {
   onMeetingDone?: (item: VisitorListRow) => void;
   onCheckOut?: (item: VisitorListRow) => void;
   onCancel?: (item: VisitorListRow) => void;
+  /** Rejected → Pending Approval */
+  onReopenPending?: (item: VisitorListRow) => void;
 };
 
 function statusTone(status?: string) {
@@ -52,6 +54,7 @@ export function PendingDecisionCard({
   onMeetingDone,
   onCheckOut,
   onCancel,
+  onReopenPending,
 }: Props) {
   const { lang } = useAppLanguage();
   const [photoPreviewSrc, setPhotoPreviewSrc] = useState<string | null>(null);
@@ -82,8 +85,10 @@ export function PendingDecisionCard({
 
   const isPending = item.status === "Pending Approval" || item.status === "Pending";
   const isApproved = item.status === "Approved";
+  const isRejected = item.status === "Rejected";
   const isMeetingDone = item.status === "Meeting Done";
-  const showCancel = !!onCancel && (isPending || isApproved);
+  const showCancel = !!onCancel && (isPending || isApproved || isRejected);
+  const showRejectedActions = isRejected && (!!onReopenPending || showCancel);
   const showSecurityCheckout = !!onCheckOut && isMeetingDone;
   const showInsideActions = !!(onMeetingDone || showSecurityCheckout);
   const showPendingPrimaryActions = isPending && (!!onReject || !!onApprove || approveBlocked);
@@ -394,6 +399,52 @@ export function PendingDecisionCard({
                   </svg>
                 </span>
                 <span>{ut(lang, "action_check_in")}</span>
+              </button>
+            ) : null}
+
+            {showCancel ? (
+              <button
+                type="button"
+                className="vm-redesign-act-btn is-cancel-entry"
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancel?.(item);
+                }}
+                aria-label={`${ut(lang, "action_cancel")} ${visitorName}`}
+              >
+                <span className="vm-redesign-act-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m15 9-6 6M9 9l6 6" />
+                  </svg>
+                </span>
+                <span>{ut(lang, "action_cancel")}</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showRejectedActions ? (
+          <div className="vm-pending-redesign-actions is-pending-row is-rejected-row">
+            {onReopenPending ? (
+              <button
+                type="button"
+                className="vm-redesign-act-btn is-accept"
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReopenPending(item);
+                }}
+                aria-label={`${ut(lang, "action_to_pending")} ${visitorName}`}
+              >
+                <span className="vm-redesign-act-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M3 12a9 9 0 1 0 9-9" />
+                    <polyline points="3 4 3 12 11 12" />
+                  </svg>
+                </span>
+                <span>{ut(lang, "action_to_pending")}</span>
               </button>
             ) : null}
 

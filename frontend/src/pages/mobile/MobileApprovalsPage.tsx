@@ -32,7 +32,17 @@ import {
 import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
-const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
+/** Every Visitor Entry status shown under the All tab. */
+const ALL_STATUSES = new Set([
+  "Pending Approval",
+  "Pending",
+  "Approved",
+  "Rejected",
+  "Checked In",
+  "Meeting Done",
+  "Checked Out",
+  "Cancelled",
+]);
 
 type TabId = "all" | "pending" | "approved" | "inside";
 type DateFilterMode = "today" | "yesterday" | "week";
@@ -85,11 +95,43 @@ function matchesDateFilter(rawDate: string | undefined | null, mode: DateFilterM
 }
 
 const TABS: Array<{ id: TabId; labelKey: UiCopyKey; match: (s?: string) => boolean }> = [
-  { id: "all", labelKey: "tab_all", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
+  { id: "all", labelKey: "tab_all", match: (s) => !!s && ALL_STATUSES.has(s) },
   { id: "pending", labelKey: "tab_pending", match: (s) => s === "Pending Approval" || s === "Pending" },
-  { id: "approved", labelKey: "tab_approved", match: (s) => s === "Approved" },
+  {
+    id: "approved",
+    labelKey: "tab_approved",
+    match: (s) => s === "Approved" || s === "Rejected",
+  },
   { id: "inside", labelKey: "tab_inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
 ];
+
+function itemFilterDate(item: VisitorListRow): string | undefined | null {
+  const status = item.status;
+  switch (status) {
+    case "Rejected":
+      return item.rejected_on || item.modified || item.creation;
+    case "Cancelled":
+      return item.cancelled_on || item.modified || item.creation;
+    case "Checked Out":
+      return item.checked_out_on || item.modified || item.creation;
+    case "Meeting Done":
+      return item.meeting_done_on || item.checked_in_on || item.modified || item.creation;
+    case "Checked In":
+      return item.checked_in_on || item.modified || item.creation;
+    case "Approved":
+      return item.approved_on || item.modified || item.creation;
+    case "Pending Approval":
+    case "Pending":
+      return item.creation || item.modified;
+    case undefined:
+      return item.modified || item.creation;
+    default: {
+      const _exhaustive: never = status as never;
+      void _exhaustive;
+      return item.modified || item.creation;
+    }
+  }
+}
 
 function parseApprovalsTab(raw: string | null): TabId {
   if (raw === "all" || raw === "pending" || raw === "approved" || raw === "inside") {
@@ -139,7 +181,7 @@ export function MobileApprovalsPage() {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(200, visitorScopeFilters(user));
+      const list = await visitorApi.listDetailed(500, visitorScopeFilters(user));
       setRows(list || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not load approvals");
@@ -322,6 +364,28 @@ export function MobileApprovalsPage() {
     [load, lang],
   );
 
+  const handleReopenPending = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await approvalApi.reopenToPending(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Moved to Pending",
+          message: `${visitor.full_name || visitor.name} is Pending Approval again.`,
+          time: formatNowTime(lang),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Could not move to Pending");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load, lang],
+  );
+
   const counts = useMemo(() => {
     const next: Record<TabId, number> = {
       all: 0,
@@ -330,7 +394,7 @@ export function MobileApprovalsPage() {
       inside: 0,
     };
     for (const row of rows) {
-      const itemDate = row.check_in || row.checked_in_on || row.modified || row.creation;
+      const itemDate = itemFilterDate(row);
       if (!matchesDateFilter(itemDate, dateMode)) continue;
       for (const t of TABS) {
         if (t.match(row.status)) next[t.id] += 1;
@@ -345,7 +409,7 @@ export function MobileApprovalsPage() {
     return rows
       .filter((item) => def.match(item.status))
       .filter((item) => {
-        const itemDate = item.check_in || item.checked_in_on || item.modified || item.creation;
+        const itemDate = itemFilterDate(item);
         return matchesDateFilter(itemDate, dateMode);
       })
       .filter((item) => {
@@ -486,13 +550,19 @@ export function MobileApprovalsPage() {
                   : undefined
               }
               onCancel={
-                showCheckout &&
                 !viewOnlyAll &&
                 (item.status === "Pending Approval" ||
                   item.status === "Pending" ||
-                  item.status === "Approved")
+                  item.status === "Approved" ||
+                  item.status === "Rejected") &&
+                (showCheckout || (item.status === "Rejected" && canDecide))
                   ? (v) => void handleCancel(v)
                   : undefined
+              }
+              onReopenPending={
+                viewOnlyAll || !canDecide || item.status !== "Rejected"
+                  ? undefined
+                  : (v) => void handleReopenPending(v)
               }
             />
           ))}
