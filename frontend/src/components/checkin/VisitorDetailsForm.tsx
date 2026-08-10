@@ -68,16 +68,17 @@ export function VisitorDetailsForm({
     async function load() {
       setLoading(true);
       try {
-        // Hosts = RPM approvers; masters = DocType link options (Gender, purpose, vehicle, ID).
-        const [hostList, masterData] = await Promise.all([
+        const [hostResult, masterResult] = await Promise.allSettled([
           settingsApi.getHosts(),
           settingsApi.getMasters(),
         ]);
         if (cancelled) return;
-        setHosts(Array.isArray(hostList) ? hostList : []);
-        setMasters(masterData || {});
-      } catch {
-        /* keep empty masters */
+        if (hostResult.status === "fulfilled") {
+          setHosts(Array.isArray(hostResult.value) ? hostResult.value : []);
+        }
+        if (masterResult.status === "fulfilled") {
+          setMasters(masterResult.value || {});
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

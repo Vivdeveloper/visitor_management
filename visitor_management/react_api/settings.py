@@ -21,12 +21,17 @@ def get_masters() -> dict:
 	def active_list(doctype: str, fields: list[str], order_by: str = "modified desc"):
 		if not frappe.db.exists("DocType", doctype):
 			return []
+		safe_fields = [f for f in fields if f == "name" or frappe.db.has_column(doctype, f)]
+		if not safe_fields:
+			safe_fields = ["name"]
 		filters = {"is_active": 1} if frappe.db.has_column(doctype, "is_active") else {}
+		order_field = (order_by or "name asc").split()[0]
+		safe_order = order_by if order_field == "name" or frappe.db.has_column(doctype, order_field) else "name asc"
 		return frappe.get_all(
 			doctype,
 			filters=filters,
-			fields=fields,
-			order_by=order_by,
+			fields=safe_fields,
+			order_by=safe_order,
 			limit_page_length=500,
 			ignore_permissions=True,
 		)

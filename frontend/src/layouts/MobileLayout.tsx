@@ -3,6 +3,8 @@ import { Outlet, useLocation, useNavigate, useNavigationType } from "react-route
 import { FloatingNavbar } from "@/components/navigation/FloatingNavbar";
 import { OfflineIndicator } from "@/components/common/OfflineIndicator";
 import { HeaderBar } from "@/components/common/HeaderBar";
+import { AndroidBrowserHint } from "@/components/ui/AndroidBrowserHint";
+import { PwaInstallNudge } from "@/components/ui/PwaInstallNudge";
 import { PageChromeProvider, usePageChromeState } from "@/context/PageChromeContext";
 import { HostAlertProvider } from "@/context/HostAlertContext";
 import { VMS_PAGE_REFRESH_EVENT } from "@/hooks/usePageRefresh";
@@ -171,6 +173,8 @@ export function MobileLayout() {
       <HostAlertProvider>
         <div className={`m-shell m-shell--chrome${hideDock ? " m-shell--no-dock" : ""}`}>
           <OfflineIndicator />
+          <AndroidBrowserHint />
+          <PwaInstallNudge />
           <div className="m-app-topbar">
             <AppTopBar />
           </div>

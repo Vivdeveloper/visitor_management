@@ -8,6 +8,10 @@
   "theme_color": "#0A3D91",
   "lang": "en",
   "scope": "/vms/",
+  "display_override": [
+    "standalone",
+    "fullscreen"
+  ],
   "orientation": "portrait",
   "id": "/vms/",
   "dir": "ltr",

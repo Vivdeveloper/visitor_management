@@ -7852,6 +7852,72 @@ body {
   text-decoration: underline;
 }
 
+.vm-android-browser-hint {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 130;
+  width: min(100%, 480px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: calc(0.45rem + env(safe-area-inset-top, 0px)) 0.65rem 0.45rem;
+  background: #0f172a;
+  color: #f8fafc;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.2);
+}
+
+.vm-android-browser-hint-copy {
+  margin: 0;
+  flex: 1;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.vm-android-browser-hint-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.vm-android-browser-hint-install {
+  height: 30px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: #0a3d91;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vm-android-browser-hint-dismiss {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.m-shell--chrome:has(.vm-android-browser-hint) .m-app-topbar {
+  top: calc(2.35rem + env(safe-area-inset-top, 0px));
+}
+
+.m-shell--chrome:has(.vm-android-browser-hint) .m-content {
+  padding-top: calc(6rem + env(safe-area-inset-top, 0px)) !important;
+}
+
 a.pwa-install-sheet-primary {
   text-decoration: none;
   box-sizing: border-box;

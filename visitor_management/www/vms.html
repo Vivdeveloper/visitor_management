@@ -17,7 +17,7 @@
 			content="Visitor Gate — Precious Alloy Components visitor check-in, host approvals, and gate passes"
 		/>
 		<meta name="application-name" content="Visitor Gate" />
-		<link rel="manifest" href="/assets/visitor_management/frontend/manifest.webmanifest" />
+		<link rel="manifest" href="/vms_manifest.webmanifest?v={{ vms_asset_v }}" />
 		<link rel="apple-touch-icon" href="/assets/visitor_management/frontend/icons/icon-180.png" />
 		<link rel="icon" type="image/png" sizes="192x192" href="/assets/visitor_management/frontend/icons/icon-192.png" />
 		<link rel="icon" type="image/png" sizes="512x512" href="/assets/visitor_management/frontend/icons/icon-512.png" />
@@ -170,6 +170,15 @@
 							r.unregister();
 						});
 					});
+				}
+
+				if (!isCapNative() && "serviceWorker" in navigator) {
+					var swAssetV = String(window.vmsAssetV || Date.now());
+					navigator.serviceWorker
+						.register("/vms_sw.js?v=" + encodeURIComponent(swAssetV), { scope: "/vms/" })
+						.catch(function () {
+							/* main bundle retries */
+						});
 				}
 			})();
 		</script>

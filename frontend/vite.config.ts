@@ -32,6 +32,7 @@ export default defineConfig(({ command, mode }) => {
 							theme_color: "#0A3D91",
 							background_color: "#F8FAFC",
 							display: "standalone",
+							display_override: ["standalone", "fullscreen"],
 							orientation: "portrait",
 							scope: "/vms/",
 							start_url: "/vms/",

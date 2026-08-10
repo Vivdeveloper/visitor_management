@@ -142,20 +142,17 @@ def list_host_options() -> list[dict]:
 		raw_user = (host.get("user") or host.get("name") or "").strip()
 		if not raw_user or raw_user == "Guest":
 			continue
-		# Prefer real login id (e.g. Host.user stored as email → User.name Administrator).
-		login = _login_user(raw_user) or _login_user(host.get("name"))
-		if not login:
-			continue
 		value = host["name"]
 		if value in seen:
 			continue
 		seen.add(value)
-		label = (host.get("full_name") or frappe.db.get_value("User", login, "full_name") or login).strip()
+		login = _login_user(raw_user) or _login_user(host.get("name"))
+		label = (host.get("full_name") or (login and frappe.db.get_value("User", login, "full_name")) or raw_user).strip()
 		rows.append(
 			{
 				"value": value,
 				"label": label,
-				"email": login,
+				"email": login or raw_user,
 			}
 		)
 	return rows
