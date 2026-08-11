@@ -203,6 +203,28 @@ def get_push_status() -> dict:
 	}
 
 
+def _vapid_contact_mailto() -> str:
+	"""RFC8292 `sub` must be a real mailto:/https contact — not bare site names."""
+	configured = cstr(getattr(frappe.conf, "vms_vapid_mailto", "") or "").strip()
+	if configured:
+		if not configured.startswith(("mailto:", "https://")):
+			configured = f"mailto:{configured}"
+		return configured
+
+	try:
+		email = cstr(frappe.db.get_value("User", "Administrator", "email") or "").strip()
+	except Exception:
+		email = ""
+	if email and "@" in email and "." in email.split("@")[-1]:
+		return f"mailto:{email}"
+
+	site = cstr(getattr(frappe.local, "site", "") or "")
+	if site and "." in site:
+		return f"mailto:notifications@{site}"
+
+	return "mailto:admin@example.com"
+
+
 def send_push_to_user(
 	user: str,
 	title: str,
@@ -218,6 +240,7 @@ def send_push_to_user(
 		return False
 
 	try:
+		from py_vapid import Vapid
 		from pywebpush import webpush
 	except ImportError:
 		_log_vms("VMS Web Push: install pywebpush and py-vapid")
@@ -225,6 +248,13 @@ def send_push_to_user(
 
 	_, priv_pem = _ensure_vapid_keys()
 	if not priv_pem:
+		return False
+
+	# pywebpush's from_string() expects raw/DER — PEM must be loaded via Vapid.from_pem.
+	try:
+		vapid = Vapid.from_pem(priv_pem.encode() if isinstance(priv_pem, str) else priv_pem)
+	except Exception as exc:
+		_log_vms("VMS VAPID private key invalid", exc)
 		return False
 
 	payload = json.dumps(
@@ -237,7 +267,7 @@ def send_push_to_user(
 			"tag": tag or "vms-host-alert",
 		}
 	)
-	vapid_claims = {"sub": f"mailto:notifications@{frappe.local.site}"}
+	vapid_claims = {"sub": _vapid_contact_mailto()}
 
 	stale: list[str] = []
 	sent = False
@@ -246,8 +276,9 @@ def send_push_to_user(
 			webpush(
 				subscription_info=sub,
 				data=payload,
-				vapid_private_key=priv_pem,
+				vapid_private_key=vapid,
 				vapid_claims=vapid_claims,
+				timeout=20,
 			)
 			sent = True
 		except Exception as exc:
