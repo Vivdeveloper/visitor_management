@@ -72,18 +72,12 @@ def create_visitor(**kwargs) -> dict:
 		data["visit_purpose_type"] = _ensure_visit_purpose_type(data["visit_purpose_type"])
 
 	if data.get("person_to_meet"):
-		person = str(data["person_to_meet"]).strip()
-		if not frappe.db.exists("User", person):
-			matched = (
-				frappe.db.get_value("User", {"full_name": person}, "name")
-				or frappe.db.get_value("User", {"email": person}, "name")
-				or frappe.db.get_value("User", {"first_name": person}, "name")
-			)
-			if matched:
-				data["person_to_meet"] = matched
-			else:
-				fallback = frappe.db.get_value("User", {"enabled": 1, "user_type": "System User"}, "name") or "Administrator"
-				data["person_to_meet"] = fallback
+		from visitor_management.services.visitor_notifications import resolve_host_link
+
+		resolved = resolve_host_link(data["person_to_meet"])
+		if not resolved:
+			frappe.throw(_("Select a valid Host from the Host list"))
+		data["person_to_meet"] = resolved
 
 	# Drop placeholder / missing vehicle links (UI "None" is not a Vehicle Type row).
 	vehicle = str(data.get("vehicle_type") or "").strip()
@@ -98,6 +92,8 @@ def create_visitor(**kwargs) -> dict:
 	doc = frappe.get_doc({"doctype": "Visitor Entry", **data})
 	doc.flags.ignore_permissions = True
 	doc.flags.ignore_links = False
+	# Host ring alert only for PWA Add Entry — not Desk New/Save.
+	doc.flags.vms_pwa_entry = True
 	doc.insert(ignore_permissions=True)
 	return {
 		"success": True,
@@ -185,6 +181,81 @@ def get_visitor(name: str | None = None) -> dict:
 	if not name:
 		frappe.throw(_("Visitor Entry name is required"))
 	return frappe.get_doc("Visitor Entry", name).as_dict()
+
+
+@frappe.whitelist(allow_guest=True)
+def get_returning_visitor_profile(mobile: str | None = None) -> dict:
+	"""Most recent Visitor Entry for this mobile — name fields for PWA autofill.
+
+	Guest/PWA callers must have completed visitor_registration OTP for the
+	same mobile. Desk users with Visitor Entry read/create may look up freely.
+	"""
+	from visitor_management.react_api.otp import is_mobile_verified, normalize_mobile, validate_mobile
+
+	mobile = validate_mobile(mobile or "")
+	otp_ok = is_mobile_verified(mobile, "visitor_registration")
+	user = frappe.session.user
+	desk_ok = bool(user and user != "Guest" and (
+		frappe.has_permission("Visitor Entry", "read")
+		or frappe.has_permission("Visitor Entry", "create")
+	))
+	if not otp_ok and not desk_ok:
+		frappe.throw(_("Verify mobile OTP before loading a returning visitor profile."), frappe.PermissionError)
+
+	last10 = normalize_mobile(mobile)[-10:]
+	rows = frappe.db.sql(
+		"""
+		SELECT
+			name, first_name, middle_name, last_name, full_name,
+			mobile, email, gender, visitor_company, visitor_location, photo, modified
+		FROM `tabVisitor Entry`
+		WHERE RIGHT(
+			REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(mobile, ''), ' ', ''), '-', ''), '(', ''), ')', ''),
+			10
+		) = %(last10)s
+		ORDER BY modified DESC
+		LIMIT 1
+		""",
+		{"last10": last10},
+		as_dict=True,
+	)
+	if not rows:
+		return {"found": False, "mobile": mobile}
+
+	row = rows[0]
+	first = (row.get("first_name") or "").strip()
+	middle = (row.get("middle_name") or "").strip()
+	last = (row.get("last_name") or "").strip()
+	full = (row.get("full_name") or "").strip()
+
+	# Older rows may only have full_name — split for the form.
+	if full and not first and not last:
+		parts = [p for p in full.split() if p]
+		if len(parts) == 1:
+			first = parts[0]
+		elif len(parts) >= 2:
+			first = parts[0]
+			last = parts[-1]
+			middle = " ".join(parts[1:-1])
+
+	if not full:
+		full = " ".join(p for p in (first, middle, last) if p)
+
+	return {
+		"found": True,
+		"name": row.get("name"),
+		"mobile": row.get("mobile") or mobile,
+		"first_name": first,
+		"middle_name": middle,
+		"last_name": last,
+		"full_name": full,
+		"email": (row.get("email") or "").strip(),
+		"gender": (row.get("gender") or "").strip(),
+		"visitor_company": (row.get("visitor_company") or "").strip(),
+		"visitor_location": (row.get("visitor_location") or "").strip(),
+		"photo": row.get("photo") or "",
+		"modified": str(row.get("modified") or ""),
+	}
 
 
 @frappe.whitelist()

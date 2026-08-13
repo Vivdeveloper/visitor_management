@@ -7,10 +7,12 @@ const VE = "visitor_management.visitor_management.doctype.visitor_entry.visitor_
 frappe.ui.form.on("Visitor Entry", {
 	onload(frm) {
 		set_company_from_global_defaults(frm);
+		set_host_link_queries(frm);
 	},
 
 	refresh(frm) {
 		set_company_from_global_defaults(frm);
+		set_host_link_queries(frm);
 		add_approval_actions(frm);
 		add_gate_actions(frm);
 		add_meeting_actions(frm);
@@ -48,6 +50,17 @@ function set_company_from_global_defaults(frm) {
 	if (company) {
 		frm.set_value("company", company);
 	}
+}
+
+/** Host Link queries — Role Permission Manager approvers only (not every User). */
+function set_host_link_queries(frm) {
+	frm.set_query("person_to_meet", () => ({
+		query: "visitor_management.react_api.settings.host_query",
+	}));
+	frm.set_query("transfer_to_user", () => ({
+		query: "visitor_management.react_api.settings.host_query",
+		filters: { name: ["!=", frm.doc.person_to_meet || ""] },
+	}));
 }
 
 /** vivEk → Vivek (Desk form live correction). */
@@ -101,6 +114,7 @@ function can_host_act(frm) {
 	if (frappe.user.has_role("System Manager")) {
 		return true;
 	}
+	// person_to_meet is Link → Host; Host.name is User (autoname field:user)
 	return frm.doc.person_to_meet && frm.doc.person_to_meet === frappe.session.user;
 }
 
@@ -272,11 +286,12 @@ function prompt_transfer(frm) {
 			{
 				fieldname: "transfer_to_user",
 				fieldtype: "Link",
-				options: "User",
-				label: __("Transfer To"),
+				options: "Host",
+				label: __("Transfer To Host"),
 				reqd: 1,
 				get_query: () => ({
-					filters: { enabled: 1, name: ["!=", frm.doc.person_to_meet || ""] },
+					query: "visitor_management.react_api.settings.host_query",
+					filters: { name: ["!=", frm.doc.person_to_meet || ""] },
 				}),
 			},
 			{

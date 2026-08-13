@@ -25,6 +25,7 @@ class VisitorEntry(Document):
 		self.set_company_from_defaults()
 		self.autocorrect_names()
 		self.set_full_name()
+		self.canonicalize_host()
 		self.set_image_previews()
 		self.validate_otp()
 		self.normalize_legacy_status()
@@ -37,6 +38,31 @@ class VisitorEntry(Document):
 		company = frappe.db.get_single_value("Global Defaults", "default_company")
 		if company:
 			self.company = company
+
+	def canonicalize_host(self):
+		"""person_to_meet is Link → Host; repair orphan ids via Host master / display name."""
+		from visitor_management.services.visitor_notifications import resolve_host_link
+
+		if not self.person_to_meet and not self.person_to_meet_name:
+			return
+
+		resolved = resolve_host_link(self.person_to_meet)
+		if not resolved and self.person_to_meet_name:
+			resolved = resolve_host_link(self.person_to_meet_name)
+		if resolved:
+			self.person_to_meet = resolved
+			full_name = frappe.db.get_value("Host", resolved, "full_name")
+			if not full_name and frappe.db.exists("DocType", "Host"):
+				user = frappe.db.get_value("Host", resolved, "user")
+				full_name = frappe.db.get_value("User", user, "full_name") if user else None
+			if full_name:
+				self.person_to_meet_name = full_name
+		elif self.person_to_meet and frappe.db.exists("DocType", "Host") and not frappe.db.exists(
+			"Host", self.person_to_meet
+		):
+			frappe.throw(
+				_("Select a valid Host. Current value is not in Host list: {0}").format(self.person_to_meet)
+			)
 
 	def autocorrect_names(self):
 		"""vivEk → Vivek (and same for middle / last name)."""
@@ -252,11 +278,34 @@ def reject(visitor_entry: str | None = None, remarks: str | None = None) -> dict
 
 
 @frappe.whitelist()
+def reopen_to_pending(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
+	"""Rejected → Pending Approval so the host can decide again."""
+	from visitor_management.auth.permissions import require_approve_role
+
+	require_approve_role()
+	doc = _get_entry(visitor_entry)
+	actor = doc._ensure_host_or_manager()
+	if doc.status != "Rejected":
+		frappe.throw(_("Only Rejected visitors can move back to Pending. Current status: {0}").format(doc.status))
+
+	doc.status = "Pending Approval"
+	if doc.meta.has_field("rejected_on"):
+		doc.rejected_on = None
+	doc._append_remarks(remarks, _("Moved back to Pending by {0}").format(actor))
+	doc.save(ignore_permissions=True)
+	return {
+		"name": doc.name,
+		"status": doc.status,
+		"message": _("Visitor moved back to Pending Approval."),
+	}
+
+
+@frappe.whitelist()
 def cancel_visit(visitor_entry: str | None = None, remarks: str | None = None) -> dict:
-	"""Gate cancel for Pending / Approved entries (before check-in)."""
+	"""Gate cancel for Pending / Approved / Rejected entries (before check-in)."""
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_gate_operator()
-	if doc.status not in ("Pending Approval", "Pending", "Approved"):
+	if doc.status not in ("Pending Approval", "Pending", "Approved", "Rejected"):
 		frappe.throw(
 			_("Cancel is only allowed before check-in. Current status: {0}").format(doc.status)
 		)
@@ -276,15 +325,20 @@ def transfer(
 	remarks: str | None = None,
 ) -> dict:
 	"""Reassign host while Pending Approval."""
+	from visitor_management.services.visitor_notifications import resolve_host_link, resolve_host_user
+
 	doc = _get_entry(visitor_entry)
 	actor = doc._ensure_host_or_manager()
 	if doc.status != "Pending Approval":
 		frappe.throw(_("Transfer is only allowed before approval. Current status: {0}").format(doc.status))
 	if not transfer_to_user:
-		frappe.throw(_("Please select a user to transfer to."))
-	if not frappe.db.exists("User", transfer_to_user):
-		frappe.throw(_("User {0} does not exist").format(transfer_to_user))
-	if transfer_to_user == doc.person_to_meet:
+		frappe.throw(_("Please select a Host to transfer to."))
+	resolved = resolve_host_link(transfer_to_user)
+	if not resolved:
+		frappe.throw(_("Host {0} does not exist").format(transfer_to_user))
+	transfer_to_user = resolved
+	current_host = resolve_host_link(doc.person_to_meet) or doc.person_to_meet
+	if transfer_to_user == current_host:
 		frappe.throw(_("Visitor is already assigned to this host."))
 
 	previous = doc.person_to_meet
@@ -294,6 +348,8 @@ def transfer(
 		remarks,
 		_("Transferred from {0} to {1} by {2}").format(previous or "—", transfer_to_user, actor),
 	)
+	# Urgent ring for the new host (PWA/API transfer — not Desk field edits).
+	doc.flags.vms_ring_host = True
 	doc.save(ignore_permissions=True)
 	return {
 		"name": doc.name,

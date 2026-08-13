@@ -11,14 +11,16 @@
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-		<meta name="apple-mobile-web-app-title" content="Precious Alloys" />
+		<meta name="apple-mobile-web-app-title" content="Visitor Gate" />
 		<meta
 			name="description"
-			content="Precious Alloys Visitor Management — check-in, approvals, and gate passes"
+			content="Visitor Gate — Precious Alloy Components visitor check-in, host approvals, and gate passes"
 		/>
+		<meta name="application-name" content="Visitor Gate" />
 		<link rel="manifest" href="/assets/visitor_management/frontend/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/assets/visitor_management/frontend/icons/icon-180.png" />
 		<link rel="icon" type="image/png" sizes="192x192" href="/assets/visitor_management/frontend/icons/icon-192.png" />
+		<link rel="icon" type="image/png" sizes="512x512" href="/assets/visitor_management/frontend/icons/icon-512.png" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
@@ -64,6 +66,9 @@
 				sitename: "{{ vms_sitename }}",
 				socketio_port: {{ vms_socketio_port }},
 				developer_mode: {{ vms_developer_mode }},
+				push_relay_server_url: "{{ vms_push_relay_server_url }}",
+				default_route: "{{ vms_default_route }}",
+				app_name: "Visitor Gate",
 			};
 
 			/* Bust stuck PWA cache when built assets change (local_visitor_site_app etc.). */

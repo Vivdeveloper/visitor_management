@@ -29,7 +29,10 @@ app_license = "mit"
 # Bundle name, not a raw path: `bench build` emits a content-hashed file and
 # maps it in assets.json, so Desk clients pick up changes instead of serving a
 # stale cached copy forever.
-app_include_js = "msg91_widget.bundle.js"
+app_include_js = [
+	"msg91_widget.bundle.js",
+	"vms_desk_alerts.bundle.js",
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/visitor_management/css/visitor_management.css"
@@ -254,10 +257,20 @@ has_permission = {
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
-# Website — React SPA (built assets in public/frontend; same pattern as viv_crm)
+# Website — Visitor Gate React PWA (same pattern as HRMS /hrms)
 # ------------------------------------------------------------------------------
 website_route_rules = [
 	{"from_route": "/vms/<path:app_path>", "to_route": "vms"},
 	{"from_route": "/vms", "to_route": "vms"},
+]
+
+# Desk Apps screen → open the PWA (not Desk workspace)
+add_to_apps_screen = [
+	{
+		"name": "visitor_management",
+		"logo": "/assets/visitor_management/frontend/icons/icon-192.png",
+		"title": "Visitor Gate",
+		"route": "/vms",
+	}
 ]
 

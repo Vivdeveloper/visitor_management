@@ -10,8 +10,9 @@ def publish_vms_event(
 ) -> None:
 	"""Publish a generic VMS realtime event.
 
-	- Always emits `vms_visitor_update` for existing listeners.
-	- Emits event-specific channels (e.g. `vms_host_alert`) for targeted UX.
+	- Always emits ``vms_visitor_update`` (site-wide + optional user room).
+	- Urgent channels also emit site-wide so PWA clients that are not in the
+	  Frappe user room still receive popup + sound (clients filter by host/owner).
 	"""
 	message = {"event": event, **(payload or {})}
 	try:
@@ -27,20 +28,49 @@ def publish_vms_event(
 				user=user,
 				after_commit=True,
 			)
+
 		if event == "host_notified":
+			# Site-wide first — PWA HostAlertContext filters by host_user.
 			frappe.publish_realtime(
 				event="vms_host_alert",
 				message=message,
-				user=user,
 				after_commit=True,
 			)
+			if user:
+				frappe.publish_realtime(
+					event="vms_host_alert",
+					message=message,
+					user=user,
+					after_commit=True,
+				)
+
+		if event == "creator_alert":
+			frappe.publish_realtime(
+				event="vms_creator_alert",
+				message=message,
+				after_commit=True,
+			)
+			if user:
+				frappe.publish_realtime(
+					event="vms_creator_alert",
+					message=message,
+					user=user,
+					after_commit=True,
+				)
+
 		if event == "security_checkout_required":
 			frappe.publish_realtime(
 				event="vms_security_alert",
 				message=message,
-				user=user,
 				after_commit=True,
 			)
+			if user:
+				frappe.publish_realtime(
+					event="vms_security_alert",
+					message=message,
+					user=user,
+					after_commit=True,
+				)
 	except Exception:
 		frappe.log_error(title="VMS realtime publish failed")
 
