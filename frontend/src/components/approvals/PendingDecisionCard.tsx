@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { VisitorListRow } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
+import { AdditionalGuestsInfoModal } from "@/components/approvals/AdditionalGuestsInfoModal";
 import { formatCount, formatTime, resolveFileUrl } from "@/lib/format";
 import { intlLocale, localizeDigits } from "@/lib/localize";
-import { formatVisitorCardTitle } from "@/lib/visitorDisplay";
+import { parseAdditionalGuestsFromRemarks } from "@/lib/additionalGuests";
 import { localizeFloorLabel, localizePersonName } from "@/lib/transliterate";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
 import { VisitorAvatar } from "@/components/ui/VisitorAvatar";
@@ -26,6 +27,8 @@ type Props = {
   onMeetingDone?: (item: VisitorListRow) => void;
   onCheckOut?: (item: VisitorListRow) => void;
   onCancel?: (item: VisitorListRow) => void;
+  /** Rejected → Pending Approval */
+  onReopenPending?: (item: VisitorListRow) => void;
 };
 
 function statusTone(status?: string) {
@@ -51,13 +54,18 @@ export function PendingDecisionCard({
   onMeetingDone,
   onCheckOut,
   onCancel,
+  onReopenPending,
 }: Props) {
   const { lang } = useAppLanguage();
   const [photoPreviewSrc, setPhotoPreviewSrc] = useState<string | null>(null);
+  const [guestsOpen, setGuestsOpen] = useState(false);
 
   const visitorName = localizePersonName(item.full_name || item.name, lang);
-  const cardTitle = formatVisitorCardTitle(visitorName, item.visitor_company);
+  const cardTitle = visitorName;
   const hostName = localizePersonName(item.person_to_meet_name || "—", lang);
+  const rawCreator = (item.owner_name || item.owner || "").trim();
+  const creatorName =
+    rawCreator && rawCreator !== "Guest" ? localizePersonName(rawCreator, lang) : "";
   const company = (item.visitor_company || "").trim();
   const location = (item.visitor_location || "").trim();
   const purpose = item.visit_purpose_type
@@ -80,8 +88,10 @@ export function PendingDecisionCard({
 
   const isPending = item.status === "Pending Approval" || item.status === "Pending";
   const isApproved = item.status === "Approved";
+  const isRejected = item.status === "Rejected";
   const isMeetingDone = item.status === "Meeting Done";
-  const showCancel = !!onCancel && (isPending || isApproved);
+  const showCancel = !!onCancel && (isPending || isApproved || isRejected);
+  const showRejectedActions = isRejected && (!!onReopenPending || showCancel);
   const showSecurityCheckout = !!onCheckOut && isMeetingDone;
   const showInsideActions = !!(onMeetingDone || showSecurityCheckout);
   const showPendingPrimaryActions = isPending && (!!onReject || !!onApprove || approveBlocked);
@@ -92,6 +102,8 @@ export function PendingDecisionCard({
     ? "You do not have permission to Accept or Reject"
     : undefined;
   const visitorCount = item.number_of_visitors ? Number(item.number_of_visitors) : 1;
+  const additionalGuests = parseAdditionalGuestsFromRemarks(item.approval_remarks);
+  const canOpenGuests = visitorCount > 1;
   const floorDisplay = item.floor
     ? localizeFloorLabel(item.floor, lang) || localizeDigits(String(item.floor), lang)
     : "—";
@@ -142,6 +154,18 @@ export function PendingDecisionCard({
                   <span className="vm-pending-redesign-host-name">{hostName}</span>
                 </span>
               </div>
+              {creatorName ? (
+                <div className="vm-pending-redesign-host-row">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
+                  <span className="vm-pending-redesign-host-text">
+                    {ut(lang, "creator_prefix")}{" "}
+                    <span className="vm-pending-redesign-host-name">{creatorName}</span>
+                  </span>
+                </div>
+              ) : null}
               {company ? (
                 <div className="vm-pending-redesign-host-row">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
@@ -195,7 +219,21 @@ export function PendingDecisionCard({
               </svg>
               <span>{ut(lang, "label_visitors")}</span>
             </div>
-            <span className="vm-pending-redesign-val">{formatCount(visitorCount, lang)}</span>
+            {canOpenGuests ? (
+              <button
+                type="button"
+                className="vm-pending-redesign-val is-link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGuestsOpen(true);
+                }}
+                aria-label={`View ${visitorCount} visitors`}
+              >
+                {formatCount(visitorCount, lang)}
+              </button>
+            ) : (
+              <span className="vm-pending-redesign-val">{formatCount(visitorCount, lang)}</span>
+            )}
           </div>
 
           <div className="vm-pending-redesign-col">
@@ -402,6 +440,52 @@ export function PendingDecisionCard({
           </div>
         ) : null}
 
+        {showRejectedActions ? (
+          <div className="vm-pending-redesign-actions is-pending-row is-rejected-row">
+            {onReopenPending ? (
+              <button
+                type="button"
+                className="vm-redesign-act-btn is-accept"
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReopenPending(item);
+                }}
+                aria-label={`${ut(lang, "action_to_pending")} ${visitorName}`}
+              >
+                <span className="vm-redesign-act-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M3 12a9 9 0 1 0 9-9" />
+                    <polyline points="3 4 3 12 11 12" />
+                  </svg>
+                </span>
+                <span>{ut(lang, "action_to_pending")}</span>
+              </button>
+            ) : null}
+
+            {showCancel ? (
+              <button
+                type="button"
+                className="vm-redesign-act-btn is-cancel-entry"
+                disabled={busy}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancel?.(item);
+                }}
+                aria-label={`${ut(lang, "action_cancel")} ${visitorName}`}
+              >
+                <span className="vm-redesign-act-icon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m15 9-6 6M9 9l6 6" />
+                  </svg>
+                </span>
+                <span>{ut(lang, "action_cancel")}</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {showInsideActions ? (
           <div
             className={`vm-pending-redesign-actions is-approved-pass${onMeetingDone && onCheckOut ? " has-both" : ""}`}
@@ -458,6 +542,14 @@ export function PendingDecisionCard({
         src={photoPreviewSrc}
         alt={`${visitorName} photo`}
         onClose={() => setPhotoPreviewSrc(null)}
+      />
+
+      <AdditionalGuestsInfoModal
+        open={guestsOpen}
+        primaryName={visitorName}
+        visitorCount={visitorCount}
+        guests={additionalGuests}
+        onClose={() => setGuestsOpen(false)}
       />
     </>
   );

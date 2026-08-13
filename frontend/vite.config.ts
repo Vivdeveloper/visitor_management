@@ -23,19 +23,65 @@ export default defineConfig(({ command, mode }) => {
 						registerType: "autoUpdate",
 						injectRegister: false,
 						minify: false,
-						includeAssets: ["icons/*.png"],
+						includeAssets: ["icons/*.png", "brand/*.png"],
 						manifest: {
-							name: "Precious Alloys VMS",
-							short_name: "Precious Alloys",
-							description: "Visitor passes, host approvals, and gate operations",
+							name: "Visitor Gate",
+							short_name: "Visitor Gate",
+							description:
+								"Precious Alloy Components — visitor check-in, host approvals, and gate passes",
 							theme_color: "#0A3D91",
 							background_color: "#F8FAFC",
 							display: "standalone",
+							display_override: ["standalone", "fullscreen"],
 							orientation: "portrait",
 							scope: "/vms/",
 							start_url: "/vms/",
 							id: "/vms/",
+							lang: "en",
+							dir: "ltr",
 							categories: ["business", "productivity"],
+							prefer_related_applications: false,
+							shortcuts: [
+								{
+									name: "Add Entry",
+									short_name: "Check-in",
+									description: "Register a visitor at the gate",
+									url: "/vms/check-in",
+									icons: [
+										{
+											src: "/assets/visitor_management/frontend/icons/icon-192.png",
+											sizes: "192x192",
+											type: "image/png",
+										},
+									],
+								},
+								{
+									name: "Approvals",
+									short_name: "Pending",
+									description: "Host approval queue",
+									url: "/vms/approvals",
+									icons: [
+										{
+											src: "/assets/visitor_management/frontend/icons/icon-192.png",
+											sizes: "192x192",
+											type: "image/png",
+										},
+									],
+								},
+								{
+									name: "Inside",
+									short_name: "Inside",
+									description: "Visitors currently inside",
+									url: "/vms/inside",
+									icons: [
+										{
+											src: "/assets/visitor_management/frontend/icons/icon-192.png",
+											sizes: "192x192",
+											type: "image/png",
+										},
+									],
+								},
+							],
 							icons: [
 								{
 									src: "/assets/visitor_management/frontend/icons/icon-192.png",
@@ -58,11 +104,21 @@ export default defineConfig(({ command, mode }) => {
 							],
 						},
 						workbox: {
-							mode: "development",
+							// Production caching — SPA HTML comes from Frappe www `/vms`, not asset precache
 							maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
 							navigateFallback: null,
-							globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+							globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
 							runtimeCaching: [
+								{
+									urlPattern: ({ request, url }) =>
+										request.mode === "navigate" && url.pathname.startsWith("/vms"),
+									handler: "NetworkFirst",
+									options: {
+										cacheName: "vms-pages",
+										networkTimeoutSeconds: 5,
+										expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 },
+									},
+								},
 								{
 									urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
 									handler: "NetworkFirst",
@@ -82,7 +138,7 @@ export default defineConfig(({ command, mode }) => {
 									options: {
 										cacheName: "vms-shell",
 										networkTimeoutSeconds: 4,
-										expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 },
+										expiration: { maxEntries: 48, maxAgeSeconds: 60 * 60 * 24 },
 									},
 								},
 							],

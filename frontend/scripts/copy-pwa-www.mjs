@@ -56,7 +56,7 @@ const manifestSrc = path.join(built, "manifest.webmanifest");
 
 // GatePass Web Push (VAPID) — appended by copy-pwa
 self.addEventListener("push", (event) => {
-	let data = { title: "GatePass", body: "Visitor approval needed.", url: "/vms/approvals" };
+	let data = { title: "Visitor Gate", body: "Visitor approval needed.", url: "/vms/approvals" };
 	try {
 		if (event.data) Object.assign(data, JSON.parse(event.data.text()));
 	} catch {

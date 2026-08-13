@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   approvalApi,
   meetingApi,
@@ -32,10 +32,21 @@ import {
 import { ut, type UiCopyKey } from "@/i18n/uiChrome";
 
 const INSIDE_STATUSES = new Set(["Checked In", "Meeting Done"]);
-const ACTIVE_STATUSES = new Set(["Pending Approval", "Pending", "Approved", "Checked In", "Meeting Done"]);
+/** Every Visitor Entry status shown under the All tab. */
+const ALL_STATUSES = new Set([
+  "Pending Approval",
+  "Pending",
+  "Approved",
+  "Rejected",
+  "Checked In",
+  "Meeting Done",
+  "Checked Out",
+  "Cancelled",
+]);
 
 type TabId = "all" | "pending" | "approved" | "inside";
 type DateFilterMode = "today" | "yesterday" | "week";
+type SortMode = "asc" | "desc";
 
 function toIsoDate(date: Date): string {
   const y = date.getFullYear();
@@ -85,14 +96,54 @@ function matchesDateFilter(rawDate: string | undefined | null, mode: DateFilterM
 }
 
 const TABS: Array<{ id: TabId; labelKey: UiCopyKey; match: (s?: string) => boolean }> = [
-  { id: "all", labelKey: "tab_all", match: (s) => !!s && ACTIVE_STATUSES.has(s) },
+  { id: "all", labelKey: "tab_all", match: (s) => !!s && ALL_STATUSES.has(s) },
   { id: "pending", labelKey: "tab_pending", match: (s) => s === "Pending Approval" || s === "Pending" },
-  { id: "approved", labelKey: "tab_approved", match: (s) => s === "Approved" },
+  {
+    id: "approved",
+    labelKey: "tab_approved",
+    match: (s) => s === "Approved" || s === "Rejected",
+  },
   { id: "inside", labelKey: "tab_inside", match: (s) => !!s && INSIDE_STATUSES.has(s) },
 ];
 
+function itemFilterDate(item: VisitorListRow): string | undefined | null {
+  const status = item.status;
+  switch (status) {
+    case "Rejected":
+      return item.rejected_on || item.modified || item.creation;
+    case "Cancelled":
+      return item.cancelled_on || item.modified || item.creation;
+    case "Checked Out":
+      return item.checked_out_on || item.modified || item.creation;
+    case "Meeting Done":
+      return item.meeting_done_on || item.checked_in_on || item.modified || item.creation;
+    case "Checked In":
+      return item.checked_in_on || item.modified || item.creation;
+    case "Approved":
+      return item.approved_on || item.modified || item.creation;
+    case "Pending Approval":
+    case "Pending":
+      return item.creation || item.modified;
+    case undefined:
+      return item.modified || item.creation;
+    default: {
+      const _exhaustive: never = status as never;
+      void _exhaustive;
+      return item.modified || item.creation;
+    }
+  }
+}
+
+function parseApprovalsTab(raw: string | null): TabId {
+  if (raw === "all" || raw === "pending" || raw === "approved" || raw === "inside") {
+    return raw;
+  }
+  return "pending";
+}
+
 export function MobileApprovalsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { lang } = useAppLanguage();
   const { user } = useAuth();
   const showCheckout = canPerformCheckout(user);
@@ -114,9 +165,12 @@ export function MobileApprovalsPage() {
     showProfile: true,
   });
 
-  const [tab, setTab] = useState<TabId>("pending");
+  const [tab, setTab] = useState<TabId>(() => parseApprovalsTab(searchParams.get("tab")));
   const [query, setQuery] = useState("");
   const [dateMode, setDateMode] = useState<DateFilterMode>("week");
+  const [sortMode, setSortMode] = useState<SortMode>("desc");
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState<VisitorListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,11 +181,22 @@ export function MobileApprovalsPage() {
   const [approveVisitor, setApproveVisitor] = useState<VisitorListRow | null>(null);
   const [passVisitor, setPassVisitor] = useState<VisitorListRow | null>(null);
 
+  useEffect(() => {
+    if (!sortOpen) return;
+    const onDocDown = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [sortOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await visitorApi.listDetailed(200, visitorScopeFilters(user));
+      const list = await visitorApi.listDetailed(500, visitorScopeFilters(user));
       setRows(list || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not load approvals");
@@ -144,6 +209,24 @@ export function MobileApprovalsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setTab(parseApprovalsTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const setApprovalsTab = useCallback(
+    (nextTab: TabId) => {
+      setTab(nextTab);
+      const next = new URLSearchParams(searchParams);
+      if (nextTab === "pending") {
+        next.delete("tab");
+      } else {
+        next.set("tab", nextTab);
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   usePageRefresh(load);
 
@@ -296,6 +379,28 @@ export function MobileApprovalsPage() {
     [load, lang],
   );
 
+  const handleReopenPending = useCallback(
+    async (visitor: VisitorListRow) => {
+      setBusy(visitor.name);
+      setError(null);
+      try {
+        await approvalApi.reopenToPending(visitor.name);
+        setToast({
+          id: Date.now().toString(),
+          title: "Moved to Pending",
+          message: `${visitor.full_name || visitor.name} is Pending Approval again.`,
+          time: formatNowTime(lang),
+        });
+        void load();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Could not move to Pending");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [load, lang],
+  );
+
   const counts = useMemo(() => {
     const next: Record<TabId, number> = {
       all: 0,
@@ -304,7 +409,7 @@ export function MobileApprovalsPage() {
       inside: 0,
     };
     for (const row of rows) {
-      const itemDate = row.check_in || row.checked_in_on || row.modified || row.creation;
+      const itemDate = itemFilterDate(row);
       if (!matchesDateFilter(itemDate, dateMode)) continue;
       for (const t of TABS) {
         if (t.match(row.status)) next[t.id] += 1;
@@ -316,18 +421,27 @@ export function MobileApprovalsPage() {
   const filteredItems = useMemo(() => {
     const def = TABS.find((t) => t.id === tab) || TABS[0];
     const q = query.trim().toLowerCase();
-    return rows
+    const list = rows
       .filter((item) => def.match(item.status))
       .filter((item) => {
-        const itemDate = item.check_in || item.checked_in_on || item.modified || item.creation;
+        const itemDate = itemFilterDate(item);
         return matchesDateFilter(itemDate, dateMode);
       })
       .filter((item) => {
         if (!q) return true;
-        const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
+        const haystack = `${item.full_name || ""} ${item.name || ""} ${item.person_to_meet_name || ""} ${item.owner_name || ""} ${item.owner || ""} ${item.mobile || ""} ${item.visitor_company || ""} ${item.visit_purpose_type || ""}`.toLowerCase();
         return haystack.includes(q);
       });
-  }, [rows, tab, query, dateMode]);
+
+    const createdAt = (item: VisitorListRow) =>
+      new Date(item.creation || item.modified || 0).getTime() || 0;
+
+    list.sort((a, b) => {
+      const diff = createdAt(a) - createdAt(b);
+      return sortMode === "asc" ? diff : -diff;
+    });
+    return list;
+  }, [rows, tab, query, dateMode, sortMode]);
 
   const viewOnlyAll = tab === "all";
 
@@ -360,7 +474,7 @@ export function MobileApprovalsPage() {
               role="tab"
               aria-selected={tab === t.id}
               className={`vm-reports-tab${tab === t.id ? " is-active" : ""}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => setApprovalsTab(t.id)}
             >
               {ut(lang, t.labelKey)}
               <span className="vm-reports-tab-count">{formatCount(counts[t.id], lang)}</span>
@@ -393,24 +507,76 @@ export function MobileApprovalsPage() {
             >
               {ut(lang, "filter_this_week")}
             </button>
+
+            {dateMode !== "week" || query ? (
+              <button
+                type="button"
+                className="vm-filter-clear-btn"
+                onClick={() => {
+                  setDateMode("week");
+                  setQuery("");
+                }}
+                title={ut(lang, "filter_clear")}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+                <span>{ut(lang, "filter_clear")}</span>
+              </button>
+            ) : null}
           </div>
 
-          {dateMode !== "week" || query ? (
+          <div className="vm-approvals-sort" ref={sortRef}>
             <button
               type="button"
-              className="vm-filter-clear-btn"
-              onClick={() => {
-                setDateMode("week");
-                setQuery("");
-              }}
-              title={ut(lang, "filter_clear")}
+              className={`vm-sort-icon-btn${sortOpen || sortMode === "asc" ? " is-active" : ""}`}
+              onClick={() => setSortOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={sortOpen}
+              aria-label={ut(lang, "sort_label")}
+              title={ut(lang, "sort_label")}
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                <path d="M18 6 6 18M6 6l12 12" />
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path d="M4 7h10" />
+                <path d="M4 12h7" />
+                <path d="M4 17h4" />
+                <path d="M16 5v14" />
+                <path d="m13 16 3 3 3-3" />
               </svg>
-              <span>{ut(lang, "filter_clear")}</span>
             </button>
-          ) : null}
+
+            {sortOpen ? (
+              <div className="vm-approvals-sort-menu" role="menu" aria-label={ut(lang, "sort_label")}>
+                <p className="vm-approvals-sort-heading">{ut(lang, "sort_by_created")}</p>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={sortMode === "desc"}
+                  className={`vm-approvals-sort-option${sortMode === "desc" ? " is-active" : ""}`}
+                  onClick={() => {
+                    setSortMode("desc");
+                    setSortOpen(false);
+                  }}
+                >
+                  <span>{ut(lang, "sort_created_newest")}</span>
+                  <span className="vm-approvals-sort-dir">{ut(lang, "sort_dir_desc")}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={sortMode === "asc"}
+                  className={`vm-approvals-sort-option${sortMode === "asc" ? " is-active" : ""}`}
+                  onClick={() => {
+                    setSortMode("asc");
+                    setSortOpen(false);
+                  }}
+                >
+                  <span>{ut(lang, "sort_created_oldest")}</span>
+                  <span className="vm-approvals-sort-dir">{ut(lang, "sort_dir_asc")}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {error ? <p className="login-error" style={{ textAlign: "center" }}>{error}</p> : null}
@@ -460,13 +626,19 @@ export function MobileApprovalsPage() {
                   : undefined
               }
               onCancel={
-                showCheckout &&
                 !viewOnlyAll &&
                 (item.status === "Pending Approval" ||
                   item.status === "Pending" ||
-                  item.status === "Approved")
+                  item.status === "Approved" ||
+                  item.status === "Rejected") &&
+                (showCheckout || (item.status === "Rejected" && canDecide))
                   ? (v) => void handleCancel(v)
                   : undefined
+              }
+              onReopenPending={
+                viewOnlyAll || !canDecide || item.status !== "Rejected"
+                  ? undefined
+                  : (v) => void handleReopenPending(v)
               }
             />
           ))}

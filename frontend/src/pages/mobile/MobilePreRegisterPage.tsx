@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { settingsApi, visitorApi } from "@/api/vms";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { extractError, splitFullName } from "@/lib/format";
+import { autocorrectFormText, autocorrectPersonName } from "@/lib/nameCase";
 import { usePageChrome } from "@/context/PageChromeContext";
 
 export function MobilePreRegisterPage() {
@@ -51,7 +52,10 @@ export function MobilePreRegisterPage() {
     };
   }, []);
 
-  const purposeNote = useMemo(() => form.visit_note.trim(), [form.visit_note]);
+  const purposeNote = useMemo(
+    () => autocorrectFormText(form.visit_note),
+    [form.visit_note],
+  );
 
   function setField(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -82,10 +86,10 @@ export function MobilePreRegisterPage() {
         .join(" · ");
       const created = (await visitorApi.create({
         mobile: form.mobile.trim(),
-        first_name,
-        last_name: last_name || undefined,
+        first_name: autocorrectPersonName(first_name),
+        last_name: autocorrectPersonName(last_name) || undefined,
         person_to_meet: form.person_to_meet.trim(),
-        visitor_company: form.visitor_company || undefined,
+        visitor_company: autocorrectFormText(form.visitor_company) || undefined,
         visit_purpose_type: purpose,
         number_of_visitors: 1,
         status: "Pending Approval",
@@ -117,6 +121,8 @@ export function MobilePreRegisterPage() {
             required
             value={form.full_name}
             onChange={(e) => setField("full_name", e.target.value)}
+            onBlur={(e) => setField("full_name", autocorrectPersonName(e.target.value))}
+            autoCapitalize="words"
             placeholder="Ankit Sharma"
           />
         </div>
@@ -128,6 +134,7 @@ export function MobilePreRegisterPage() {
             inputMode="tel"
             value={form.mobile}
             onChange={(e) => setField("mobile", e.target.value)}
+            autoCapitalize="none"
             placeholder="9123456780"
           />
         </div>
@@ -137,21 +144,25 @@ export function MobilePreRegisterPage() {
             className="ad-input"
             value={form.visit_note}
             onChange={(e) => setField("visit_note", e.target.value)}
+            onBlur={(e) => setField("visit_note", autocorrectFormText(e.target.value))}
+            autoCapitalize="sentences"
             placeholder="24 Jul 2026"
           />
         </div>
         <div className="ad-field">
-          <label>Meet to</label>
+          <label>Host *</label>
           <SearchSelect
             value={form.person_to_meet}
             options={hostOptions}
             onChange={(val) => setField("person_to_meet", val)}
             placeholder="Select"
-            searchPlaceholder="Search person to meet"
+            searchPlaceholder="Search host"
             loading={loading}
+            loadingText="Loading hosts…"
+            emptyText="No hosts found"
             required
             allowEmpty
-            aria-label="Person to meet"
+            aria-label="Host"
           />
         </div>
         <div className="ad-field">
@@ -160,6 +171,8 @@ export function MobilePreRegisterPage() {
             className="ad-input"
             value={form.visitor_company}
             onChange={(e) => setField("visitor_company", e.target.value)}
+            onBlur={(e) => setField("visitor_company", autocorrectFormText(e.target.value))}
+            autoCapitalize="words"
             placeholder="Company"
           />
         </div>

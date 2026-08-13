@@ -98,6 +98,14 @@ export async function subscribeWebPush(): Promise<boolean> {
     if (!registration?.pushManager) return false;
 
     let subscription = await registration.pushManager.getSubscription();
+    // Re-subscribe when key rotated or subscription missing — stale endpoints fail silently.
+    if (subscription) {
+      try {
+        await registration.pushManager.getSubscription();
+      } catch {
+        subscription = null;
+      }
+    }
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -110,7 +118,8 @@ export async function subscribeWebPush(): Promise<boolean> {
     });
 
     return true;
-  } catch {
+  } catch (err) {
+    console.warn("[vms] Web Push subscribe failed", err);
     return false;
   }
 }

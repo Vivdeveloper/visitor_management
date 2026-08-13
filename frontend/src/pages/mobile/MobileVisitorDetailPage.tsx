@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { frappeGetList, visitorApi } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { extractError } from "@/lib/format";
+import { parseAdditionalGuestsFromRemarks } from "@/lib/additionalGuests";
 import { usePageChrome } from "@/context/PageChromeContext";
 import { useAuth } from "@/context/AuthContext";
 import { canPerformCheckout } from "@/lib/roles";
@@ -31,6 +32,8 @@ type VisitorDoc = {
   meeting_done_on?: string;
   creation?: string;
   modified?: string;
+  number_of_visitors?: number | string;
+  approval_remarks?: string;
 };
 
 type UserRow = { name: string; full_name?: string };
@@ -125,6 +128,12 @@ export function MobileVisitorDetailPage() {
   // Gate checkout after host marks Meeting Done (Visitor Entry create DocPerm).
   const canCheckout = showCheckout && status === "Meeting Done";
   const displayName = visitor?.full_name || visitor?.name || "";
+  const visitorCount = visitor?.number_of_visitors ? Number(visitor.number_of_visitors) : 1;
+  const additionalGuests = useMemo(
+    () => parseAdditionalGuestsFromRemarks(visitor?.approval_remarks),
+    [visitor?.approval_remarks],
+  );
+  const showMultiPersonRemark = visitorCount > 1 || additionalGuests.length > 0;
 
   return (
     <div className="vm-home-page">
@@ -161,12 +170,40 @@ export function MobileVisitorDetailPage() {
             <Field label="Person to meet" value={visitor.person_to_meet_name} />
             <Field label="Purpose" value={visitor.visit_purpose_type} />
             <Field label="Floor" value={visitor.floor} />
+            <Field label="Visitors" value={String(visitorCount)} />
           </div>
 
           <div className="vm-overview-card vm-detail-card">
             <h2 className="vm-section-title">Visit Timeline</h2>
             <VisitorStageTimeline visitor={visitor} />
           </div>
+
+          {showMultiPersonRemark ? (
+            <div className="vm-overview-card vm-detail-card">
+              <h2 className="vm-section-title">Multi person remark</h2>
+              <div className="vm-detail-multi-guests">
+                <div className="vm-detail-multi-guest-row">
+                  <span className="vm-detail-label">Guest 1 (primary)</span>
+                  <span className="vm-detail-value">{displayName || "—"}</span>
+                </div>
+                {additionalGuests.length ? (
+                  additionalGuests.map((guest, index) => (
+                    <div key={`${guest.name}-${index}`} className="vm-detail-multi-guest-row">
+                      <span className="vm-detail-label">Guest {index + 2}</span>
+                      <span className="vm-detail-value">
+                        {guest.name.trim() || "—"}
+                        {guest.mobile.trim() ? ` · ${guest.mobile.trim()}` : ""}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="vm-detail-multi-empty">
+                    No additional guest details were saved in remarks for this entry.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <div className="vm-overview-card vm-detail-card">
             <h2 className="vm-section-title">Operations</h2>

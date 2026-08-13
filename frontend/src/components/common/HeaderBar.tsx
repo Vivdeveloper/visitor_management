@@ -11,7 +11,7 @@ import { NotificationSetupPrompt } from "@/components/alerts/NotificationSetupPr
 import { IconBell, IconMenuMore } from "@/components/ui/MobileIcons";
 import { initials } from "@/lib/format";
 import { ut } from "@/i18n/uiChrome";
-import { hasCapability, visitorScopeFilters } from "@/lib/roles";
+import { hasCapability, userHostScopeFilters } from "@/lib/roles";
 
 interface HeaderBarProps {
   title?: string;
@@ -58,7 +58,7 @@ export function HeaderBar({
     try {
       // Same source as Pending tab / Notifications page — avoid empty dashboard queue misses.
       const [list, alerts] = await Promise.all([
-        visitorApi.listDetailed(200, visitorScopeFilters(user)),
+        visitorApi.listDetailed(200, userHostScopeFilters(user)),
         notificationApi.list(40).catch(() => []),
       ]);
       const pending = (list || []).filter(

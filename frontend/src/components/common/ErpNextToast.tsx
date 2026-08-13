@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { formatNowTime } from "@/lib/format";
 
 export type ErpToastData = {
@@ -20,50 +21,37 @@ export function ErpNextToast({ toast, onClose }: Props) {
     if (!toast) return;
     const timer = setTimeout(() => {
       onClose();
-    }, 3800);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [toast, onClose]);
 
   if (!toast) return null;
 
-  return createPortal(
-    <div className="erp-toast-overlay" role="status" aria-live="polite">
-      <div className="erp-toast-card">
-        <div className="erp-toast-header">
-          <div className="erp-toast-brand">
-            <span className="erp-toast-logo" aria-hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </span>
-            <strong className="erp-toast-title">ERPNext Notification</strong>
-          </div>
-          <div className="erp-toast-meta">
-            <span className="erp-toast-time">{toast.time || formatNowTime()}</span>
-            <button
-              type="button"
-              className="erp-toast-close"
-              onClick={onClose}
-              aria-label="Close notification"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+  const timeLabel = toast.time || formatNowTime();
 
-        <div className="erp-toast-body">
-          <div className="erp-toast-icon-wrap" aria-hidden>
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-          </div>
-          <div className="erp-toast-content">
-            <strong className="erp-toast-msg">{toast.title}</strong>
-            <p className="erp-toast-desc">{toast.message}</p>
-          </div>
-        </div>
-      </div>
+  return createPortal(
+    <div className="vm-toast-overlay" role="status" aria-live="polite">
+      <button
+        type="button"
+        className="vm-toast-glass"
+        onClick={onClose}
+        aria-label={`${toast.title}. ${toast.message}. Tap to dismiss.`}
+      >
+        <span className="vm-toast-glass-shine" aria-hidden />
+
+        <span className="vm-toast-app-icon" aria-hidden>
+          <BrandLogo variant="icon" className="vm-toast-app-icon-img" />
+        </span>
+
+        <span className="vm-toast-copy">
+          <span className="vm-toast-copy-head">
+            <span className="vm-toast-app-name">Precious Alloys</span>
+            <span className="vm-toast-time">{timeLabel}</span>
+          </span>
+          <strong className="vm-toast-title">{toast.title}</strong>
+          <span className="vm-toast-message">{toast.message}</span>
+        </span>
+      </button>
     </div>,
     document.body,
   );

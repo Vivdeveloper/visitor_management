@@ -34,6 +34,17 @@ export function visitorScopeFilters(user: AuthProfile | null): Array<[string, st
   return [["person_to_meet", "=", uid]];
 }
 
+/**
+ * Always scope to the signed-in host (Notifications page / badge).
+ * Unlike `visitorScopeFilters`, gate/create users are not given the full queue here.
+ */
+export function userHostScopeFilters(user: AuthProfile | null): Array<[string, string, string]> | undefined {
+  if (!user?.authenticated) return visitorScopeFilters(user);
+  const uid = (user.user || user.email || "").trim();
+  if (!uid) return visitorScopeFilters(user);
+  return [["person_to_meet", "=", uid]];
+}
+
 /** Accept / Reject — server `can_approve` from Role Permission Manager (write, not gate create). */
 export function canApproveReject(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
@@ -172,7 +183,7 @@ export function firstAllowedPath(user: AuthProfile | null): string {
   const tabs = mobileTabsFor(user);
   if (tabs.length) return tabs[0].to;
   if (hasCapability(user, "profile")) return "/profile";
-  return "/login";
+  return "/";
 }
 
 export function capabilityForPath(pathname: string): CapabilityKey | null {

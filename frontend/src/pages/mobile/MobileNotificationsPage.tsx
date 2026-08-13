@@ -13,16 +13,19 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { formatTime } from "@/lib/format";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
-import { visitorScopeFilters } from "@/lib/roles";
+import { userHostScopeFilters, resolveMode } from "@/lib/roles";
 
 function isPendingStatus(status?: string): boolean {
   return status === "Pending Approval" || status === "Pending";
 }
 
-function alertRoute(item: InAppNotification): string {
+function alertRoute(item: InAppNotification, mode: ReturnType<typeof resolveMode>): string {
   if (item.document_type === "Visitor Entry" && item.document_name) {
     const subject = (item.subject || "").toLowerCase();
     const body = (item.email_content || "").toLowerCase();
+    if (subject.includes("checkout") || body.includes("checkout") || body.includes("check out")) {
+      return mode === "security" ? "/inside" : "/approvals";
+    }
     if (subject.includes("reject") || body.includes("rejected")) {
       return "/inside?status=rejected";
     }
@@ -33,6 +36,7 @@ function alertRoute(item: InAppNotification): string {
 export function MobileNotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const mode = resolveMode(user);
   const [pending, setPending] = useState<VisitorListRow[]>([]);
   const [alerts, setAlerts] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +44,7 @@ export function MobileNotificationsPage() {
 
   usePageChrome({
     title: "Notifications",
-    subtitle: "Pending approvals",
+    subtitle: "Your pending approvals",
     showBack: true,
     backTo: "/",
     showNotification: false,
@@ -51,7 +55,7 @@ export function MobileNotificationsPage() {
     setLoading(true);
     try {
       const [visitors, logs] = await Promise.all([
-        visitorApi.listDetailed(200, visitorScopeFilters(user)).catch(() => [] as VisitorListRow[]),
+        visitorApi.listDetailed(200, userHostScopeFilters(user)).catch(() => [] as VisitorListRow[]),
         notificationApi.list(40).catch(() => [] as InAppNotification[]),
       ]);
       setPending((visitors || []).filter((row) => isPendingStatus(row.status)));
@@ -110,7 +114,7 @@ export function MobileNotificationsPage() {
         /* ignore */
       }
     }
-    navigate(alertRoute(item));
+    navigate(alertRoute(item, mode));
   };
 
   const showMarkAll = pending.length > 0 && unreadPending > 0 || unreadAlerts > 0;

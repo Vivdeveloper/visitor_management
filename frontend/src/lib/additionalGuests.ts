@@ -37,6 +37,48 @@ export function formatAdditionalGuestsRemarks(guests: AdditionalGuest[]): string
   return `Additional guests:\n${lines.join("\n")}`;
 }
 
+/** Parse guest lines stored in Visitor Entry `approval_remarks`. */
+export function parseAdditionalGuestsFromRemarks(remarks?: string | null): AdditionalGuest[] {
+  if (!remarks?.trim()) return [];
+
+  const lines = remarks
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const guests: AdditionalGuest[] = [];
+  let inBlock = false;
+
+  for (const line of lines) {
+    if (/^Additional guests:?$/i.test(line)) {
+      inBlock = true;
+      continue;
+    }
+
+    if (
+      inBlock &&
+      /^(Approved|Rejected|Cancelled|Transferred|Meeting|Checkout)\b/i.test(line)
+    ) {
+      break;
+    }
+
+    if (!inBlock) continue;
+
+    const matched = /^(\d+)\.\s*(.+?)(?:\s+[—–-]\s*(.+))?$/.exec(line);
+    if (!matched) {
+      if (guests.length) break;
+      continue;
+    }
+
+    const name = (matched[2] || "").trim();
+    const mobile = (matched[3] || "").trim();
+    if (!name && !mobile) continue;
+    guests.push({ name: name === "—" ? "" : name, mobile: mobile === "—" ? "" : mobile });
+  }
+
+  return guests;
+}
+
 export function validateAdditionalGuests(guests: AdditionalGuest[]): string | null {
   for (let i = 0; i < guests.length; i += 1) {
     const guest = guests[i];

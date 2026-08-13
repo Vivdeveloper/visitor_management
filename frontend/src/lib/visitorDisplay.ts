@@ -1,11 +1,8 @@
 import type { VisitorLang } from "@/i18n/visitorJourney";
 import { localizeDigits } from "@/lib/localize";
 
-export function formatVisitorCardTitle(fullName?: string | null, company?: string | null): string {
-  const name = (fullName || "").trim() || "—";
-  const org = (company || "").trim();
-  if (!org) return name;
-  return `${name} from ${org}`;
+export function formatVisitorCardTitle(fullName?: string | null, _company?: string | null): string {
+  return (fullName || "").trim() || "—";
 }
 
 export function formatVisitorCardSubtitle(

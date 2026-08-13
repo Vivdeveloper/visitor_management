@@ -94,7 +94,7 @@ export function MobileProfilePage() {
             {ut(lang, "logout")}
           </button>
         ) : (
-          <Link to="/login" className="vm-btn-primary">
+          <Link to="/" className="vm-btn-primary">
             {ut(lang, "sign_in")}
           </Link>
         )}

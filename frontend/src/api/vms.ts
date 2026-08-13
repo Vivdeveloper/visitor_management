@@ -230,6 +230,10 @@ export type MastersPayload = {
   visit_purpose_types?: Array<{ name: string; visit_purpose_type_name?: string }>;
   vehicle_types?: Array<{ name: string; vehicle_type_name?: string }>;
   id_proof_types?: Array<{ name: string; id_proof_type_name?: string }>;
+  /** Standard Frappe Gender DocType — served via get_masters (not client get_list). */
+  genders?: Array<{ name: string }>;
+  /** Host DocType master — same shape as settings.get_hosts(). */
+  hosts?: Array<{ name: string; user?: string; full_name?: string }>;
 };
 
 export const dashboardApi = {
@@ -280,6 +284,7 @@ export type VisitorListRow = {
   meeting_done_on?: string;
   approved_on?: string;
   rejected_on?: string;
+  cancelled_on?: string;
   transfer_to_user?: string;
   creation?: string;
   visitor_company?: string;
@@ -294,6 +299,10 @@ export type VisitorListRow = {
   qr_expires_on?: string;
   /** Host/security remarks — includes reject reason lines. */
   approval_remarks?: string;
+  /** Document owner (User.name) — creator of the Visitor Entry. */
+  owner?: string;
+  /** Resolved User.full_name for `owner`. */
+  owner_name?: string;
 };
 
 /** Standard Frappe list API — no custom methods / fields. */
@@ -318,6 +327,22 @@ export async function frappeGetList<T extends Record<string, unknown> = Record<s
   }
 }
 
+export type ReturningVisitorProfile = {
+  found: boolean;
+  name?: string;
+  mobile?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  full_name?: string;
+  email?: string;
+  gender?: string;
+  visitor_company?: string;
+  visitor_location?: string;
+  photo?: string;
+  modified?: string;
+};
+
 export const visitorApi = {
   list: (filters?: string | Record<string, unknown>, limit = 20) =>
     callMethod<VisitorListRow[]>("visitor.list_visitors", {
@@ -325,6 +350,9 @@ export const visitorApi = {
       limit,
     }),
   get: (name: string) => callMethod("visitor.get_visitor", { name }),
+  /** Latest Visitor Entry for this mobile — autofill names on repeated visits. */
+  getReturningProfile: (mobile: string) =>
+    callMethod<ReturningVisitorProfile>("visitor.get_returning_visitor_profile", { mobile }),
   update: (name: string, payload: Record<string, unknown>) =>
     callMethod("visitor.update_visitor", { name, ...payload }),
   create: (payload: Record<string, unknown>) => callMethod("visitor.create_visitor", payload),
@@ -333,8 +361,8 @@ export const visitorApi = {
    * Pass host-scope filters from `visitorScopeFilters(user)` for host users
    * (Visitor Entry without create DocPerm).
    */
-  listDetailed: (limit = 100, filters?: Record<string, unknown> | unknown[]) =>
-    frappeGetList<VisitorListRow>({
+  listDetailed: async (limit = 100, filters?: Record<string, unknown> | unknown[]) => {
+    const rows = await frappeGetList<VisitorListRow>({
       doctype: "Visitor Entry",
       fields: [
         "name",
@@ -351,8 +379,10 @@ export const visitorApi = {
         "meeting_done_on",
         "approved_on",
         "rejected_on",
+        "cancelled_on",
         "transfer_to_user",
         "creation",
+        "owner",
         "visitor_company",
         "company",
         "visitor_location",
@@ -365,7 +395,50 @@ export const visitorApi = {
       filters,
       order_by: "modified desc",
       limit_page_length: limit,
-    }),
+    });
+
+    const owners = Array.from(
+      new Set(
+        rows
+          .map((row) => (row.owner || "").trim())
+          .filter((owner) => owner && owner !== "Guest"),
+      ),
+    );
+    if (!owners.length) {
+      return rows.map((row) => ({
+        ...row,
+        owner_name: row.owner && row.owner !== "Guest" ? row.owner : undefined,
+      }));
+    }
+
+    try {
+      const users = await frappeGetList<{ name: string; full_name?: string }>({
+        doctype: "User",
+        fields: ["name", "full_name"],
+        filters: [["name", "in", owners]],
+        limit_page_length: owners.length,
+      });
+      const nameByUser = new Map(
+        users.map((user) => [user.name, (user.full_name || user.name || "").trim()]),
+      );
+      return rows.map((row) => {
+        const owner = (row.owner || "").trim();
+        if (!owner || owner === "Guest") return { ...row, owner_name: undefined };
+        return {
+          ...row,
+          owner_name: nameByUser.get(owner) || owner,
+        };
+      });
+    } catch {
+      return rows.map((row) => {
+        const owner = (row.owner || "").trim();
+        return {
+          ...row,
+          owner_name: owner && owner !== "Guest" ? owner : undefined,
+        };
+      });
+    }
+  },
 };
 
 export const approvalApi = {
@@ -376,6 +449,8 @@ export const approvalApi = {
     callMethod("approval.reject", { visitor_entry, remarks }),
   cancel: (visitor_entry: string, remarks?: string) =>
     callMethod("approval.cancel", { visitor_entry, remarks }),
+  reopenToPending: (visitor_entry: string, remarks?: string) =>
+    callMethod("approval.reopen_to_pending", { visitor_entry, remarks }),
   transfer: (visitor_entry: string, transfer_to_user: string, remarks?: string) =>
     callMethod("approval.transfer", { visitor_entry, transfer_to_user, remarks }),
   notifyHost: (visitor_entry: string, message?: string) =>

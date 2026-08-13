@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+type InstallStore = {
+  deferred: BeforeInstallPromptEvent | null;
+  installed: boolean;
+  hintOpen: boolean;
 };
 
 function isIosDevice() {
@@ -22,54 +28,107 @@ function isStandaloneDisplay() {
   return Boolean(media || iosStandalone);
 }
 
-/** Captures beforeinstallprompt and exposes install / platform guidance. */
+/** Chrome Install button needs HTTPS, localhost, or 127.0.0.1 — not http://site-name. */
+export function isPwaSecureContext(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.isSecureContext) return true;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+}
+
+/** Suggest a localhost URL so Chrome can show Install on local benches. */
+export function getLocalhostInstallUrl(): string {
+  if (typeof window === "undefined") return "http://localhost:8001/vms/";
+  const port = window.location.port ? `:${window.location.port}` : "";
+  return `${window.location.protocol}//localhost${port}/vms/`;
+}
+
+let store: InstallStore = {
+  deferred: null,
+  installed: typeof window !== "undefined" ? isStandaloneDisplay() : false,
+  hintOpen: false,
+};
+
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((fn) => fn());
+}
+
+function setStore(patch: Partial<InstallStore>) {
+  store = { ...store, ...patch };
+  emit();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot(): InstallStore {
+  return store;
+}
+
+let listenersBound = false;
+
+function bindGlobalListeners() {
+  if (listenersBound || typeof window === "undefined") return;
+  listenersBound = true;
+
+  window.addEventListener("beforeinstallprompt", (e: Event) => {
+    e.preventDefault();
+    setStore({ deferred: e as BeforeInstallPromptEvent });
+  });
+
+  window.addEventListener("appinstalled", () => {
+    setStore({ deferred: null, installed: true, hintOpen: false });
+  });
+}
+
+/** Captures beforeinstallprompt once and shares install / platform guidance. */
 export function usePwaInstall() {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(() => isStandaloneDisplay());
-  const [hintOpen, setHintOpen] = useState(false);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const ios = useMemo(() => isIosDevice(), []);
+  const secure = useMemo(() => isPwaSecureContext(), []);
+  const localhostUrl = useMemo(() => getLocalhostInstallUrl(), []);
 
   useEffect(() => {
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => {
-      setInstalled(true);
-      setDeferred(null);
-      setHintOpen(false);
-    };
-    window.addEventListener("beforeinstallprompt", onBip);
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBip);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+    bindGlobalListeners();
+    if (isStandaloneDisplay() && !store.installed) {
+      setStore({ installed: true });
+    }
   }, []);
 
-  const canPrompt = Boolean(deferred) && !installed;
-  /** Always offer download until running as installed PWA. */
-  const showButton = !installed;
+  const canPrompt = Boolean(snapshot.deferred) && !snapshot.installed;
+  const showButton = !snapshot.installed;
+
+  const setHintOpen = useCallback((open: boolean) => {
+    setStore({ hintOpen: open });
+  }, []);
 
   const install = useCallback(async () => {
+    const deferred = store.deferred;
     if (deferred) {
       await deferred.prompt();
       const choice = await deferred.userChoice;
       if (choice.outcome === "accepted") {
-        setInstalled(true);
+        setStore({ installed: true, deferred: null, hintOpen: false });
+      } else {
+        setStore({ deferred: null });
       }
-      setDeferred(null);
       return;
     }
-    setHintOpen(true);
-  }, [deferred]);
+    setStore({ hintOpen: true });
+  }, []);
 
   return {
-    installed,
+    installed: snapshot.installed,
     canPrompt,
     showButton,
     ios,
-    hintOpen,
+    secure,
+    localhostUrl,
+    hintOpen: snapshot.hintOpen,
     setHintOpen,
     install,
   };

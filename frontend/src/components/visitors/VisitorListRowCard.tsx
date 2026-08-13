@@ -12,6 +12,10 @@ type VisitorListRowCardProps = {
   item: VisitorListRow;
   index?: number;
   onOpen: (item: VisitorListRow) => void;
+  /** History: only stages with timestamps (completed tracking). */
+  timelineFilledOnly?: boolean;
+  /** Show Visitor Entry id under the name. */
+  showEntryId?: boolean;
 };
 
 type ListBadgeIcon = "in" | "checkout" | "pending" | "approved" | "out" | "transferred" | "rejected" | "default";
@@ -81,6 +85,8 @@ export function VisitorListRowCard({
   item,
   index = 0,
   onOpen,
+  timelineFilledOnly = false,
+  showEntryId = false,
 }: VisitorListRowCardProps) {
   const { lang } = useAppLanguage();
   const style = resolveListBadgeStyle(item.status, Boolean(item.transfer_to_user));
@@ -122,6 +128,7 @@ export function VisitorListRowCard({
               </span>
             ) : null}
           </div>
+          {showEntryId ? <p className="vm-visitor-list-entry-id">{item.name}</p> : null}
           <p className="vm-visitor-list-host">
             {ut(lang, "host_prefix")} <span>{hostLine}</span>
           </p>
@@ -143,7 +150,7 @@ export function VisitorListRowCard({
       </button>
 
       <div className="vm-visitor-list-timestamps">
-        <VisitorStageTimeline visitor={item} compact filledOnly={false} />
+        <VisitorStageTimeline visitor={item} compact filledOnly={timelineFilledOnly} />
       </div>
     </div>
   );

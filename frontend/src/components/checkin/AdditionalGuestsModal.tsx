@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AdditionalGuest } from "@/lib/additionalGuests";
 import { normalizeAdditionalGuests } from "@/lib/additionalGuests";
+import { autocorrectPersonName } from "@/lib/nameCase";
 
 type Props = {
   open: boolean;
@@ -55,7 +56,7 @@ export function AdditionalGuestsModal({
     }
     onSave(
       draft.map((guest) => ({
-        name: guest.name.trim(),
+        name: autocorrectPersonName(guest.name),
         mobile: guest.mobile.replace(/[\s\-()+]/g, "").slice(-10),
       })),
     );
@@ -93,8 +94,10 @@ export function AdditionalGuestsModal({
                 className="vm-input-field"
                 value={guest.name}
                 onChange={(e) => updateGuest(index, "name", e.target.value)}
+                onBlur={(e) => updateGuest(index, "name", autocorrectPersonName(e.target.value))}
                 placeholder="Full name"
                 autoComplete="name"
+                autoCapitalize="words"
               />
               <label className="vm-form-label" htmlFor={`guest-mobile-${index}`}>
                 Mobile
@@ -107,6 +110,7 @@ export function AdditionalGuestsModal({
                 placeholder="10-digit mobile"
                 inputMode="numeric"
                 autoComplete="tel"
+                autoCapitalize="none"
               />
             </div>
           ))}

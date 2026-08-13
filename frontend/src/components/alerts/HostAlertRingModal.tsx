@@ -8,6 +8,25 @@ type Props = {
 export function HostAlertRingModal({ alert, onReview }: Props) {
   const minutesWaiting = Math.max(1, Math.floor((Date.now() - alert.receivedAt) / 60_000));
   const isSecurity = alert.variant === "security";
+  const isCreator = alert.variant === "creator";
+
+  const kicker = isSecurity
+    ? "Checkout required"
+    : isCreator
+      ? alert.title || "Visitor update"
+      : alert.title || "Visitor at gate";
+
+  const meta = isSecurity
+    ? `Checkout pending${alert.reminderCount > 0 ? ` · Reminder ${alert.reminderCount + 1}` : ""}`
+    : isCreator
+      ? `Action needed${alert.reminderCount > 0 ? ` · Ring ${alert.reminderCount + 1}` : ""}`
+      : `Waiting ${minutesWaiting} min${alert.reminderCount > 0 ? ` · Ring ${alert.reminderCount + 1}` : ""}`;
+
+  const cta = isSecurity
+    ? "Open Inside / Checkout"
+    : isCreator
+      ? "Open visit"
+      : "Allow / Review";
 
   return (
     <div className="vm-host-ring-modal" role="alertdialog" aria-modal="true" aria-live="assertive">
@@ -36,17 +55,13 @@ export function HostAlertRingModal({ alert, onReview }: Props) {
           </svg>
         </div>
 
-        <p className="vm-host-ring-kicker">{isSecurity ? "Checkout required" : "Visitor at gate"}</p>
+        <p className="vm-host-ring-kicker">{kicker}</p>
         <h2 className="vm-host-ring-name">{alert.visitorName}</h2>
         <p className="vm-host-ring-message">{alert.message}</p>
-        <p className="vm-host-ring-meta">
-          {isSecurity
-            ? "Ready for gate checkout"
-            : `Waiting ${minutesWaiting} min${alert.reminderCount > 0 ? ` · Ring ${alert.reminderCount + 1}` : ""}`}
-        </p>
+        <p className="vm-host-ring-meta">{meta}</p>
 
         <button type="button" className="vm-host-ring-cta" onClick={onReview}>
-          {isSecurity ? "Open Approvals" : "Allow / Review"}
+          {cta}
         </button>
       </div>
     </div>

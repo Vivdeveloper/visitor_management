@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { settingsApi, frappeGetList, type HostOption, type MastersPayload } from "@/api/vms";
+import { settingsApi, type HostOption, type MastersPayload } from "@/api/vms";
 import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { VoiceDictationButton } from "@/components/ui/VoiceDictationButton";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
-import { autocorrectPersonName } from "@/lib/nameCase";
+import { autocorrectFormText, autocorrectPersonName } from "@/lib/nameCase";
 import {
   VISIT_PURPOSE_OTHER_VALUE,
   visitPurposeOtherText,
@@ -59,7 +59,6 @@ export function VisitorDetailsForm({
 
   const [hosts, setHosts] = useState<HostOption[]>([]);
   const [masters, setMasters] = useState<MastersPayload>({});
-  const [genders, setGenders] = useState<Array<{ name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewAlt, setPreviewAlt] = useState("Photo preview");
@@ -69,22 +68,17 @@ export function VisitorDetailsForm({
     async function load() {
       setLoading(true);
       try {
-        const [hostList, masterData, genderList] = await Promise.all([
+        const [hostResult, masterResult] = await Promise.allSettled([
           settingsApi.getHosts(),
           settingsApi.getMasters(),
-          frappeGetList<{ name: string }>({
-            doctype: "Gender",
-            fields: ["name"],
-            limit_page_length: 20,
-            order_by: "name asc",
-          }).catch(() => []),
         ]);
         if (cancelled) return;
-        setHosts(Array.isArray(hostList) ? hostList : []);
-        setMasters(masterData || {});
-        setGenders(genderList || []);
-      } catch {
-        /* keep empty masters */
+        if (hostResult.status === "fulfilled") {
+          setHosts(Array.isArray(hostResult.value) ? hostResult.value : []);
+        }
+        if (masterResult.status === "fulfilled") {
+          setMasters(masterResult.value || {});
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -93,7 +87,6 @@ export function VisitorDetailsForm({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
 
   function onFile(kind: "photo" | "id", fileList: FileList | null) {
@@ -106,6 +99,7 @@ export function VisitorDetailsForm({
   const purposes = masters.visit_purpose_types || [];
   const idTypes = masters.id_proof_types || [];
   const vehicles = masters.vehicle_types || [];
+  const genders = masters.genders || [];
 
   const genderOptions = useMemo(
     () => genders.map((g) => ({ value: g.name, label: g.name })),
@@ -117,10 +111,19 @@ export function VisitorDetailsForm({
       hosts.map((h) => ({
         value: h.value,
         label: h.label,
-        sublabel: h.email || h.value,
+        sublabel: h.email && h.email !== h.label ? h.email : h.email || h.value,
       })),
     [hosts],
   );
+
+  // If draft/stored Host id is a hash User, remap to email User.name from masters list.
+  useEffect(() => {
+    const current = (values.person_to_meet || "").trim();
+    if (!current || !hosts.length) return;
+    if (hosts.some((h) => h.value === current)) return;
+    const byEmail = hosts.find((h) => (h.email || "") === current);
+    if (byEmail) onChangeField("person_to_meet", byEmail.value);
+  }, [hosts, values.person_to_meet, onChangeField]);
 
   const knownPurposeValues = useMemo(
     () => purposes.map((p) => p.name),
@@ -193,6 +196,7 @@ export function VisitorDetailsForm({
             onChange={(e) => onChangeField("first_name", e.target.value)}
             onBlur={(e) => onChangeField("first_name", autocorrectPersonName(e.target.value))}
             autoComplete="given-name"
+            autoCapitalize="words"
             aria-label={vt(lang, "first_name")}
           />
         </div>
@@ -203,6 +207,7 @@ export function VisitorDetailsForm({
             value={values.middle_name}
             onChange={(e) => onChangeField("middle_name", e.target.value)}
             onBlur={(e) => onChangeField("middle_name", autocorrectPersonName(e.target.value))}
+            autoCapitalize="words"
           />
         </div>
         <div className="vm-form-group">
@@ -213,6 +218,7 @@ export function VisitorDetailsForm({
             onChange={(e) => onChangeField("last_name", e.target.value)}
             onBlur={(e) => onChangeField("last_name", autocorrectPersonName(e.target.value))}
             autoComplete="family-name"
+            autoCapitalize="words"
             aria-label={vt(lang, "last_name")}
           />
         </div>
@@ -234,7 +240,15 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "email")}</label>
-        <input className="vm-input-field" type="email" value={values.email} onChange={(e) => onChangeField("email", e.target.value)} />
+        <input
+          className="vm-input-field"
+          type="email"
+          value={values.email}
+          onChange={(e) => onChangeField("email", e.target.value)}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+        />
       </div>
     </div>
   );
@@ -272,12 +286,24 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "company")}</label>
-        <input className="vm-input-field" value={values.visitor_company} onChange={(e) => onChangeField("visitor_company", e.target.value)} />
+        <input
+          className="vm-input-field"
+          value={values.visitor_company}
+          onChange={(e) => onChangeField("visitor_company", e.target.value)}
+          onBlur={(e) => onChangeField("visitor_company", autocorrectFormText(e.target.value))}
+          autoCapitalize="words"
+        />
       </div>
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "location")}</label>
-        <input className="vm-input-field" value={values.visitor_location} onChange={(e) => onChangeField("visitor_location", e.target.value)} />
+        <input
+          className="vm-input-field"
+          value={values.visitor_location}
+          onChange={(e) => onChangeField("visitor_location", e.target.value)}
+          onBlur={(e) => onChangeField("visitor_location", autocorrectFormText(e.target.value))}
+          autoCapitalize="words"
+        />
       </div>
 
       <div className="vm-form-group">
@@ -287,9 +313,10 @@ export function VisitorDetailsForm({
           options={hostOptions}
           onChange={(val) => onChangeField("person_to_meet", val)}
           placeholder={vt(lang, "select")}
-          searchPlaceholder="Search person to meet"
+          searchPlaceholder={vt(lang, "search_host")}
           loading={loading}
           loadingText={vt(lang, "loading_hosts")}
+          emptyText={vt(lang, "no_hosts")}
           required
           allowEmpty
           aria-label={vt(lang, "person_to_meet")}
@@ -337,7 +364,12 @@ export function VisitorDetailsForm({
               onChangeField("visit_purpose_type", VISIT_PURPOSE_OTHER_VALUE);
               onChangeField("visit_purpose_other", e.target.value);
             }}
+            onBlur={(e) => {
+              onChangeField("visit_purpose_type", VISIT_PURPOSE_OTHER_VALUE);
+              onChangeField("visit_purpose_other", autocorrectFormText(e.target.value));
+            }}
             placeholder={vt(lang, "visit_purpose_other_placeholder")}
+            autoCapitalize="words"
             aria-label={vt(lang, "visit_purpose_other_label")}
           />
         </div>
@@ -390,13 +422,20 @@ export function VisitorDetailsForm({
             placeholder={vt(lang, "select")}
             searchPlaceholder="Search vehicle type"
             emptyLabel={vt(lang, "none")}
+            loading={loading}
             allowEmpty
             aria-label={vt(lang, "vehicle_type")}
           />
         </div>
         <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "vehicle_number")}</label>
-          <input className="vm-input-field" value={values.vehicle_number} onChange={(e) => onChangeField("vehicle_number", e.target.value)} />
+          <input
+            className="vm-input-field"
+            value={values.vehicle_number}
+            onChange={(e) => onChangeField("vehicle_number", e.target.value)}
+            onBlur={(e) => onChangeField("vehicle_number", e.target.value.trim().toUpperCase())}
+            autoCapitalize="characters"
+          />
         </div>
       </div>
     </>

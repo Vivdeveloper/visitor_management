@@ -1,9 +1,11 @@
+import { autocorrectFormText } from "@/lib/nameCase";
+
 /** Sentinel value for the synthetic "Other" purpose option in the UI. */
 export const VISIT_PURPOSE_OTHER_VALUE = "__OTHER__";
 
 export function resolveVisitPurposeType(selected: string, otherText: string): string {
   if (selected === VISIT_PURPOSE_OTHER_VALUE) {
-    return otherText.trim();
+    return autocorrectFormText(otherText);
   }
   return selected.trim();
 }
