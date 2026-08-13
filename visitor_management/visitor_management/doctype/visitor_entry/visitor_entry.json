@@ -7,14 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
-  "company",
   "mobile",
   "column_break_contact",
   "status",
-  "company",
   "otp_verified",
   "email",
   "photo",
+  "company",
   "section_break_visitor_details",
   "first_name",
   "middle_name",
@@ -31,6 +30,7 @@
   "visitor_company",
   "section_break_meeting",
   "person_to_meet",
+  "host_email",
   "person_to_meet_name",
   "floor",
   "column_break_meeting",
@@ -97,7 +97,7 @@
   {
    "fieldname": "email",
    "fieldtype": "Data",
-   "label": "Email",
+   "label": "Visitor Email",
    "options": "Email"
   },
   {
@@ -360,16 +360,24 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company",
-   "reqd": 1
+   "options": "Company"
+  },
+  {
+   "fetch_from": "person_to_meet.user",
+   "fieldname": "host_email",
+   "fieldtype": "Data",
+   "label": "Host Email",
+   "options": "Email",
+   "read_only": 1
   }
  ],
  "image_field": "photo",
  "index_web_pages_for_search": 1,
  "links": [],
  "make_attachments_public": 1,
- "modified": "2026-08-01 15:09:33.150147",
+ "modified": "2026-08-13 09:38:27.612547",
  "modified_by": "Administrator",
  "module": "Visitor Management",
  "name": "Visitor Entry",

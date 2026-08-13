@@ -165,10 +165,6 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const goToPendingApprovals = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    if (current?.variant === "security" || current?.variant === "creator") {
-      navigate("/inside");
-      return;
-    }
     navigate("/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
@@ -466,15 +462,6 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const handleReview = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    if (current?.variant === "security") {
-      navigate("/inside");
-      return;
-    }
-    if (current?.variant === "creator") {
-      const title = (current.title || "").toLowerCase();
-      navigate(title.includes("reject") ? "/inside?status=rejected" : "/inside");
-      return;
-    }
     navigate("/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
