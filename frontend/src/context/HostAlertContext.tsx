@@ -31,6 +31,7 @@ import {
   stopHostAlertReminders,
   stopHostAlertRing,
 } from "@/services/hostAlertManager";
+import { routeForHostAlert } from "@/lib/notificationRoutes";
 import { connectVmsSocket } from "@/services/vmsSocket";
 import {
   initWebHostNotifications,
@@ -54,47 +55,29 @@ function currentUserIds(user: AuthProfile | null): string[] {
   return [...new Set(ids)];
 }
 
-/** True when this login should receive the host ring for a pending visitor. */
+/** Subscribe to host urgent rings — host + gate logins; delivery still filtered by host_user. */
 function isHostAlertRecipient(user: AuthProfile | null): boolean {
   if (!user?.authenticated) return false;
   const mode = resolveMode(user);
   if (mode === "visitor" || mode === "guest") return false;
-  // Assigned hosts (write/read) always; also gate users who can approve.
-  return mode === "host" || canApproveReject(user) || mode === "security";
+  return mode === "host" || mode === "security";
 }
 
+/** Strict: urgent host ring only for the assigned host login (Host.user). */
 function payloadTargetsCurrentHost(payload: HostAlertPayload, user: AuthProfile | null): boolean {
   const ids = currentUserIds(user);
   if (!ids.length) return false;
   const hostUser = (payload.host_user || "").trim().toLowerCase();
-  // Targeted alert: only the assigned host login.
-  if (hostUser) return ids.includes(hostUser);
-  // Untargeted broadcast (legacy) — show to host-mode users only.
-  return resolveMode(user) === "host" || canApproveReject(user);
+  if (!hostUser) return false;
+  return ids.includes(hostUser);
 }
 
 function payloadTargetsCurrentCreator(payload: HostAlertPayload, user: AuthProfile | null): boolean {
   const ids = currentUserIds(user);
   if (!ids.length) return false;
   const owner = (payload.owner || "").trim().toLowerCase();
-  if (owner) return ids.includes(owner);
-  return false;
-}
-
-/** Urgent host ring — prefer explicit ring_for from server. */
-function isUrgentHostRingEvent(payload: HostAlertPayload): boolean {
-  if (payload.ring_for === "host") return true;
-  if (payload.ring_for === "creator") return false;
-  const event = payload.event || "";
-  return event === "host_notified";
-}
-
-/** Urgent creator ring — prefer explicit ring_for from server. */
-function isUrgentCreatorRingEvent(payload: HostAlertPayload): boolean {
-  if (payload.ring_for === "creator") return true;
-  if (payload.ring_for === "host") return false;
-  const event = payload.event || "";
-  return event === "creator_alert";
+  if (!owner) return false;
+  return ids.includes(owner);
 }
 
 function creatorAlertTitle(payload: HostAlertPayload): string {
@@ -165,7 +148,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const goToPendingApprovals = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    navigate("/approvals");
+    navigate(current ? routeForHostAlert(current) : "/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
   const onReminderTick = useCallback((next: ActiveHostAlert) => {
@@ -236,7 +219,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
 
       void requestNotificationPermission();
       startHostAlertRing();
-      void pushHostAlertNotification(visitorEntry, title, message, 0);
+      void pushHostAlertNotification(visitorEntry, title, message, 0, routeForHostAlert(alert));
 
       startHostAlertReminders(alert, onReminderTick);
     },
@@ -275,7 +258,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
 
       void requestNotificationPermission();
       startHostAlertRing();
-      void pushHostAlertNotification(visitorEntry, title, message, 0);
+      void pushHostAlertNotification(visitorEntry, title, message, 0, routeForHostAlert(alert));
 
       startHostAlertReminders(alert, onReminderTick);
     },
@@ -318,7 +301,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
 
       void requestNotificationPermission();
       startHostAlertRing();
-      void pushHostAlertNotification(visitorEntry, "Visitor ready for checkout", message, 0);
+      void pushHostAlertNotification(visitorEntry, "Visitor ready for checkout", message, 0, routeForHostAlert(alert));
 
       startHostAlertReminders(alert, onReminderTick);
     },
@@ -354,42 +337,29 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
     Boolean(user?.user) && mode === "security",
   );
 
-  // Fallback: site-wide visitor_update carries ring_for when user-room alerts are missed.
+  // Site-wide visitor_update — refresh lists only; urgent rings use dedicated user rooms.
   useVmsRealtimeEvent<HostAlertPayload>(
     "vms_visitor_update",
     (payload) => {
       if (!payload || !user?.authenticated) return;
 
-      if (mode === "security" && payload.event === "security_checkout_required") {
-        registerSecurityAlert(payload);
-      }
-
-      if (isUrgentHostRingEvent(payload) && receivesHostAlerts && payloadTargetsCurrentHost(payload, user)) {
-        registerAlert(payload);
-      }
-
-      if (isUrgentCreatorRingEvent(payload) && payloadTargetsCurrentCreator(payload, user)) {
-        registerCreatorAlert(payload);
-      }
-
       const visitorEntry = payload.visitor_entry;
       const event = payload.event;
       if (!visitorEntry || !event) return;
 
-      // Clear previous ring when status moves past that recipient's job —
-      // but never wipe a creator urgent ring that was just registered from this payload.
+      // Clear previous ring when status moves past that recipient's job.
       if (event === "approved" || event === "rejected" || event === "meeting_done") {
-        if (isUrgentCreatorRingEvent(payload) && payloadTargetsCurrentCreator(payload, user)) {
-          return;
+        if (payloadTargetsCurrentCreator(payload, user)) return;
+        if (payloadTargetsCurrentHost(payload, user)) {
+          clearAlert(visitorEntry);
         }
-        clearAlert(visitorEntry);
         return;
       }
       if (event === "checked_out") {
         clearAlert(visitorEntry);
         return;
       }
-      if (event === "transferred" && !payloadTargetsCurrentHost(payload, user)) {
+      if (event === "transferred" && payloadTargetsCurrentHost(payload, user)) {
         clearAlert(visitorEntry);
       }
     },
@@ -462,7 +432,7 @@ export function HostAlertProvider({ children }: { children: ReactNode }) {
   const handleReview = useCallback(() => {
     const current = Object.values(alerts).sort((a, b) => b.receivedAt - a.receivedAt)[0];
     snoozeAlertModal(current?.visitorEntry);
-    navigate("/approvals");
+    navigate(current ? routeForHostAlert(current) : "/approvals");
   }, [alerts, navigate, snoozeAlertModal]);
 
   const openPermissionSetup = useCallback(() => {

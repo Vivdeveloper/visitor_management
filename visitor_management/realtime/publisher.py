@@ -10,67 +10,53 @@ def publish_vms_event(
 ) -> None:
 	"""Publish a generic VMS realtime event.
 
-	- Always emits ``vms_visitor_update`` (site-wide + optional user room).
-	- Urgent channels also emit site-wide so PWA clients that are not in the
-	  Frappe user room still receive popup + sound (clients filter by host/owner).
+	- ``vms_visitor_update`` is site-wide for list refresh (soft lifecycle event).
+	- Urgent rings (``vms_host_alert`` / ``vms_creator_alert`` / ``vms_security_alert``)
+	  go **only** to the target ``user`` room — never site-wide.
 	"""
-	message = {"event": event, **(payload or {})}
+	body = payload or {}
+	lifecycle = body.get("lifecycle_event") or event
+	# Site-wide refresh must not carry urgent ring event names (every client would see them).
+	soft_message = {**body, "event": lifecycle if event in ("host_notified", "creator_alert", "security_checkout_required") else event}
+	urgent_message = {"event": event, **body}
+
 	try:
 		frappe.publish_realtime(
 			event="vms_visitor_update",
-			message=message,
+			message=soft_message,
 			after_commit=True,
 		)
 		if user:
 			frappe.publish_realtime(
 				event="vms_visitor_update",
-				message=message,
+				message=urgent_message,
 				user=user,
 				after_commit=True,
 			)
 
-		if event == "host_notified":
-			# Site-wide first — PWA HostAlertContext filters by host_user.
+		if event == "host_notified" and user:
 			frappe.publish_realtime(
 				event="vms_host_alert",
-				message=message,
+				message=urgent_message,
+				user=user,
 				after_commit=True,
 			)
-			if user:
-				frappe.publish_realtime(
-					event="vms_host_alert",
-					message=message,
-					user=user,
-					after_commit=True,
-				)
 
-		if event == "creator_alert":
+		if event == "creator_alert" and user:
 			frappe.publish_realtime(
 				event="vms_creator_alert",
-				message=message,
+				message=urgent_message,
+				user=user,
 				after_commit=True,
 			)
-			if user:
-				frappe.publish_realtime(
-					event="vms_creator_alert",
-					message=message,
-					user=user,
-					after_commit=True,
-				)
 
-		if event == "security_checkout_required":
+		if event == "security_checkout_required" and user:
 			frappe.publish_realtime(
 				event="vms_security_alert",
-				message=message,
+				message=urgent_message,
+				user=user,
 				after_commit=True,
 			)
-			if user:
-				frappe.publish_realtime(
-					event="vms_security_alert",
-					message=message,
-					user=user,
-					after_commit=True,
-				)
 	except Exception:
 		frappe.log_error(title="VMS realtime publish failed")
 

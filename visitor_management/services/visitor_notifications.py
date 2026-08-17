@@ -276,14 +276,18 @@ def _status_copy(status: str, visitor_name: str, remarks: str | None = None) -> 
 
 def _push_url_for(event: str) -> str:
 	if event in ("host_notified", "created"):
-		return "/vms/approvals"
-	if event in ("checked_in", "meeting_done"):
-		return "/vms/inside"
+		return "/vms/approvals?tab=pending"
+	if event == "approved":
+		return "/vms/approvals?tab=approved"
 	if event == "rejected":
-		return "/vms/inside?status=rejected"
-	if event == "security_checkout_required":
-		return "/vms/inside"
-	return "/vms/"
+		return "/vms/approvals?tab=approved"
+	if event == "checked_in":
+		return "/vms/approvals?tab=inside"
+	if event in ("meeting_done", "security_checkout_required"):
+		return "/vms/approvals?tab=inside"
+	if event == "checked_out":
+		return "/vms/inside?status=checked_out"
+	return "/vms/approvals?tab=pending"
 
 
 def _notify_one_user(
@@ -448,6 +452,13 @@ def notify_host_and_creator(
 
 	host_user = resolve_host_user(doc.get("person_to_meet"))
 	creator = doc.get("owner") if doc.get("owner") and doc.get("owner") != "Guest" else None
+
+	if effective_ring == "host" and not host_user and doc.get("person_to_meet"):
+		frappe.log_error(
+			title="VMS host_user unresolved",
+			message=f"Visitor Entry {doc.name}: person_to_meet={doc.get('person_to_meet')!r} — no urgent host ring sent.",
+		)
+		effective_ring = None
 
 	payload = {
 		"visitor_entry": doc.name,

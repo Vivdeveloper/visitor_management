@@ -1,5 +1,6 @@
 import { Haptics } from "@capacitor/haptics";
 import { isNativePlatform } from "@/native/platform";
+import { routeForHostAlert } from "@/lib/notificationRoutes";
 import {
   cancelHostAlertNotifications,
   initPushNotifications,
@@ -197,6 +198,7 @@ export async function pushHostAlertNotification(
   title: string,
   body: string,
   reminderCount: number,
+  deepLink = "/approvals",
 ): Promise<number> {
   const id = nextNotificationId(visitorEntry, reminderCount);
   await scheduleUrgentHostAlert({
@@ -205,6 +207,7 @@ export async function pushHostAlertNotification(
     body,
     visitorEntry,
     reminderCount,
+    deepLink,
   });
   return id;
 }
@@ -233,7 +236,13 @@ export function startHostAlertReminders(
         : alert.variant === "creator"
           ? alert.title || "Visitor update"
           : "Visitor still waiting";
-    void pushHostAlertNotification(alert.visitorEntry, reminderTitle, next.message, count).then((id) => {
+    void pushHostAlertNotification(
+      alert.visitorEntry,
+      reminderTitle,
+      next.message,
+      count,
+      routeForHostAlert(next),
+    ).then((id) => {
       const state = reminders.get(alert.visitorEntry);
       if (state) state.notificationIds.push(id);
     });

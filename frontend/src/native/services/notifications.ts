@@ -58,7 +58,17 @@ function extractPushUrl(notification: PushNotificationSchema | ActionPerformed["
   return typeof url === "string" ? url : "/approvals";
 }
 
-async function showBrowserNotification(title: string, body: string, tag: string): Promise<boolean> {
+function toVmsUrl(appPath: string): string {
+  if (appPath.startsWith("/vms")) return appPath;
+  return `/vms${appPath.startsWith("/") ? appPath : `/${appPath}`}`;
+}
+
+async function showBrowserNotification(
+  title: string,
+  body: string,
+  tag: string,
+  deepLink = "/approvals",
+): Promise<boolean> {
   if (!("Notification" in window)) return false;
 
   let permission = Notification.permission;
@@ -67,6 +77,7 @@ async function showBrowserNotification(title: string, body: string, tag: string)
   }
   if (permission !== "granted") return false;
 
+  const targetUrl = toVmsUrl(deepLink);
   const options = {
     body,
     tag,
@@ -74,7 +85,8 @@ async function showBrowserNotification(title: string, body: string, tag: string)
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
     vibrate: [280, 120, 280, 120, 420],
-  } as NotificationOptions & { vibrate?: number[] };
+    data: { url: targetUrl },
+  } as NotificationOptions & { vibrate?: number[]; data?: { url: string } };
 
   if ("serviceWorker" in navigator) {
     try {
@@ -89,6 +101,7 @@ async function showBrowserNotification(title: string, body: string, tag: string)
   const notification = new Notification(title, options);
   notification.onclick = () => {
     window.focus();
+    openPushDeepLink(targetUrl);
     notification.close();
   };
   return true;
@@ -134,6 +147,12 @@ export async function initPushNotifications(
   }
 
   await ensureUrgentNotificationChannel();
+
+  await LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
+    const extra = action.notification.extra as Record<string, unknown> | undefined;
+    const url = extra?.url;
+    openPushDeepLink(typeof url === "string" ? url : "/approvals");
+  });
 
   // Never call PushNotifications.register() without google-services.json —
   // Capacitor treats the native Firebase exception as FATAL and kills the app.
@@ -227,12 +246,15 @@ export async function scheduleUrgentHostAlert(options: {
   body: string;
   visitorEntry: string;
   reminderCount: number;
+  deepLink?: string;
 }): Promise<void> {
   const title = options.reminderCount > 0 ? `${options.title} (reminder)` : options.title;
   const tag = `vms-host-alert-${options.visitorEntry}`;
+  const deepLink = options.deepLink || "/approvals";
+  const targetUrl = toVmsUrl(deepLink);
 
   if (!isNativePlatform()) {
-    await showBrowserNotification(title, options.body, tag);
+    await showBrowserNotification(title, options.body, tag, deepLink);
     return;
   }
 
@@ -256,6 +278,7 @@ export async function scheduleUrgentHostAlert(options: {
         extra: {
           visitor_entry: options.visitorEntry,
           reminder_count: options.reminderCount,
+          url: targetUrl,
         },
       },
     ],

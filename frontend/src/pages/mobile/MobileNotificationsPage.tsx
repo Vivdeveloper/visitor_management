@@ -13,30 +13,23 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { useVmsRealtime } from "@/hooks/useVmsRealtime";
 import { formatTime } from "@/lib/format";
 import { getCurrentStageTimestamp } from "@/lib/visitStages";
-import { userHostScopeFilters, resolveMode } from "@/lib/roles";
+import { userHostScopeFilters } from "@/lib/roles";
+import { routeForNotification } from "@/lib/notificationRoutes";
 
 function isPendingStatus(status?: string): boolean {
   return status === "Pending Approval" || status === "Pending";
 }
 
-function alertRoute(item: InAppNotification, mode: ReturnType<typeof resolveMode>): string {
-  if (item.document_type === "Visitor Entry" && item.document_name) {
-    const subject = (item.subject || "").toLowerCase();
-    const body = (item.email_content || "").toLowerCase();
-    if (subject.includes("checkout") || body.includes("checkout") || body.includes("check out")) {
-      return mode === "security" ? "/inside" : "/approvals";
-    }
-    if (subject.includes("reject") || body.includes("rejected")) {
-      return "/inside?status=rejected";
-    }
-  }
-  return "/approvals";
+function alertRoute(item: InAppNotification): string {
+  return routeForNotification({
+    subject: item.subject,
+    body: item.email_content,
+  });
 }
 
 export function MobileNotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const mode = resolveMode(user);
   const [pending, setPending] = useState<VisitorListRow[]>([]);
   const [alerts, setAlerts] = useState<InAppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +107,7 @@ export function MobileNotificationsPage() {
         /* ignore */
       }
     }
-    navigate(alertRoute(item, mode));
+    navigate(alertRoute(item));
   };
 
   const showMarkAll = pending.length > 0 && unreadPending > 0 || unreadAlerts > 0;
