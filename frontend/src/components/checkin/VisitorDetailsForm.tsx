@@ -99,7 +99,6 @@ export function VisitorDetailsForm({
 
   const purposes = masters.visit_purpose_types || [];
   const idTypes = masters.id_proof_types || [];
-  const vehicles = masters.vehicle_types || [];
   const genders = masters.genders || [];
 
   const genderOptions = useMemo(
@@ -159,27 +158,7 @@ export function VisitorDetailsForm({
     [idTypes],
   );
 
-  const vehicleOptions = useMemo(
-    () =>
-      vehicles.map((v) => ({
-        value: v.name,
-        label: v.vehicle_type_name || v.name,
-      })),
-    [vehicles],
-  );
-
   const visitorDisplayName = [values.first_name, values.middle_name, values.last_name].filter(Boolean).join(" ") || "Visitor";
-
-  function formatSpokenEmail(raw: string, finalize: boolean): string {
-    const text = (raw || "").trim();
-    if (!text) return "";
-    if (!finalize) return text;
-    return text
-      .toLowerCase()
-      .replace(/\s+at\s+/gi, "@")
-      .replace(/\s+dot\s+/gi, ".")
-      .replace(/\s+/g, "");
-  }
 
   function openPreview(src: string, alt: string) {
     setPreviewSrc(src);
@@ -213,16 +192,6 @@ export function VisitorDetailsForm({
           />
         </div>
         <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "middle_name")}</label>
-          <input
-            className="vm-input-field"
-            value={values.middle_name}
-            onChange={(e) => onChangeField("middle_name", e.target.value)}
-            onBlur={(e) => onChangeField("middle_name", autocorrectPersonName(e.target.value))}
-            autoCapitalize="words"
-          />
-        </div>
-        <div className="vm-form-group">
           <label className="vm-form-label">{vt(lang, "last_name")}</label>
           <input
             className="vm-input-field"
@@ -234,36 +203,19 @@ export function VisitorDetailsForm({
             aria-label={vt(lang, "last_name")}
           />
         </div>
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "gender")}</label>
-          <SearchSelect
-            value={values.gender}
-            options={genderOptions}
-            onChange={(val) => onChangeField("gender", val)}
-            placeholder={vt(lang, "select")}
-            searchPlaceholder="Search gender"
-            loading={loading}
-            loadingText={vt(lang, "loading_hosts")}
-            allowEmpty
-            aria-label={vt(lang, "gender")}
-          />
-        </div>
       </div>
-
       <div className="vm-form-group">
-        <label className="vm-form-label">{vt(lang, "email")}</label>
-        <VoiceTextInput
-          type="email"
-          value={values.email}
-          lang={lang}
-          fieldLabel={vt(lang, "email")}
-          autocorrectName={false}
-          formatSpoken={formatSpokenEmail}
-          onChangeValue={(value) => onChangeField("email", value)}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          aria-label={vt(lang, "email")}
+        <label className="vm-form-label">{vt(lang, "gender")}</label>
+        <SearchSelect
+          value={values.gender}
+          options={genderOptions}
+          onChange={(val) => onChangeField("gender", val)}
+          placeholder={vt(lang, "select")}
+          searchPlaceholder="Search gender"
+          loading={loading}
+          loadingText={vt(lang, "loading_hosts")}
+          allowEmpty
+          aria-label={vt(lang, "gender")}
         />
       </div>
     </div>
@@ -432,31 +384,16 @@ export function VisitorDetailsForm({
         </div>
       </div>
 
-      <div className="vm-form-grid">
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "vehicle_type")}</label>
-          <SearchSelect
-            value={values.vehicle_type}
-            options={vehicleOptions}
-            onChange={(val) => onChangeField("vehicle_type", val)}
-            placeholder={vt(lang, "select")}
-            searchPlaceholder="Search vehicle type"
-            emptyLabel={vt(lang, "none")}
-            loading={loading}
-            allowEmpty
-            aria-label={vt(lang, "vehicle_type")}
-          />
-        </div>
-        <div className="vm-form-group">
-          <label className="vm-form-label">{vt(lang, "vehicle_number")}</label>
-          <input
-            className="vm-input-field"
-            value={values.vehicle_number}
-            onChange={(e) => onChangeField("vehicle_number", e.target.value)}
-            onBlur={(e) => onChangeField("vehicle_number", e.target.value.trim().toUpperCase())}
-            autoCapitalize="characters"
-          />
-        </div>
+      <div className="vm-form-group">
+        <label className="vm-form-label">{vt(lang, "vehicle_number")}</label>
+        <input
+          className="vm-input-field"
+          value={values.vehicle_number}
+          onChange={(e) => onChangeField("vehicle_number", e.target.value)}
+          onBlur={(e) => onChangeField("vehicle_number", e.target.value.trim().toUpperCase())}
+          autoCapitalize="characters"
+          aria-label={vt(lang, "vehicle_number")}
+        />
       </div>
     </>
   );
