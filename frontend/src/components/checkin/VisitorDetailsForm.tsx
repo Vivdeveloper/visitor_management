@@ -4,6 +4,7 @@ import { PhotoPreviewModal } from "@/components/common/PhotoPreviewModal";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { ClickablePhotoPreview } from "@/components/ui/ClickablePhotoPreview";
 import { VoiceDictationButton } from "@/components/ui/VoiceDictationButton";
+import { VoiceTextInput } from "@/components/ui/VoiceTextInput";
 import { type VisitorLang, vt } from "@/i18n/visitorJourney";
 import { autocorrectFormText, autocorrectPersonName } from "@/lib/nameCase";
 import {
@@ -169,6 +170,17 @@ export function VisitorDetailsForm({
 
   const visitorDisplayName = [values.first_name, values.middle_name, values.last_name].filter(Boolean).join(" ") || "Visitor";
 
+  function formatSpokenEmail(raw: string, finalize: boolean): string {
+    const text = (raw || "").trim();
+    if (!text) return "";
+    if (!finalize) return text;
+    return text
+      .toLowerCase()
+      .replace(/\s+at\s+/gi, "@")
+      .replace(/\s+dot\s+/gi, ".")
+      .replace(/\s+/g, "");
+  }
+
   function openPreview(src: string, alt: string) {
     setPreviewSrc(src);
     setPreviewAlt(alt);
@@ -240,14 +252,18 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "email")}</label>
-        <input
-          className="vm-input-field"
+        <VoiceTextInput
           type="email"
           value={values.email}
-          onChange={(e) => onChangeField("email", e.target.value)}
+          lang={lang}
+          fieldLabel={vt(lang, "email")}
+          autocorrectName={false}
+          formatSpoken={formatSpokenEmail}
+          onChangeValue={(value) => onChangeField("email", value)}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
+          aria-label={vt(lang, "email")}
         />
       </div>
     </div>
@@ -286,23 +302,27 @@ export function VisitorDetailsForm({
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "company")}</label>
-        <input
-          className="vm-input-field"
+        <VoiceTextInput
           value={values.visitor_company}
-          onChange={(e) => onChangeField("visitor_company", e.target.value)}
+          lang={lang}
+          fieldLabel={vt(lang, "company")}
+          onChangeValue={(value) => onChangeField("visitor_company", value)}
           onBlur={(e) => onChangeField("visitor_company", autocorrectFormText(e.target.value))}
           autoCapitalize="words"
+          aria-label={vt(lang, "company")}
         />
       </div>
 
       <div className="vm-form-group">
         <label className="vm-form-label">{vt(lang, "location")}</label>
-        <input
-          className="vm-input-field"
+        <VoiceTextInput
           value={values.visitor_location}
-          onChange={(e) => onChangeField("visitor_location", e.target.value)}
+          lang={lang}
+          fieldLabel={vt(lang, "location")}
+          onChangeValue={(value) => onChangeField("visitor_location", value)}
           onBlur={(e) => onChangeField("visitor_location", autocorrectFormText(e.target.value))}
           autoCapitalize="words"
+          aria-label={vt(lang, "location")}
         />
       </div>
 
